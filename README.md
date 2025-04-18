@@ -48,30 +48,8 @@ To build and run with Docker locally:
 docker-compose up -d
 
 # Or build specific services
-docker-compose up -d web api-server mcp-server
+docker-compose up -d web
 ```
-
-### Production Deployment
-
-Swift uses GitHub Actions and AWS ECR for production deployments. The workflow automatically:
-
-1. Detects changes in modules
-2. Builds and pushes Docker images to AWS ECR
-3. Deploys to production servers
-4. Performs cleanup of old images and containers
-
-For detailed setup instructions, see [DEPLOYMENT_SETUP.md](./DEPLOYMENT_SETUP.md).
-
-#### Setting Up a Deployment Server
-
-To set up a new server for deployment:
-
-```bash
-# Run the server setup script
-sudo ./scripts/setup-deployment-server.sh --key /path/to/github-actions.pub
-```
-
-The script installs Docker, Docker Compose, AWS CLI, and configures the deployment user.
 
 ## Project Modules
 
