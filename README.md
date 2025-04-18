@@ -8,6 +8,7 @@ Swift is an AI assistant for CxOs and engineering leaders dealing with legacy sy
 - `/api-server` - API server for backend operations
 - `/mcp-server` - MCP server for AI model handling
 - `/core` - Shared core libraries
+- `/scripts` - Utility scripts for deployment and server setup
 
 ## Development
 
@@ -38,7 +39,9 @@ make dev
 
 ## Docker Deployment
 
-To build and run with Docker:
+### Local Development
+
+To build and run with Docker locally:
 
 ```bash
 # Build and start all services
@@ -47,6 +50,28 @@ docker-compose up -d
 # Or build specific services
 docker-compose up -d web api-server mcp-server
 ```
+
+### Production Deployment
+
+Swift uses GitHub Actions and AWS ECR for production deployments. The workflow automatically:
+
+1. Detects changes in modules
+2. Builds and pushes Docker images to AWS ECR
+3. Deploys to production servers
+4. Performs cleanup of old images and containers
+
+For detailed setup instructions, see [DEPLOYMENT_SETUP.md](./DEPLOYMENT_SETUP.md).
+
+#### Setting Up a Deployment Server
+
+To set up a new server for deployment:
+
+```bash
+# Run the server setup script
+sudo ./scripts/setup-deployment-server.sh --key /path/to/github-actions.pub
+```
+
+The script installs Docker, Docker Compose, AWS CLI, and configures the deployment user.
 
 ## Project Modules
 

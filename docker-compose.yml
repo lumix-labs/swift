@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   web:
     build:
@@ -9,61 +7,21 @@ services:
       - "3050:3050"
     volumes:
       - ./logs/web:/logs
-      - ./web:/app
+      # Comment out this volume mount that's overriding the build
+      # - ./web:/app
       - /app/node_modules
     environment:
       - NODE_ENV=development
       - PORT=3050
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3050/api/health"]
+      test:
+        ["CMD", "wget", "--spider", "-q", "http://localhost:3050/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
-    depends_on:
-      - api-server
     network_mode: host
-
-  api-server:
-    build:
-      context: ./api-server
-      dockerfile: Dockerfile
-    ports:
-      - "4000:4000"
-    volumes:
-      - ./logs/api-server:/logs
-    environment:
-      - NODE_ENV=production
-      - PORT=4000
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    depends_on:
-      - mcp-server
-
-  mcp-server:
-    build:
-      context: ./mcp-server
-      dockerfile: Dockerfile
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./logs/mcp-server:/logs
-    environment:
-      - NODE_ENV=production
-      - PORT=5000
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
 
 volumes:
   logs:
