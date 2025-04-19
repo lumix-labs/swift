@@ -65,8 +65,6 @@ else
   echo "✅ Pre-commit checks completed successfully."
 fi
 
-# Run commitlint to check commit message format
-echo "Checking commit message format..."
-npx --no -- commitlint --edit $1 || exit $?
+# Removed duplicate commit message checking since it's already done in commit-msg hook
 
 exit $EXIT_CODE

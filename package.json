@@ -30,7 +30,7 @@
     "docker:down": "docker-compose down",
     "docker:build": "docker-compose build",
     "docker:logs": "docker-compose logs -f",
-    "prepare": "[ \"$CI\" = \"true\" ] && echo 'Skipping husky in CI environment' || husky",
+    "prepare": "husky",
     "ci": "node scripts/local-ci.js",
     "setup-env": "node scripts/setup-env.js"
   },
