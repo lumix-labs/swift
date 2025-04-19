@@ -43,7 +43,8 @@
         "ms-azuretools.vscode-docker",
         "eamodio.gitlens",
         "streetsidesoftware.code-spell-checker",
-        "bradlc.vscode-tailwindcss"
+        "bradlc.vscode-tailwindcss",
+        "hashicorp.terraform"
       ],
       "settings": {
         "terminal.integrated.defaultProfile.linux": "bash",
@@ -63,6 +64,10 @@
         "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
           "source.fixAll.eslint": true
+        },
+        "[terraform]": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "hashicorp.terraform"
         }
       }
     }

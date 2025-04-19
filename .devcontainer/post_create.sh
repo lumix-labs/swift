@@ -4,6 +4,10 @@ set -e
 # Display a message that setup is starting
 echo "Starting Swift dev container post-create setup..."
 
+# Verify Terraform installation
+echo "Verifying Terraform installation..."
+terraform version
+
 # Install global dependencies
 echo "Installing global npm packages..."
 npm install -g typescript ts-node concurrently
@@ -48,6 +52,13 @@ if [ -d "/workspace/swift/mcp-server" ]; then
     pip install -r requirements.txt
     deactivate
   fi
+fi
+
+# Initialize Terraform if the terraform directory exists
+if [ -d "/workspace/swift/terraform" ]; then
+  echo "Initializing Terraform..."
+  cd /workspace/swift/terraform
+  terraform init
 fi
 
 # Final message

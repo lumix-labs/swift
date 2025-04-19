@@ -259,4 +259,18 @@ yarn-error.log
 # API Server logs
 logs/
 
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
 # End of https://www.toptal.com/developers/gitignore/api/python,java,nextjs,vue,vuejs,dotenv
