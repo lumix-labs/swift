@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+
+# Get the name of the branch being pushed to
+remote="$1"
+url="$2"
+
+while read local_ref local_sha remote_ref remote_sha
+do
+  # Extract the branch name from the reference
+  remote_branch=$(echo "$remote_ref" | sed -e 's,.*/\(.*\),\1,')
+  
+  # Check if pushing to master/main branch
+  if [ "$remote_branch" = "master" ] || [ "$remote_branch" = "main" ]; then
+    echo "❌ Direct pushes to master/main branch are not allowed."
+    echo "Please create a pull request instead."
+    exit 1
+  fi
+done
+
+# Run CI checks before pushing - EXIT WITH ERROR CODE IF CHECKS FAIL
+npm run ci

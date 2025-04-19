@@ -1,0 +1,72 @@
+#!/usr/bin/env sh
+
+echo "Running pre-commit hook..."
+
+# Store the root directory
+ROOT_DIR=$(git rev-parse --show-toplevel)
+EXIT_CODE=0
+
+# Check if committing to master branch
+CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
+if [ "$CURRENT_BRANCH" = "master" ] || [ "$CURRENT_BRANCH" = "main" ]; then
+  echo "❌ Direct commits to master/main branch are not allowed."
+  echo "Please create a feature branch and submit a pull request instead."
+  exit 1
+fi
+
+# Fix known ESLint errors
+if [ -f "$ROOT_DIR/.husky/fix-eslint-errors.sh" ]; then
+  echo "Applying automated ESLint fixes..."
+  chmod +x "$ROOT_DIR/.husky/fix-eslint-errors.sh"
+  "$ROOT_DIR/.husky/fix-eslint-errors.sh"
+fi
+
+# Check if there are any changes in API-Server files
+if git diff --cached --name-only | grep -q "api-server/"; then
+  echo "Checking API-Server files..."
+  cd "$ROOT_DIR/api-server" && npm run lint
+  API_EXIT_CODE=$?
+  echo "API-Server linting complete with exit code: $API_EXIT_CODE"
+  if [ $API_EXIT_CODE -ne 0 ]; then
+    EXIT_CODE=$API_EXIT_CODE
+  fi
+fi
+
+# Check if there are any changes in Web files
+if git diff --cached --name-only | grep -q "web/"; then
+  echo "Checking Web files..."
+  cd "$ROOT_DIR/web" && npm run lint
+  WEB_EXIT_CODE=$?
+  echo "Web linting complete with exit code: $WEB_EXIT_CODE"
+  if [ $WEB_EXIT_CODE -ne 0 ]; then
+    EXIT_CODE=$WEB_EXIT_CODE
+  fi
+fi
+
+# Check if there are any changes in MCP-Server files
+if git diff --cached --name-only | grep -q "mcp-server/"; then
+  echo "Checking MCP-Server files..."
+  cd "$ROOT_DIR/mcp-server" && npm run lint
+  MCP_EXIT_CODE=$?
+  echo "MCP-Server linting complete with exit code: $MCP_EXIT_CODE"
+  if [ $MCP_EXIT_CODE -ne 0 ]; then
+    EXIT_CODE=$MCP_EXIT_CODE
+  fi
+fi
+
+# Check if there were any linting errors
+if [ $EXIT_CODE -ne 0 ]; then
+  echo "❌ Pre-commit hook failed due to linting errors."
+  echo "Please fix the linting errors before committing."
+  echo "You can run the fix script manually with: $ROOT_DIR/.husky/fix-eslint-errors.sh"
+  echo "Or bypass this check with: git commit --no-verify"
+  exit $EXIT_CODE
+else
+  echo "✅ Pre-commit checks completed successfully."
+fi
+
+# Run commitlint to check commit message format
+echo "Checking commit message format..."
+npx --no -- commitlint --edit $1 || exit $?
+
+exit $EXIT_CODE

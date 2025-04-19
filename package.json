@@ -1,0 +1,58 @@
+{
+  "name": "swift",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "api-server",
+    "web",
+    "mcp-server"
+  ],
+  "scripts": {
+    "start:api": "cd api-server && npm run start",
+    "start:web": "cd web && npm run start",
+    "start:mcp": "cd mcp-server && npm run start",
+    "dev:api": "cd api-server && npm run dev",
+    "dev:web": "cd web && npm run dev",
+    "dev:mcp": "cd mcp-server && npm run dev",
+    "build:api": "cd api-server && npm run build",
+    "build:web": "cd web && npm run build",
+    "build:mcp": "cd mcp-server && npm run build",
+    "test:api": "cd api-server && npm run test",
+    "test:web": "cd web && npm run test",
+    "test:mcp": "cd mcp-server && npm run test",
+    "lint:api": "cd api-server && npm run lint",
+    "lint:web": "cd web && npm run lint",
+    "lint:mcp": "cd mcp-server && npm run lint",
+    "format:api": "cd api-server && npm run format",
+    "format:web": "cd web && npm run format",
+    "format:mcp": "cd mcp-server && npm run format",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "docker:logs": "docker-compose logs -f",
+    "prepare": "[ \"$CI\" = \"true\" ] && echo 'Skipping husky in CI environment' || husky",
+    "ci": "node scripts/local-ci.js",
+    "setup-env": "node scripts/setup-env.js"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^18.4.3",
+    "@commitlint/config-conventional": "^18.4.3",
+    "concurrently": "^8.2.2",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.0.0"
+  },
+  "lint-staged": {
+    "api-server/**/*.ts": [
+      "npx --prefix api-server prettier --write",
+      "npx --prefix api-server eslint --fix"
+    ],
+    "web/**/*.{ts,tsx}": [
+      "npx --prefix web prettier --write",
+      "npx --prefix web eslint --fix"
+    ],
+    "mcp-server/**/*.ts": [
+      "npx --prefix mcp-server prettier --write",
+      "npx --prefix mcp-server eslint --fix"
+    ]
+  }
+}
