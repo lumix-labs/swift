@@ -7,8 +7,41 @@ import { scanDirectory, readFileContent } from '../utils/fileUtils.js';
 import { logInfo } from '../../../utils/logFormatter.js';
 import path from 'path';
 
+/**
+ * Interface for vulnerability pattern definition
+ */
+interface VulnerabilityPattern {
+  id: string;
+  name: string;
+  patterns: RegExp[];
+  description: string;
+  remediation: string;
+  severity: string;
+  category: string;
+  cwe: string;
+}
+
+/**
+ * Interface for detected vulnerability
+ */
+interface DetectedVulnerability {
+  id: string;
+  name: string;
+  description: string;
+  severity: string;
+  category: string;
+  cwe: string;
+  location: {
+    file: string;
+    line: number;
+    column: number;
+  };
+  sourceCode: string;
+  remediation: string;
+}
+
 // Define vulnerability patterns
-const vulnerabilityPatterns: Record<string, any[]> = {
+const vulnerabilityPatterns: Record<string, VulnerabilityPattern[]> = {
   'injection': [
     {
       id: 'CWE-89',
@@ -145,7 +178,7 @@ export async function scanForVulnerabilities(
   repositoryPath: string,
   framework?: string,
   excludePaths: string[] = ['node_modules', 'dist', '.git', 'build']
-): Promise<any[]> {
+): Promise<DetectedVulnerability[]> {
   try {
     // Determine which file extensions to scan based on framework/language
     let fileExtensions: string[] = [];
@@ -192,7 +225,7 @@ export async function scanForVulnerabilities(
     logInfo(`Found ${files.length} files to scan for vulnerabilities`, 'security-analyzer', '1.0.0');
     
     // Scan each file for vulnerabilities
-    const vulnerabilities: any[] = [];
+    const vulnerabilities: DetectedVulnerability[] = [];
     
     for (const file of files) {
       const relativeFilePath = path.relative(repositoryPath, file);

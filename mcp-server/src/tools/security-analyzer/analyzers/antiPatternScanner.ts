@@ -7,8 +7,41 @@ import path from 'path';
 import { scanDirectory, readFileContent } from '../utils/fileUtils.js';
 import { logInfo } from '../../../utils/logFormatter.js';
 
+/**
+ * Interface for security anti-pattern definition
+ */
+interface SecurityAntiPattern {
+  id: string;
+  name: string;
+  patterns: RegExp[];
+  description: string;
+  remediation: string;
+  severity: string;
+  category: string;
+}
+
+/**
+ * Interface for detected anti-pattern
+ */
+interface DetectedAntiPattern {
+  id: string;
+  name: string;
+  description: string;
+  severity: string;
+  category: string;
+  location: {
+    file: string;
+    line: number;
+    column: number;
+  };
+  sourceCode: string;
+  remediation: string;
+  isEntryPoint: boolean;
+  isSink: boolean;
+}
+
 // Define security anti-patterns
-const securityAntiPatterns: Record<string, any[]> = {
+const securityAntiPatterns: Record<string, SecurityAntiPattern[]> = {
   'javascript': [
     {
       id: 'INSECURE_CORS',
@@ -147,10 +180,10 @@ export async function analyzeSecurityAntiPatterns(
   repositoryPath: string,
   framework?: string,
   excludePaths: string[] = ['node_modules', 'dist', '.git', 'build']
-): Promise<any[]> {
+): Promise<DetectedAntiPattern[]> {
   try {
     // Determine which patterns to check based on framework/language
-    let patternsToCheck: any[][] = [];
+    let patternsToCheck: SecurityAntiPattern[][] = [];
     
     if (framework) {
       // Check for specific framework patterns
@@ -178,7 +211,7 @@ export async function analyzeSecurityAntiPatterns(
     logInfo(`Found ${files.length} files to scan for security anti-patterns`, 'security-analyzer', '1.0.0');
     
     // Scan each file for anti-patterns
-    const detectedPatterns: any[] = [];
+    const detectedPatterns: DetectedAntiPattern[] = [];
     
     for (const file of files) {
       const relativeFilePath = path.relative(repositoryPath, file);

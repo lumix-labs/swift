@@ -4,6 +4,29 @@ import { listAnalyticsSnapshots, getLatestSnapshot, getSnapshot } from './storag
 import { logInfo, logError } from '../../utils/logFormatter.js';
 
 /**
+ * Types for snapshot data
+ */
+export interface SnapshotMetadata {
+  tool_id?: string;
+  tool_version?: string;
+  schema_version?: string;
+  timestamp?: string;
+  execution_time_ms?: number;
+  repository_info?: {
+    name?: string;
+    branch?: string;
+    commit_hash?: string;
+  };
+}
+
+export interface Snapshot {
+  id?: string;
+  metadata?: SnapshotMetadata;
+  summaryData?: Record<string, unknown>;
+  detailedData?: Record<string, unknown>;
+}
+
+/**
  * Input type for Get Analytics tool
  */
 export type GetAnalyticsInput = {
@@ -16,7 +39,7 @@ export type GetAnalyticsInput = {
 /**
  * Output type for Get Analytics tool
  */
-export type GetAnalyticsOutput = any; // Could be a list of snapshots or a single snapshot
+export type GetAnalyticsOutput = Snapshot | Snapshot[];
 
 /**
  * Get Analytics Tool
@@ -39,7 +62,7 @@ export class GetAnalyticsTool extends BaseTool<GetAnalyticsInput, GetAnalyticsOu
   /**
    * Define the schema for this tool
    */
-  protected getSchema(): Record<string, z.ZodType<any>> {
+  protected getSchema(): Record<string, z.ZodType<unknown>> {
     return {
       toolId: z.string().optional().describe('Filter results by tool ID'),
       repositoryName: z.string().optional().describe('Filter results by repository name'),
@@ -68,7 +91,7 @@ export class GetAnalyticsTool extends BaseTool<GetAnalyticsInput, GetAnalyticsOu
         }
       });
       
-      let result: any;
+      let result: GetAnalyticsOutput;
       
       // Get a specific snapshot if ID is provided
       if (input.snapshotId) {
@@ -136,7 +159,7 @@ export class GetAnalyticsTool extends BaseTool<GetAnalyticsInput, GetAnalyticsOu
    * @param result - Retrieved analytics data
    * @returns Formatted response
    */
-  protected formatResponse(result: GetAnalyticsOutput): any {
+  protected formatResponse(result: GetAnalyticsOutput): Record<string, unknown> {
     // Format the response based on the result type
     const responseText = this.formatAnalyticsResults(result);
     
@@ -157,7 +180,7 @@ export class GetAnalyticsTool extends BaseTool<GetAnalyticsInput, GetAnalyticsOu
    * @param results - Analytics results (either a list of snapshots or a single snapshot)
    * @returns Formatted text output
    */
-  private formatAnalyticsResults(results: any): string {
+  private formatAnalyticsResults(results: GetAnalyticsOutput): string {
     // Handle list of snapshots
     if (Array.isArray(results)) {
       return this.formatSnapshotList(results);
@@ -173,7 +196,7 @@ export class GetAnalyticsTool extends BaseTool<GetAnalyticsInput, GetAnalyticsOu
    * @param snapshots - List of snapshot metadata
    * @returns Formatted text output
    */
-  private formatSnapshotList(snapshots: any[]): string {
+  private formatSnapshotList(snapshots: Snapshot[]): string {
     let output = '## Analytics Snapshots\n\n';
     
     if (snapshots.length === 0) {
@@ -195,11 +218,11 @@ export class GetAnalyticsTool extends BaseTool<GetAnalyticsInput, GetAnalyticsOu
         const metricKeys = Object.keys(snapshot.summaryData).slice(0, 3);
         if (metricKeys.length > 0) {
           metrics = metricKeys.map(key => {
-            const value = snapshot.summaryData[key];
-            return `${key}: ${typeof value === 'object' ? 'Object' : value}`;
+            const value = snapshot.summaryData ? snapshot.summaryData[key] : null;
+            return `${key}: ${typeof value === 'object' ? 'Object' : String(value)}`;
           }).join(', ');
           
-          if (Object.keys(snapshot.summaryData).length > 3) {
+          if (snapshot.summaryData && Object.keys(snapshot.summaryData).length > 3) {
             metrics += ', ...';
           }
         }
@@ -217,7 +240,7 @@ export class GetAnalyticsTool extends BaseTool<GetAnalyticsInput, GetAnalyticsOu
    * @param snapshot - Snapshot data
    * @returns Formatted text output
    */
-  private formatSingleSnapshot(snapshot: any): string {
+  private formatSingleSnapshot(snapshot: Snapshot): string {
     if (!snapshot) {
       return '## Analytics Snapshot\n\nNo snapshot found.\n';
     }
@@ -265,7 +288,7 @@ export class GetAnalyticsTool extends BaseTool<GetAnalyticsInput, GetAnalyticsOu
               
               for (let i = 0; i < Math.min(value.length, 3); i++) {
                 const item = value[i];
-                output += `  - ${typeof item === 'object' ? JSON.stringify(item) : item}\n`;
+                output += `  - ${typeof item === 'object' ? JSON.stringify(item) : String(item)}\n`;
               }
               
               if (value.length > 3) {
@@ -274,18 +297,18 @@ export class GetAnalyticsTool extends BaseTool<GetAnalyticsInput, GetAnalyticsOu
             }
           } else {
             // Handle object values
-            for (const [subKey, subValue] of Object.entries(value)) {
+            for (const [subKey, subValue] of Object.entries(value as Record<string, unknown>)) {
               if (typeof subValue === 'object' && subValue !== null) {
                 output += `- **${subKey}**: ${JSON.stringify(subValue)}\n`;
               } else {
-                output += `- **${subKey}**: ${subValue}\n`;
+                output += `- **${subKey}**: ${String(subValue)}\n`;
               }
             }
           }
           
           output += '\n';
         } else {
-          output += `- **${key}**: ${value}\n`;
+          output += `- **${key}**: ${String(value)}\n`;
         }
       }
     }

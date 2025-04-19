@@ -16,7 +16,7 @@ export interface CodeSymbol {
   };
   parent?: string;        // Parent symbol name (e.g., class for a method)
   children: string[];     // Child symbol names
-  properties?: Record<string, any>; // Additional symbol-specific properties
+  properties?: Record<string, unknown>; // Additional symbol-specific properties
 }
 
 /**
@@ -133,7 +133,7 @@ function extractSymbols(filePath: string, repositoryPath: string): CodeSymbol[] 
   
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
-    const lines = content.split('\n');
+    // Removed unused variable 'lines'
     
     // Track current class to establish parent-child relationships
     let currentClass: string | null = null;
@@ -218,6 +218,24 @@ function extractSymbols(filePath: string, repositoryPath: string): CodeSymbol[] 
 }
 
 /**
+ * Determine caller based on location
+ * Extracts the function from the inner declaration to fix the no-inner-declarations error
+ *
+ * @param fileSymbols - Symbols in the file
+ * @param line - Line number
+ * @returns Symbol name or null
+ */
+function getCallerAtPosition(fileSymbols: CodeSymbol[], line: number): string | null {
+  for (const symbol of fileSymbols) {
+    // Very basic check - in a real analyzer this would use AST traversal
+    if (symbol.location.line <= line) {
+      return symbol.name;
+    }
+  }
+  return null;
+}
+
+/**
  * Extract function calls and method invocations from a file
  *
  * @param filePath - Path to the file
@@ -235,7 +253,6 @@ function extractCalls(
   
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
-    const lines = content.split('\n');
     
     // Find the symbol for this file
     const fileSymbols = Object.values(symbols).filter(s => s.filePath === relativePath);
@@ -244,17 +261,7 @@ function extractCalls(
     const callPattern = /(\w+)\s*\(/g;
     let match;
     
-    // Determine caller based on location
-    function getCallerAtPosition(line: number, column: number): string | null {
-      for (const symbol of fileSymbols) {
-        // Very basic check - in a real analyzer this would use AST traversal
-        if (symbol.location.line <= line) {
-          return symbol.name;
-        }
-      }
-      return null;
-    }
-    
+    const lines = content.split('\n');
     let lineNum = 1;
     
     for (const line of lines) {
@@ -273,7 +280,7 @@ function extractCalls(
           continue;
         }
         
-        const caller = getCallerAtPosition(lineNum, match.index + 1);
+        const caller = getCallerAtPosition(fileSymbols, lineNum);
         
         // Only add if we found both caller and callee
         if (caller && callee && caller !== callee) {
@@ -314,7 +321,7 @@ function extractInheritance(symbols: Record<string, CodeSymbol>): InheritanceRel
     ) {
       relations.push({
         child: symbol.name,
-        parent: symbol.properties.extends,
+        parent: symbol.properties.extends as string,
         type: 'extends'
       });
     }
@@ -324,7 +331,8 @@ function extractInheritance(symbols: Record<string, CodeSymbol>): InheritanceRel
       symbol.type === SymbolType.Class && 
       symbol.properties?.implements
     ) {
-      for (const interfaceName of symbol.properties.implements.split(',')) {
+      const implementsValue = symbol.properties.implements as string;
+      for (const interfaceName of implementsValue.split(',')) {
         relations.push({
           child: symbol.name,
           parent: interfaceName.trim(),

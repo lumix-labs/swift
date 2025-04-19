@@ -7,13 +7,39 @@ import path from 'path';
 import { scanDirectory, readFileContent } from '../utils/fileUtils.js';
 import { logInfo } from '../../../utils/logFormatter.js';
 
+// Define patterns for credential detection
+interface CredentialPattern {
+  id: string;
+  name: string;
+  patterns: RegExp[];
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  description: string;
+  remediation: string;
+}
+
+// Define credential finding
+interface CredentialFinding {
+  id: string;
+  name: string;
+  description: string;
+  severity: string;
+  category: string;
+  location: {
+    file: string;
+    line: number;
+    column: number;
+  };
+  sourceCode: string;
+  remediation: string;
+}
+
 // Define credential patterns
-const credentialPatterns = [
+const credentialPatterns: CredentialPattern[] = [
   {
     id: 'API_KEY',
     name: 'API Key',
     patterns: [
-      /\b(?:api|app)[-_]?(?:key|token|secret)[-_]?(?:id)?(?:\s*|=\s*|\:)['"]([a-zA-Z0-9_\-]{16,})(?:['"]\s*;?)/i
+      /\b(?:api|app)[-_]?(?:key|token|secret)[-_]?(?:id)?(?:\s*|=\s*|:)['"]([a-zA-Z0-9_-]{16,})(?:['"]\s*;?)/i
     ],
     severity: 'high',
     description: 'Hardcoded API key or token detected',
@@ -23,7 +49,7 @@ const credentialPatterns = [
     id: 'PASSWORD',
     name: 'Password',
     patterns: [
-      /\b(?:password|passwd|pwd)(?:\s*|=\s*|\:)['"](?!(?:\s*|['"]|$))([^'"]{4,64})(?:['"]\s*;?)/i
+      /\b(?:password|passwd|pwd)(?:\s*|=\s*|:)['"](?!(?:\s*|['"]|$))([^'"]{4,64})(?:['"]\s*;?)/i
     ],
     severity: 'critical',
     description: 'Hardcoded password detected',
@@ -33,8 +59,8 @@ const credentialPatterns = [
     id: 'AWS_KEY',
     name: 'AWS Key',
     patterns: [
-      /(?:ACCESS|SECRET)_KEY(?:_ID)?(?:\s*|=\s*|\:)['"]([A-Za-z0-9\/+=]{20,})(?:['"]\s*;?)/i,
-      /(?:aws[_-]?(?:access|secret)[_-]?key)(?:\s*|=\s*|\:)['"]([A-Za-z0-9\/+=]{20,})(?:['"]\s*;?)/i
+      /(?:ACCESS|SECRET)_KEY(?:_ID)?(?:\s*|=\s*|:)['"]([A-Za-z0-9/+=]{20,})(?:['"]\s*;?)/i,
+      /(?:aws[_-]?(?:access|secret)[_-]?key)(?:\s*|=\s*|:)['"]([A-Za-z0-9/+=]{20,})(?:['"]\s*;?)/i
     ],
     severity: 'critical',
     description: 'AWS access or secret key detected',
@@ -54,7 +80,7 @@ const credentialPatterns = [
     id: 'PRIVATE_KEY',
     name: 'Private Key',
     patterns: [
-      /-----BEGIN (?:RSA )?PRIVATE KEY-----[a-zA-Z0-9\s\+\/\=]+-----END (?:RSA )?PRIVATE KEY-----/
+      /-----BEGIN (?:RSA )?PRIVATE KEY-----[a-zA-Z0-9\s+/=]+-----END (?:RSA )?PRIVATE KEY-----/
     ],
     severity: 'critical',
     description: 'Private key detected in code',
@@ -64,7 +90,7 @@ const credentialPatterns = [
     id: 'CONNECTION_STRING',
     name: 'Connection String',
     patterns: [
-      /(?:mongodb|postgresql|mysql):\/\/[a-zA-Z0-9_]+:[^@\s'"]+@[a-zA-Z0-9_\.]+/i
+      /(?:mongodb|postgresql|mysql):\/\/[a-zA-Z0-9_]+:[^@\s'"]+@[a-zA-Z0-9_.]+/i
     ],
     severity: 'high',
     description: 'Database connection string with credentials',
@@ -82,7 +108,7 @@ const credentialPatterns = [
 export async function detectHardcodedCredentials(
   repositoryPath: string,
   excludePaths: string[] = ['node_modules', 'dist', '.git', 'build']
-): Promise<any[]> {
+): Promise<CredentialFinding[]> {
   try {
     // Define file extensions to scan (code files that might contain credentials)
     const fileExtensions = [
@@ -97,7 +123,7 @@ export async function detectHardcodedCredentials(
     logInfo(`Found ${files.length} files to scan for credentials`, 'security-analyzer', '1.0.0');
     
     // Scan each file for credentials
-    const detectedCredentials: any[] = [];
+    const detectedCredentials: CredentialFinding[] = [];
     
     for (const file of files) {
       const relativeFilePath = path.relative(repositoryPath, file);

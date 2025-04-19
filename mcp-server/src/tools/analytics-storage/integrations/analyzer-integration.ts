@@ -1,5 +1,57 @@
-import { AnalyticsCollector } from '../collector/base-collector.js';
+import { AnalyticsCollector, StorageResult } from '../collector/base-collector.js';
 import { logInfo, logError } from '../../../utils/logFormatter.js';
+
+/**
+ * Interface for repository analyzer results
+ */
+export interface RepoAnalyzerResults {
+  repositoryPath: string;
+  excludePaths?: string[];
+  languages?: {
+    summary: {
+      totalFiles: number;
+      totalLines: number;
+      languageCount: number;
+    };
+    distribution: Array<{
+      language: string;
+      files: number;
+      lines: number;
+      percentage: number;
+    }>;
+  };
+  codeQuality?: {
+    overallScore: number;
+    complexity?: Record<string, unknown>;
+    longFunctions?: Array<{
+      file: string;
+      function: string;
+      lineCount: number;
+    }>;
+    duplications?: Array<{
+      sourceFile: string;
+      targetFile: string;
+      lineCount: number;
+      similarity: number;
+    }>;
+  };
+  dependencies?: {
+    dependencies?: Array<{
+      source: string;
+      target: string;
+      type: string;
+    }>;
+    cycles?: Array<string[]>;
+    externalDependencies?: Set<string>;
+  };
+  impact?: {
+    mostImpactfulFiles?: Array<{
+      file: string;
+      impactScore: number;
+    }>;
+    isolatedFiles?: Array<string>;
+  };
+}
 
 /**
  * Integration with Repository Analyzer tool
@@ -9,7 +61,7 @@ import { logInfo, logError } from '../../../utils/logFormatter.js';
  * @param analyzerResults - Results from the repo-analyzer tool
  * @returns Result of storage operation or null if failed
  */
-export async function storeRepoAnalyzerResults(analyzerResults: any): Promise<any | null> {
+export async function storeRepoAnalyzerResults(analyzerResults: RepoAnalyzerResults): Promise<StorageResult | null> {
   const SERVICE_NAME = 'swift-mcp-service';
   const SERVICE_VERSION = '1.0.0';
   
@@ -33,7 +85,7 @@ export async function storeRepoAnalyzerResults(analyzerResults: any): Promise<an
     );
     
     // Extract summary data
-    const summaryData: any = {
+    const summaryData: Record<string, unknown> = {
       repositoryPath: repoPath,
       excludePaths: analyzerResults.excludePaths || [],
     };
@@ -96,6 +148,36 @@ export async function storeRepoAnalyzerResults(analyzerResults: any): Promise<an
 }
 
 /**
+ * Interface for security analyzer results
+ */
+export interface SecurityAnalyzerResults {
+  repositoryPath: string;
+  excludePaths?: string[];
+  vulnerabilities?: {
+    total: number;
+    issues?: Array<{
+      severity: string;
+      file: string;
+      line: number;
+      description: string;
+      cwe?: string;
+      remediation?: string;
+    }>;
+  };
+  dependencies?: {
+    vulnerabilities?: Array<{
+      severity: string;
+      packageName: string;
+      version: string;
+      description: string;
+      cve?: string;
+      remediation?: string;
+    }>;
+  };
+  securityScore?: number;
+}
+
+/**
  * Integration with Security Analyzer tool
  * 
  * Extracts and stores analytics data from security analyzer results
@@ -103,7 +185,7 @@ export async function storeRepoAnalyzerResults(analyzerResults: any): Promise<an
  * @param analyzerResults - Results from the security-analyzer tool
  * @returns Result of storage operation or null if failed
  */
-export async function storeSecurityAnalyzerResults(analyzerResults: any): Promise<any | null> {
+export async function storeSecurityAnalyzerResults(analyzerResults: SecurityAnalyzerResults): Promise<StorageResult | null> {
   const SERVICE_NAME = 'swift-mcp-service';
   const SERVICE_VERSION = '1.0.0';
   
@@ -127,7 +209,7 @@ export async function storeSecurityAnalyzerResults(analyzerResults: any): Promis
     );
     
     // Extract summary data
-    const summaryData: any = {
+    const summaryData: Record<string, unknown> = {
       repositoryPath: repoPath,
       excludePaths: analyzerResults.excludePaths || [],
     };
@@ -185,18 +267,18 @@ export async function storeSecurityAnalyzerResults(analyzerResults: any): Promis
  * @param codeQuality - Code quality analysis results
  * @returns Duplication percentage or 0 if not available
  */
-function calculateDuplicationPercentage(codeQuality: any): number {
-  if (!codeQuality.duplications || !codeQuality.duplications.length) {
+function calculateDuplicationPercentage(codeQuality: RepoAnalyzerResults['codeQuality']): number {
+  if (!codeQuality?.duplications || !codeQuality.duplications.length) {
     return 0;
   }
   
   const totalDuplicatedLines = codeQuality.duplications.reduce(
-    (sum: number, dup: any) => sum + (dup.lineCount || 0), 
+    (sum: number, dup) => sum + (dup.lineCount || 0), 
     0
   );
   
   const totalLinesOfCode = Object.values(codeQuality.commentRatios || {})
-    .reduce((sum: number, ratio: any) => sum + (ratio.codeLines || 0), 0);
+    .reduce((sum: number, ratio) => sum + ((ratio as {codeLines?: number}).codeLines || 0), 0);
   
   if (!totalLinesOfCode) {
     return 0;
@@ -206,20 +288,47 @@ function calculateDuplicationPercentage(codeQuality: any): number {
 }
 
 /**
+ * Interface for vulnerability issues
+ */
+interface VulnerabilityIssue {
+  severity: string;
+  file: string;
+  line: number;
+  description: string;
+  cwe?: string;
+  remediation?: string;
+}
+
+/**
  * Count vulnerabilities by severity from vulnerabilities results
  * 
  * @param vulnerabilities - Vulnerability analysis results
  * @param severity - Severity level to count
  * @returns Count of vulnerabilities at the specified severity
  */
-function countVulnerabilitiesBySeverity(vulnerabilities: any, severity: string): number {
+function countVulnerabilitiesBySeverity(
+  vulnerabilities: { issues?: VulnerabilityIssue[] }, 
+  severity: string
+): number {
   if (!vulnerabilities.issues) {
     return 0;
   }
   
-  return vulnerabilities.issues.filter((issue: any) => 
+  return vulnerabilities.issues.filter((issue) => 
     issue.severity && issue.severity.toLowerCase() === severity.toLowerCase()
   ).length;
+}
+
+/**
+ * Interface for dependency vulnerabilities
+ */
+interface DependencyVulnerability {
+  severity: string;
+  packageName: string;
+  version: string;
+  description: string;
+  cve?: string;
+  remediation?: string;
 }
 
 /**
@@ -229,12 +338,15 @@ function countVulnerabilitiesBySeverity(vulnerabilities: any, severity: string):
  * @param severity - Severity level to count
  * @returns Count of vulnerabilities at the specified severity
  */
-function countDependencyVulnerabilitiesBySeverity(dependencies: any, severity: string): number {
+function countDependencyVulnerabilitiesBySeverity(
+  dependencies: { vulnerabilities?: DependencyVulnerability[] }, 
+  severity: string
+): number {
   if (!dependencies.vulnerabilities) {
     return 0;
   }
   
-  return dependencies.vulnerabilities.filter((vuln: any) => 
+  return dependencies.vulnerabilities.filter((vuln) => 
     vuln.severity && vuln.severity.toLowerCase() === severity.toLowerCase()
   ).length;
 }

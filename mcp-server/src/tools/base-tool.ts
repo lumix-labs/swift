@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { AnalyticsCollector } from './analytics-storage/collector/base-collector.js';
+import { AnalyticsCollector, RepositoryInfo, StorageResult } from './analytics-storage/collector/base-collector.js';
 import { logInfo, logError } from '../utils/logFormatter.js';
 
 /**
@@ -14,7 +14,7 @@ import { logInfo, logError } from '../utils/logFormatter.js';
  * 
  * All tool implementations should extend this class.
  */
-export abstract class BaseTool<TInput = any, TOutput = any> {
+export abstract class BaseTool<TInput, TOutput> {
   protected toolId: string;
   protected toolVersion: string;
   protected description: string;
@@ -38,7 +38,7 @@ export abstract class BaseTool<TInput = any, TOutput = any> {
    * Get the schema definition for this tool
    * This must be implemented by each tool
    */
-  protected abstract getSchema(): Record<string, z.ZodType<any>>;
+  protected abstract getSchema(): Record<string, z.ZodType<unknown>>;
 
   /**
    * Implement the tool's core functionality
@@ -56,7 +56,7 @@ export abstract class BaseTool<TInput = any, TOutput = any> {
    * @param result - Raw execution result
    * @returns Formatted response for client
    */
-  protected formatResponse(result: TOutput): any {
+  protected formatResponse(result: TOutput): Record<string, unknown> {
     return {
       content: [
         {
@@ -74,7 +74,7 @@ export abstract class BaseTool<TInput = any, TOutput = any> {
    * @param error - Error object
    * @returns Formatted error response for client
    */
-  protected formatErrorResponse(error: Error): any {
+  protected formatErrorResponse(error: Error): Record<string, unknown> {
     return {
       error: true,
       content: [
@@ -95,19 +95,10 @@ export abstract class BaseTool<TInput = any, TOutput = any> {
    * @returns Analytics storage result
    */
   protected async storeAnalytics(
-    repositoryInfo: {
-      name: string;
-      branch?: string;
-      commitHash?: string;
-      path?: string; // Added repository path
-    },
-    summaryData: any,
-    detailedData?: any
-  ): Promise<{
-    snapshotId: string;
-    snapshotPath: string;
-    metadata: any;
-  }> {
+    repositoryInfo: RepositoryInfo,
+    summaryData: Record<string, unknown>,
+    detailedData?: Record<string, unknown>
+  ): Promise<StorageResult> {
     try {
       const collector = new AnalyticsCollector(
         this.toolId,
@@ -141,6 +132,7 @@ export abstract class BaseTool<TInput = any, TOutput = any> {
           tool_version: this.toolVersion,
           timestamp: new Date().toISOString(),
           repository_info: repositoryInfo,
+          execution_time_ms: 0,
           error: err.message
         }
       };
@@ -154,7 +146,7 @@ export abstract class BaseTool<TInput = any, TOutput = any> {
    */
   public register(server: McpServer): void {
     try {
-      server.tool(this.toolId, this.description, this.getSchema(), async (args: { [x: string]: any; }, extra: any) => {
+      server.tool(this.toolId, this.description, this.getSchema(), async (args: Record<string, unknown>) => {
         try {
           // Execute tool functionality with properly typed input
           const result = await this.execute(args as TInput);

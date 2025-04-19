@@ -15,7 +15,7 @@ RUN mkdir -p /logs && chmod 777 /logs
 
 # Copy package files and install Node dependencies
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Copy source code and configuration
 COPY tsconfig.json ./
@@ -35,12 +35,16 @@ RUN find ./src -name "metadata.yaml" -o -name "metadata.yml" | xargs -I{} sh -c 
 RUN find ./src -name "metadata.yaml" -o -name "metadata.yml" | xargs -I{} sh -c '\
     echo "Checking for Python dependencies in {}..." && \
     if grep -q "^\s\+pip:" {}; then \
-        grep -E "^\s+pip:" {} | sed "s/^\s\+pip:\s\+\"\?//g" | sed "s/\"\?$//g" | xargs -r pip install; \
+    grep -E "^\s+pip:" {} | sed "s/^\s\+pip:\s\+\"\?//g" | sed "s/\"\?$//g" | xargs -r pip install; \
     fi \
     ' || echo "No Python dependencies to install or installation failed"
 
 # Build the TypeScript code
 RUN npm run build
+
+# Verify build directory exists and contains index.js
+RUN ls -la /app/build && \
+    ls -la /app/build/index.js
 
 # Expose the service port
 EXPOSE 5000
@@ -48,5 +52,5 @@ EXPOSE 5000
 # Volume for logs
 VOLUME ["/logs"]
 
-# Command to run the server
-CMD ["node", "build/index.js"]
+# Command to run the server - use explicit path to avoid confusion
+CMD ["node", "/app/build/index.js"]

@@ -7,8 +7,39 @@ import fs from 'fs/promises';
 import path from 'path';
 import { logInfo } from '../../../utils/logFormatter.js';
 
+/**
+ * Interface for vulnerability definition
+ */
+interface Vulnerability {
+  id: string;
+  versions: string[];
+  description: string;
+  severity: string;
+  link: string;
+  remediation: string;
+}
+
+/**
+ * Interface for detected vulnerability
+ */
+interface DetectedVulnerability {
+  id: string;
+  packageName: string;
+  installedVersion: string;
+  affectedVersions: string[];
+  description: string;
+  severity: string;
+  link: string;
+  remediation: string;
+  location: {
+    file: string;
+    type: string;
+  };
+  category: string;
+}
+
 // Mock CVE database (in a real implementation, this would connect to a CVE database or API)
-const knownVulnerabilities: Record<string, any[]> = {
+const knownVulnerabilities: Record<string, Vulnerability[]> = {
   'express': [
     {
       id: 'CVE-2022-24999',
@@ -129,8 +160,8 @@ function compareVersions(versionA: string, versionB: string): number {
 export async function scanDependenciesForCVEs(
   repositoryPath: string,
   excludePaths: string[] = ['node_modules', 'dist', '.git', 'build']
-): Promise<any[]> {
-  const vulnerabilities: any[] = [];
+): Promise<DetectedVulnerability[]> {
+  const vulnerabilities: DetectedVulnerability[] = [];
   
   try {
     // Look for package.json files
@@ -213,7 +244,7 @@ async function findPackageJsonFiles(
  */
 async function checkDependencies(
   dependencies: Record<string, string>,
-  vulnerabilities: any[],
+  vulnerabilities: DetectedVulnerability[],
   filePath: string,
   dependencyType: string
 ): Promise<void> {

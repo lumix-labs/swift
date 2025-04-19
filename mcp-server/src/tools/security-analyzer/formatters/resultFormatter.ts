@@ -5,12 +5,124 @@
  */
 
 /**
+ * Interface for Security Analysis Results
+ */
+interface SecurityAnalysisResults {
+  summary: {
+    totalVulnerabilities: number;
+    criticalVulnerabilities: number;
+    highVulnerabilities: number;
+    mediumVulnerabilities: number;
+    lowVulnerabilities: number;
+    infoVulnerabilities: number;
+  };
+  riskScores?: {
+    overallRiskScore: number;
+    riskCategory: string;
+    categoryRiskScores: Record<string, CategoryRiskScore>;
+    remediationPriority?: RemediationItem[];
+  };
+  codeVulnerabilities?: VulnerabilityItem[];
+  dependencyVulnerabilities?: VulnerabilityItem[];
+  hardcodedCredentials?: VulnerabilityItem[];
+  securityAntiPatterns?: VulnerabilityItem[];
+  complianceReports?: ComplianceReports;
+  vulnerabilityMaps?: {
+    heatmap?: HeatmapItem[];
+  };
+}
+
+/**
+ * Interface for Category Risk Score
+ */
+interface CategoryRiskScore {
+  score: number;
+  count: number;
+  label: string;
+}
+
+/**
+ * Interface for Remediation Item
+ */
+interface RemediationItem {
+  id: string;
+  name?: string;
+  severity: string;
+  remediation: string;
+  location?: {
+    file: string;
+    line?: number;
+  };
+}
+
+/**
+ * Interface for Vulnerability Item
+ */
+interface VulnerabilityItem {
+  id: string;
+  name: string;
+  severity: string;
+  description: string;
+  remediation: string;
+  location?: {
+    file: string;
+    line?: number;
+  };
+  sourceCode?: string;
+  packageName?: string;
+  installedVersion?: string;
+}
+
+/**
+ * Interface for Compliance Reports
+ */
+interface ComplianceReports {
+  pciDss?: ComplianceReport;
+  gdpr?: ComplianceReport;
+  sox?: ComplianceReport;
+}
+
+/**
+ * Interface for Compliance Report
+ */
+interface ComplianceReport {
+  version?: string;
+  compliant: boolean;
+  summary: string;
+  failedRequirements: FailedRequirement[];
+}
+
+/**
+ * Interface for Failed Requirement
+ */
+interface FailedRequirement {
+  requirement: {
+    id: string;
+    description: string;
+  };
+}
+
+/**
+ * Interface for Heatmap Item
+ */
+interface HeatmapItem {
+  file: string;
+  vulnerabilityCount: number;
+  severityCounts: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+}
+
+/**
  * Format security analysis results as readable text
  * 
  * @param results - Security analysis results
  * @returns Formatted text output
  */
-export function formatSecurityResults(results: any): string {
+export function formatSecurityResults(results: SecurityAnalysisResults): string {
   let output = '## Security Vulnerability Analysis Results\n\n';
   
   // Add summary section
@@ -77,7 +189,7 @@ export function formatSecurityResults(results: any): string {
  * @param results - Security analysis results
  * @returns Formatted summary section
  */
-function formatSummarySection(results: any): string {
+function formatSummarySection(results: SecurityAnalysisResults): string {
   let output = '### Summary\n\n';
   output += `- **Total Vulnerabilities:** ${results.summary.totalVulnerabilities}\n`;
   output += `- **Critical Vulnerabilities:** ${results.summary.criticalVulnerabilities}\n`;
@@ -94,7 +206,9 @@ function formatSummarySection(results: any): string {
  * @param riskScores - Risk scores data
  * @returns Formatted risk scores section
  */
-function formatRiskScoresSection(riskScores: any): string {
+function formatRiskScoresSection(riskScores: SecurityAnalysisResults['riskScores']): string {
+  if (!riskScores) return '';
+  
   let output = '### Risk Assessment\n\n';
   output += `- **Overall Risk Score:** ${riskScores.overallRiskScore}/100 (${riskScores.riskCategory})\n`;
   
@@ -107,7 +221,7 @@ function formatRiskScoresSection(riskScores: any): string {
     output += '|----------|------------|-----------------|-------|\n';
     
     for (const [category, data] of categories) {
-      const { score, count, label } = data as { score: number, count: number, label: string };
+      const { score, count, label } = data;
       if (count > 0) {
         output += `| ${formatCategoryName(category)} | ${score} | ${count} | ${label} |\n`;
       }
@@ -126,7 +240,7 @@ function formatRiskScoresSection(riskScores: any): string {
  * @param vulnerabilities - Vulnerabilities array
  * @returns Formatted vulnerabilities section
  */
-function formatVulnerabilitiesSection(title: string, vulnerabilities: any[]): string {
+function formatVulnerabilitiesSection(title: string, vulnerabilities: VulnerabilityItem[]): string {
   let output = `### ${title}\n\n`;
   
   // Group vulnerabilities by severity
@@ -159,7 +273,7 @@ function formatVulnerabilitiesSection(title: string, vulnerabilities: any[]): st
  * @param vuln - Vulnerability data
  * @returns Formatted vulnerability
  */
-function formatVulnerability(vuln: any): string {
+function formatVulnerability(vuln: VulnerabilityItem): string {
   let output = '';
   
   // Format title based on vulnerability type
@@ -191,12 +305,12 @@ function formatVulnerability(vuln: any): string {
  * @param complianceReports - Compliance reports data
  * @returns Formatted compliance reports section
  */
-function formatComplianceReportsSection(complianceReports: any): string {
+function formatComplianceReportsSection(complianceReports: ComplianceReports): string {
   let output = '### Compliance Reports\n\n';
   
   // Add PCI DSS compliance report
   if (complianceReports.pciDss) {
-    output += `#### PCI DSS ${complianceReports.pciDss.version}\n\n`;
+    output += `#### PCI DSS ${complianceReports.pciDss.version || ''}\n\n`;
     output += `**Status:** ${complianceReports.pciDss.compliant ? '✅ Compliant' : '❌ Non-compliant'}\n`;
     output += `**Summary:** ${complianceReports.pciDss.summary}\n\n`;
     
@@ -263,7 +377,9 @@ function formatComplianceReportsSection(complianceReports: any): string {
  * @param vulnerabilityMaps - Vulnerability maps data
  * @returns Formatted vulnerability maps section
  */
-function formatVulnerabilityMapsSection(vulnerabilityMaps: any): string {
+function formatVulnerabilityMapsSection(
+  vulnerabilityMaps: NonNullable<SecurityAnalysisResults['vulnerabilityMaps']>
+): string {
   let output = '### Vulnerability Maps\n\n';
   
   // Format heatmap
@@ -292,7 +408,7 @@ function formatVulnerabilityMapsSection(vulnerabilityMaps: any): string {
  * @param remediationPriority - Remediation priority data
  * @returns Formatted remediation recommendations section
  */
-function formatRemediationSection(remediationPriority: any[]): string {
+function formatRemediationSection(remediationPriority: RemediationItem[]): string {
   let output = '### Remediation Recommendations\n\n';
   
   output += 'The following vulnerabilities should be addressed first based on severity, exploitability, and impact:\n\n';

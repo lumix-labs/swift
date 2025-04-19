@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BaseTool } from '../base-tool.js';
-import { AnalyticsCollector } from './collector/base-collector.js';
+import { AnalyticsCollector, RepositoryInfo, StorageResult } from './collector/base-collector.js';
 import { logInfo, logError } from '../../utils/logFormatter.js';
 
 /**
@@ -9,23 +9,15 @@ import { logInfo, logError } from '../../utils/logFormatter.js';
 export type StoreAnalyticsInput = {
   toolId: string;
   toolVersion: string;
-  repositoryInfo: {
-    name: string;
-    branch?: string;
-    commitHash?: string;
-  };
-  summaryData: any;
-  detailedData?: any;
+  repositoryInfo: RepositoryInfo;
+  summaryData: Record<string, unknown>;
+  detailedData?: Record<string, unknown>;
 };
 
 /**
  * Output type for Store Analytics tool
  */
-export type StoreAnalyticsOutput = {
-  snapshotId: string;
-  snapshotPath: string;
-  metadata: any;
-};
+export type StoreAnalyticsOutput = StorageResult;
 
 /**
  * Store Analytics Tool
@@ -48,7 +40,7 @@ export class StoreAnalyticsTool extends BaseTool<StoreAnalyticsInput, StoreAnaly
   /**
    * Define the schema for this tool
    */
-  protected getSchema(): Record<string, z.ZodType<any>> {
+  protected getSchema(): Record<string, z.ZodType<unknown>> {
     return {
       toolId: z.string().describe('Unique identifier of the tool generating the analytics'),
       toolVersion: z.string().describe('Semantic version of the tool'),
@@ -57,8 +49,8 @@ export class StoreAnalyticsTool extends BaseTool<StoreAnalyticsInput, StoreAnaly
         branch: z.string().optional().describe('Current branch'),
         commitHash: z.string().optional().describe('Current commit hash'),
       }),
-      summaryData: z.any().describe('Summary data containing key metrics for dashboard display'),
-      detailedData: z.any().optional().describe('Detailed analytics data'),
+      summaryData: z.record(z.unknown()).describe('Summary data containing key metrics for dashboard display'),
+      detailedData: z.record(z.unknown()).optional().describe('Detailed analytics data'),
     };
   }
 
@@ -135,7 +127,7 @@ export class StoreAnalyticsTool extends BaseTool<StoreAnalyticsInput, StoreAnaly
    * @param result - Storage operation result
    * @returns Formatted response
    */
-  protected formatResponse(result: StoreAnalyticsOutput): any {
+  protected formatResponse(result: StoreAnalyticsOutput): Record<string, unknown> {
     return {
       content: [
         {

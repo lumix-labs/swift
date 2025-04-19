@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logError, logInfo } from '../../utils/logFormatter.js';
+import { SnapshotMetadata } from './get-analytics-tool.js';
 
 const SERVICE_NAME = 'swift-mcp-service';
 const SERVICE_VERSION = '1.0.0';
@@ -59,6 +60,25 @@ export async function createAnalyticsFilePath(
 }
 
 /**
+ * Index entry interface
+ */
+export interface IndexEntry {
+  timestampId: string;
+  timestamp: string;
+  tool_version: string;
+  repository_info: Record<string, unknown>;
+  execution_time_ms: number;
+}
+
+/**
+ * Index data interface
+ */
+export interface IndexData {
+  entries: IndexEntry[];
+  latest: string | null;
+}
+
+/**
  * Update or create the index file with latest analytics reference
  * 
  * @param indexPath - Path to the index file
@@ -68,10 +88,10 @@ export async function createAnalyticsFilePath(
 export async function updateIndexFile(
   indexPath: string,
   timestampId: string,
-  metadata: any
+  metadata: SnapshotMetadata
 ): Promise<void> {
   try {
-    let indexData: any = {
+    let indexData: IndexData = {
       entries: [],
       latest: null
     };
@@ -79,18 +99,18 @@ export async function updateIndexFile(
     // Read existing index if it exists
     try {
       const indexContent = await fs.promises.readFile(indexPath, 'utf8');
-      indexData = JSON.parse(indexContent);
+      indexData = JSON.parse(indexContent) as IndexData;
     } catch (error) {
       // File doesn't exist yet, start with empty index
     }
     
     // Create new entry
-    const entry = {
+    const entry: IndexEntry = {
       timestampId,
-      timestamp: metadata.timestamp,
-      tool_version: metadata.tool_version,
-      repository_info: metadata.repository_info,
-      execution_time_ms: metadata.execution_time_ms
+      timestamp: metadata.timestamp || new Date().toISOString(),
+      tool_version: metadata.tool_version || 'unknown',
+      repository_info: metadata.repository_info || { name: 'unknown' },
+      execution_time_ms: metadata.execution_time_ms || 0
     };
     
     // Add to entries and set as latest
@@ -100,7 +120,7 @@ export async function updateIndexFile(
     // Keep only the last 10 entries
     if (indexData.entries.length > 10) {
       // Sort by timestampId (which is already a sortable format)
-      indexData.entries.sort((a: any, b: any) => 
+      indexData.entries.sort((a, b) => 
         parseInt(b.timestampId) - parseInt(a.timestampId)
       );
       
@@ -150,7 +170,7 @@ export function ensureDirectoryExists(dir: string): void {
  * @param data - Data to validate
  * @throws Error if validation fails
  */
-export function validateSchema(data: any): void {
+export function validateSchema(data: Record<string, unknown>): void {
   // Basic validation for now
   // In a production system, this would use a schema validation library
   if (!data || typeof data !== 'object') {

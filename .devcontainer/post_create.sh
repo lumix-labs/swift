@@ -8,6 +8,11 @@ echo "Starting Swift dev container post-create setup..."
 echo "Installing global npm packages..."
 npm install -g typescript ts-node concurrently
 
+# Install root dependencies and set up husky
+echo "Setting up root dependencies and husky hooks..."
+cd /workspace/swift
+npm install
+
 # Install web module dependencies
 if [ -d "/workspace/swift/web" ]; then
   echo "Setting up web module..."
@@ -43,29 +48,6 @@ if [ -d "/workspace/swift/mcp-server" ]; then
     pip install -r requirements.txt
     deactivate
   fi
-fi
-
-# Set up git hooks
-echo "Setting up git hooks..."
-cd /workspace/swift
-if [ ! -f ".git/hooks/pre-commit" ]; then
-  cat > .git/hooks/pre-commit << 'EOF'
-#!/bin/bash
-echo "Running pre-commit checks..."
-
-# Check for ESLint
-if command -v eslint &> /dev/null; then
-  echo "Running ESLint..."
-  eslint . --ext .js,.jsx,.ts,.tsx
-fi
-
-# Check TypeScript compilation
-if command -v tsc &> /dev/null; then
-  echo "Checking TypeScript..."
-  tsc --noEmit
-fi
-EOF
-  chmod +x .git/hooks/pre-commit
 fi
 
 # Final message

@@ -4,6 +4,24 @@
  * Utilities for generating compliance reports
  */
 
+import { 
+  VulnerabilityItem, 
+  ComplianceReports,
+  ComplianceReport,
+  FailedRequirement
+} from '../formatters/resultFormatter';
+
+// Interfaces needed for the functions
+interface RequirementInfo {
+  id: string;
+  description: string;
+  details: string;
+}
+
+interface RequirementMapping {
+  [key: string]: RequirementInfo;
+}
+
 /**
  * Generate compliance reports for financial regulations
  * 
@@ -14,11 +32,11 @@
  * @returns Compliance reports for different financial regulations
  */
 export function generateComplianceReports(
-  codeVulnerabilities: any[],
-  dependencyVulnerabilities: any[],
-  hardcodedCredentials: any[],
-  securityAntiPatterns: any[]
-): any {
+  codeVulnerabilities: VulnerabilityItem[],
+  dependencyVulnerabilities: VulnerabilityItem[],
+  hardcodedCredentials: VulnerabilityItem[],
+  securityAntiPatterns: VulnerabilityItem[]
+): ComplianceReports {
   // Combine all vulnerabilities
   const allVulnerabilities = [
     ...codeVulnerabilities,
@@ -28,30 +46,30 @@ export function generateComplianceReports(
   ];
   
   // Generate PCI DSS compliance report
-  const pciDssReport = {
+  const pciDssReport: ComplianceReport = {
     standard: 'PCI DSS',
     version: '4.0',
     compliant: false,
-    failedRequirements: [] as any[],
-    passedRequirements: [] as any[],
+    failedRequirements: [] as FailedRequirement[],
+    passedRequirements: [] as FailedRequirement[],
     summary: ''
   };
   
   // Generate GDPR compliance report
-  const gdprReport = {
+  const gdprReport: ComplianceReport = {
     standard: 'GDPR',
     compliant: false,
-    failedRequirements: [] as any[],
-    passedRequirements: [] as any[],
+    failedRequirements: [] as FailedRequirement[],
+    passedRequirements: [] as FailedRequirement[],
     summary: ''
   };
   
   // Generate SOX compliance report
-  const soxReport = {
+  const soxReport: ComplianceReport = {
     standard: 'SOX',
     compliant: false,
-    failedRequirements: [] as any[],
-    passedRequirements: [] as any[],
+    failedRequirements: [] as FailedRequirement[],
+    passedRequirements: [] as FailedRequirement[],
     summary: ''
   };
   
@@ -121,10 +139,10 @@ export function generateComplianceReports(
  * @param vulnerability - Vulnerability to map to PCI DSS
  * @returns PCI DSS requirement information
  */
-function getPciRequirement(vulnerability: any): any {
+function getPciRequirement(vulnerability: VulnerabilityItem): RequirementInfo {
   // Map vulnerability to PCI DSS requirement
   // This is a simplified implementation - in reality, this would be much more comprehensive
-  const categoryToRequirement: Record<string, any> = {
+  const categoryToRequirement: RequirementMapping = {
     'authentication': {
       id: '8.2',
       description: 'Use strong authentication for all users',
@@ -153,7 +171,7 @@ function getPciRequirement(vulnerability: any): any {
     }
   };
   
-  return categoryToRequirement[vulnerability.category] || categoryToRequirement['default'];
+  return categoryToRequirement[vulnerability.category as keyof RequirementMapping] || categoryToRequirement['default'];
 }
 
 /**
@@ -162,10 +180,10 @@ function getPciRequirement(vulnerability: any): any {
  * @param vulnerability - Vulnerability to map to GDPR
  * @returns GDPR requirement information
  */
-function getGdprRequirement(vulnerability: any): any {
+function getGdprRequirement(vulnerability: VulnerabilityItem): RequirementInfo {
   // Map vulnerability to GDPR requirement
   // This is a simplified implementation - in reality, this would be much more comprehensive
-  const categoryToRequirement: Record<string, any> = {
+  const categoryToRequirement: RequirementMapping = {
     'data-protection': {
       id: 'Article 32',
       description: 'Security of processing',
@@ -189,7 +207,7 @@ function getGdprRequirement(vulnerability: any): any {
     }
   };
   
-  return categoryToRequirement[vulnerability.category] || categoryToRequirement['default'];
+  return categoryToRequirement[vulnerability.category as keyof RequirementMapping] || categoryToRequirement['default'];
 }
 
 /**
@@ -198,10 +216,10 @@ function getGdprRequirement(vulnerability: any): any {
  * @param vulnerability - Vulnerability to map to SOX
  * @returns SOX requirement information
  */
-function getSoxRequirement(vulnerability: any): any {
+function getSoxRequirement(vulnerability: VulnerabilityItem): RequirementInfo {
   // Map vulnerability to SOX requirement
   // This is a simplified implementation - in reality, this would be much more comprehensive
-  const categoryToRequirement: Record<string, any> = {
+  const categoryToRequirement: RequirementMapping = {
     'authentication': {
       id: 'Section 404',
       description: 'Access Controls',
@@ -225,5 +243,5 @@ function getSoxRequirement(vulnerability: any): any {
     }
   };
   
-  return categoryToRequirement[vulnerability.category] || categoryToRequirement['default'];
+  return categoryToRequirement[vulnerability.category as keyof RequirementMapping] || categoryToRequirement['default'];
 }

@@ -41,7 +41,7 @@ export class UuidGeneratorTool extends BaseTool<UuidGeneratorInput, UuidGenerato
   /**
    * Define the schema for this tool
    */
-  protected getSchema(): Record<string, z.ZodType<any>> {
+  protected getSchema(): Record<string, z.ZodType<unknown>> {
     return {
       version: z.enum(['v1', 'v4', 'v5']).optional().default('v4')
         .describe('UUID version to generate'),
@@ -61,7 +61,10 @@ export class UuidGeneratorTool extends BaseTool<UuidGeneratorInput, UuidGenerato
    * @returns Generated UUIDs
    */
   protected async execute(input: UuidGeneratorInput): Promise<UuidGeneratorOutput> {
-    const { version = 'v4', count = 1, format = 'standard' } = input;
+    // Extract values from input with defaults
+    const version = input.version || 'v4';
+    const format = input.format || 'standard';
+    const requestedCount = input.count || 1;
     
     // Generate the UUIDs
     const uuids = this.generateUuids(input);
@@ -90,7 +93,7 @@ export class UuidGeneratorTool extends BaseTool<UuidGeneratorInput, UuidGenerato
    * @param result - Generated UUIDs
    * @returns Formatted response
    */
-  protected formatResponse(result: UuidGeneratorOutput): any {
+  protected formatResponse(result: UuidGeneratorOutput): Record<string, unknown> {
     return {
       uuids: result.uuids,
       count: result.count,
@@ -110,7 +113,9 @@ export class UuidGeneratorTool extends BaseTool<UuidGeneratorInput, UuidGenerato
    * @returns Array of generated UUIDs
    */
   private generateUuids(input: UuidGeneratorInput): string[] {
-    const { version = 'v4', count = 1, format = 'standard' } = input;
+    const version = input.version || 'v4';
+    const format = input.format || 'standard';
+    const requestedCount = input.count || 1;
     
     // This is a placeholder implementation - in a real tool, you would use a
     // proper UUID library like uuid-js or crypto module
@@ -138,7 +143,7 @@ export class UuidGeneratorTool extends BaseTool<UuidGeneratorInput, UuidGenerato
     
     // Generate the requested number of UUIDs
     const uuids: string[] = [];
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < requestedCount; i++) {
       uuids.push(generateSingleUuid());
     }
     
@@ -149,7 +154,7 @@ export class UuidGeneratorTool extends BaseTool<UuidGeneratorInput, UuidGenerato
 /**
  * Register the UUID Generator with the MCP server
  */
-export function registerUuidGeneratorTool(server: any): void {
+export function registerUuidGeneratorTool(server: unknown): void {
   const tool = new UuidGeneratorTool();
   tool.register(server);
 }

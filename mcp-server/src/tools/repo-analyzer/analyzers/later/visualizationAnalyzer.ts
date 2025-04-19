@@ -15,7 +15,7 @@ export interface GraphNode {
     size?: number;          // Node size (bytes, LOC, etc.)
     impact?: number;        // Change impact score
   };
-  data?: Record<string, any>; // Additional custom data
+  data?: Record<string, unknown>; // Additional custom data
 }
 
 /**
@@ -27,7 +27,7 @@ export interface GraphEdge {
   type: string;             // Edge type (dependency, call, dataflow, etc.)
   weight?: number;          // Edge weight/importance
   directed: boolean;        // Whether the edge is directed
-  data?: Record<string, any>; // Additional custom data
+  data?: Record<string, unknown>; // Additional custom data
 }
 
 /**
@@ -106,7 +106,7 @@ export function generateVisualizations(
   const couplingHeatMap = createCouplingHeatMap(dependencies);
   
   // Generate component hierarchy
-  const componentHierarchy = createComponentHierarchy(symbols, dependencies);
+  const componentHierarchy = createComponentHierarchy(symbols);
   
   return {
     dependencyGraph,
@@ -412,28 +412,32 @@ function createCouplingHeatMap(dependencies: Dependency[]): HeatMapData {
 }
 
 /**
+ * Type for tree node structure in component hierarchy
+ */
+interface TreeNode {
+  symbols?: string[];
+  [key: string]: TreeNode | string[] | undefined;
+}
+
+/**
  * Create a hierarchical view of components
  * 
  * @param symbols - Code symbols
- * @param dependencies - File dependencies
  * @returns Hierarchy data
  */
-function createComponentHierarchy(
-  symbols: Record<string, CodeSymbol>,
-  dependencies: Dependency[]
-): HierarchyData {
+function createComponentHierarchy(symbols: Record<string, CodeSymbol>): HierarchyData {
   // Group symbols by directory structure
-  const pathTree: Record<string, any> = {};
+  const pathTree: Record<string, TreeNode> = {};
   
   // Helper to ensure path exists in tree
-  function ensurePath(parts: string[]): Record<string, any> {
+  function ensurePath(parts: string[]): TreeNode {
     let current = pathTree;
     
     for (const part of parts) {
       if (!current[part]) {
         current[part] = {};
       }
-      current = current[part];
+      current = current[part] as TreeNode;
     }
     
     return current;
@@ -453,26 +457,27 @@ function createComponentHierarchy(
     }
     
     // Add symbol to file
-    if (!dirNode[fileName].symbols) {
-      dirNode[fileName].symbols = [];
+    const fileNode = dirNode[fileName] as TreeNode;
+    if (!fileNode.symbols) {
+      fileNode.symbols = [];
     }
     
-    dirNode[fileName].symbols.push(symbol.name);
+    fileNode.symbols.push(symbol.name);
   }
   
   // Convert tree to hierarchy structure
-  function convertToHierarchy(node: Record<string, any>, name: string): HierarchyData {
+  function convertToHierarchy(node: TreeNode, name: string): HierarchyData {
     const children: HierarchyData[] = [];
     let symbolCount = 0;
     
     // Process child nodes
     for (const [key, childNode] of Object.entries(node)) {
       if (key === 'symbols') {
-        symbolCount = childNode.length;
+        symbolCount = (childNode as string[]).length;
         continue;
       }
       
-      children.push(convertToHierarchy(childNode, key));
+      children.push(convertToHierarchy(childNode as TreeNode, key));
     }
     
     // Determine node type

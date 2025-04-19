@@ -41,5 +41,5 @@ VOLUME [ "/workspace" ]
 
 USER vscode
 
-# Configure git to use VSCode as editor
+# Configure git for the container
 RUN git config --global core.editor "code --wait"

@@ -9,7 +9,9 @@
       "start": "node build/index.js",
       "setup": "node setup.js",
       "setup-repos": "node setup-repos.js",
-      "dev": "tsc -w"
+      "dev": "tsc -w",
+      "lint": "eslint \"src/**/*.{ts,tsx}\"",
+      "format": "prettier --write \"src/**/*.{ts,tsx}\""
     },
     "dependencies": {
       "@modelcontextprotocol/sdk": "^1.0.0",
@@ -17,7 +19,10 @@
     },
     "devDependencies": {
       "@types/node": "^20.9.0",
-      "typescript": "^5.2.2"
+      "typescript": "^5.2.2",
+      "eslint": "^8.56.0",
+      "@eslint/js": "^8.56.0",
+      "typescript-eslint": "^7.0.0",
+      "prettier": "^3.1.0"
     }
   }
-  

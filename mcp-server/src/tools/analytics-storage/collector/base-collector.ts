@@ -9,6 +9,37 @@ import {
 import { logInfo, logError } from '../../../utils/logFormatter.js';
 
 /**
+ * Type definition for collector metadata
+ */
+export interface CollectorMetadata {
+  tool_id: string;
+  tool_version: string;
+  schema_version: string;
+  timestamp: string;
+  repository_info: RepositoryInfo;
+  execution_time_ms: number;
+}
+
+/**
+ * Repository information interface
+ */
+export interface RepositoryInfo {
+  name: string;
+  branch?: string;
+  commitHash?: string;
+  path?: string;
+}
+
+/**
+ * Storage result interface
+ */
+export interface StorageResult {
+  snapshotId: string;
+  snapshotPath: string;
+  metadata: CollectorMetadata;
+}
+
+/**
  * Base Analytics Collector
  * 
  * This class provides the foundation for tool-specific analytics collectors.
@@ -18,12 +49,7 @@ import { logInfo, logError } from '../../../utils/logFormatter.js';
 export class AnalyticsCollector {
   private toolId: string;
   private toolVersion: string;
-  private repositoryInfo: {
-    name: string;
-    branch?: string;
-    commitHash?: string;
-    path?: string; // Added repository path for analytics storage
-  };
+  private repositoryInfo: RepositoryInfo;
   private schemaVersion = '1.0.0'; // Track schema version for future compatibility
   private readonly SERVICE_NAME = 'swift-mcp-service';
   private readonly SERVICE_VERSION = '1.0.0';
@@ -38,12 +64,7 @@ export class AnalyticsCollector {
   constructor(
     toolId: string,
     toolVersion: string,
-    repositoryInfo: {
-      name: string;
-      branch?: string;
-      commitHash?: string;
-      path?: string; // Added repository path
-    }
+    repositoryInfo: RepositoryInfo
   ) {
     this.toolId = toolId;
     this.toolVersion = toolVersion;
@@ -55,7 +76,7 @@ export class AnalyticsCollector {
    * 
    * @returns Metadata object
    */
-  private collectMetadata(): any {
+  private collectMetadata(): CollectorMetadata {
     return {
       tool_id: this.toolId,
       tool_version: this.toolVersion,
@@ -73,11 +94,7 @@ export class AnalyticsCollector {
    * @param detailedData - Optional detailed data
    * @returns Object with snapshot information
    */
-  async store(summaryData: any, detailedData?: any): Promise<{
-    snapshotId: string;
-    snapshotPath: string;
-    metadata: any;
-  }> {
+  async store(summaryData: Record<string, unknown>, detailedData?: Record<string, unknown>): Promise<StorageResult> {
     const startTime = Date.now();
     
     try {

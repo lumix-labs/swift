@@ -2,6 +2,24 @@
  * Risk scoring utilities for security vulnerabilities
  */
 
+import { VulnerabilityItem, RemediationItem, CategoryRiskScore } from '../formatters/resultFormatter';
+
+// Define interfaces for the risk scores
+interface RiskScores {
+  overallRiskScore: number;
+  riskCategory: string;
+  severityCounts: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    info: number;
+  };
+  categoryRiskScores: Record<string, CategoryRiskScore>;
+  riskTrend: string;
+  remediationPriority: RemediationItem[];
+}
+
 /**
  * Generate risk scores for all vulnerabilities
  * 
@@ -12,11 +30,11 @@
  * @returns Risk scores and metrics
  */
 export function generateRiskScores(
-  codeVulnerabilities: any[],
-  dependencyVulnerabilities: any[],
-  hardcodedCredentials: any[],
-  securityAntiPatterns: any[]
-): any {
+  codeVulnerabilities: VulnerabilityItem[],
+  dependencyVulnerabilities: VulnerabilityItem[],
+  hardcodedCredentials: VulnerabilityItem[],
+  securityAntiPatterns: VulnerabilityItem[]
+): RiskScores {
   // Combine all vulnerabilities
   const allVulnerabilities = [
     ...codeVulnerabilities,
@@ -78,7 +96,7 @@ export function generateRiskScores(
  * @param vulnerabilities - All vulnerabilities
  * @returns Risk scores by category
  */
-function calculateCategoryRiskScores(vulnerabilities: any[]): any {
+function calculateCategoryRiskScores(vulnerabilities: VulnerabilityItem[]): Record<string, CategoryRiskScore> {
   // Define categories
   const categories = [
     'injection', 
@@ -94,7 +112,7 @@ function calculateCategoryRiskScores(vulnerabilities: any[]): any {
   ];
   
   // Initialize category scores
-  const categoryScores: Record<string, any> = {};
+  const categoryScores: Record<string, CategoryRiskScore> = {};
   
   for (const category of categories) {
     const categoryVulns = vulnerabilities.filter(v => v.category === category);
@@ -147,7 +165,7 @@ function calculateCategoryRiskScores(vulnerabilities: any[]): any {
  * @param vulnerabilities - All vulnerabilities
  * @returns Prioritized vulnerabilities for remediation
  */
-function generateRemediationPriority(vulnerabilities: any[]): any[] {
+function generateRemediationPriority(vulnerabilities: VulnerabilityItem[]): RemediationItem[] {
   // Clone the vulnerabilities array to avoid modifying the original
   const prioritized = [...vulnerabilities];
   
@@ -165,12 +183,12 @@ function generateRemediationPriority(vulnerabilities: any[]): any[] {
     
     // Adjust for exploitability
     if (vuln.exploitability) {
-      priorityScore *= vuln.exploitability;
+      priorityScore *= vuln.exploitability as number;
     }
     
     // Adjust for business impact
     if (vuln.businessImpact) {
-      priorityScore *= vuln.businessImpact;
+      priorityScore *= vuln.businessImpact as number;
     }
     
     // Store the calculated priority score
@@ -179,6 +197,15 @@ function generateRemediationPriority(vulnerabilities: any[]): any[] {
   
   // Sort by priority score (highest first)
   return prioritized
-    .sort((a, b) => b.priorityScore - a.priorityScore)
-    .slice(0, 20); // Limit to top 20 issues
+    .sort((a, b) => (b.priorityScore as number) - (a.priorityScore as number))
+    .slice(0, 20) // Limit to top 20 issues
+    .map(vuln => {
+      return {
+        id: vuln.id,
+        name: vuln.name,
+        severity: vuln.severity,
+        remediation: vuln.remediation,
+        location: vuln.location
+      };
+    });
 }

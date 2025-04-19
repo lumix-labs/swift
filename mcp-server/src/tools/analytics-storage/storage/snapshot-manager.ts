@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getRepoBasePath } from '../utils.js';
 import { logInfo, logError } from '../../../utils/logFormatter.js';
+import { Snapshot, SnapshotMetadata } from '../get-analytics-tool.js';
 
 const SERVICE_NAME = 'swift-mcp-service';
 const SERVICE_VERSION = '1.0.0';
@@ -18,7 +19,7 @@ export async function listAnalyticsSnapshots(
   limit: number = 10,
   toolId?: string,
   repositoryName?: string
-): Promise<any[]> {
+): Promise<Snapshot[]> {
   try {
     // Get base repository path
     const repoBasePath = getRepoBasePath();
@@ -42,7 +43,7 @@ export async function listAnalyticsSnapshots(
     const limitedDirs = snapshotDirs.slice(0, limit);
     
     // Load metadata for each snapshot
-    const snapshots = [];
+    const snapshots: Snapshot[] = [];
     
     for (const dir of limitedDirs) {
       const snapshotPath = path.join(snapshotsPath, dir);
@@ -53,11 +54,11 @@ export async function listAnalyticsSnapshots(
       
       // Load metadata.json
       const metadataPath = path.join(snapshotPath, 'metadata.json');
-      let metadata;
+      let metadata: SnapshotMetadata;
       
       try {
         const metadataContent = await fs.promises.readFile(metadataPath, 'utf8');
-        metadata = JSON.parse(metadataContent);
+        metadata = JSON.parse(metadataContent) as SnapshotMetadata;
       } catch (error) {
         // Skip snapshots without metadata
         continue;
@@ -68,14 +69,14 @@ export async function listAnalyticsSnapshots(
       if (repositoryName && metadata.repository_info?.name !== repositoryName) continue;
       
       // Load summary data for the tool
-      let summaryData;
+      let summaryData: Record<string, unknown> | undefined;
       
       if (metadata.tool_id) {
         const summaryPath = path.join(snapshotPath, `${metadata.tool_id}.json`);
         
         try {
           const summaryContent = await fs.promises.readFile(summaryPath, 'utf8');
-          summaryData = JSON.parse(summaryContent);
+          summaryData = JSON.parse(summaryContent) as Record<string, unknown>;
         } catch (error) {
           // Summary data not available
         }
@@ -112,7 +113,7 @@ export async function listAnalyticsSnapshots(
 export async function getLatestSnapshot(
   toolId?: string,
   repositoryName?: string
-): Promise<any | null> {
+): Promise<Snapshot | null> {
   try {
     // Get list of snapshots with limit 1
     const snapshots = await listAnalyticsSnapshots(1, toolId, repositoryName);
@@ -124,15 +125,15 @@ export async function getLatestSnapshot(
     // Get detailed data if available
     const snapshot = snapshots[0];
     
-    if (snapshot.metadata.tool_id) {
+    if (snapshot.metadata?.tool_id) {
       const detailedPath = path.join(
-        snapshot.path, 
+        snapshot.path as string, 
         `${snapshot.metadata.tool_id}_detailed.json`
       );
       
       try {
         const detailedContent = await fs.promises.readFile(detailedPath, 'utf8');
-        snapshot.detailedData = JSON.parse(detailedContent);
+        snapshot.detailedData = JSON.parse(detailedContent) as Record<string, unknown>;
       } catch (error) {
         // Detailed data not available, that's fine
       }
@@ -162,7 +163,7 @@ export async function getSnapshot(
   snapshotId: string,
   toolId?: string,
   repositoryName?: string
-): Promise<any | null> {
+): Promise<Snapshot | null> {
   try {
     // Get base repository path
     const repoBasePath = getRepoBasePath();
@@ -178,11 +179,11 @@ export async function getSnapshot(
     
     // Load metadata.json
     const metadataPath = path.join(snapshotPath, 'metadata.json');
-    let metadata;
+    let metadata: SnapshotMetadata;
     
     try {
       const metadataContent = await fs.promises.readFile(metadataPath, 'utf8');
-      metadata = JSON.parse(metadataContent);
+      metadata = JSON.parse(metadataContent) as SnapshotMetadata;
     } catch (error) {
       // Invalid snapshot without metadata
       return null;
@@ -193,28 +194,28 @@ export async function getSnapshot(
     if (repositoryName && metadata.repository_info?.name !== repositoryName) return null;
     
     // Load summary data
-    let summaryData;
+    let summaryData: Record<string, unknown> | undefined;
     
     if (metadata.tool_id) {
       const summaryPath = path.join(snapshotPath, `${metadata.tool_id}.json`);
       
       try {
         const summaryContent = await fs.promises.readFile(summaryPath, 'utf8');
-        summaryData = JSON.parse(summaryContent);
+        summaryData = JSON.parse(summaryContent) as Record<string, unknown>;
       } catch (error) {
         // Summary data not available
       }
     }
     
     // Load detailed data
-    let detailedData;
+    let detailedData: Record<string, unknown> | undefined;
     
     if (metadata.tool_id) {
       const detailedPath = path.join(snapshotPath, `${metadata.tool_id}_detailed.json`);
       
       try {
         const detailedContent = await fs.promises.readFile(detailedPath, 'utf8');
-        detailedData = JSON.parse(detailedContent);
+        detailedData = JSON.parse(detailedContent) as Record<string, unknown>;
       } catch (error) {
         // Detailed data not available, that's fine
       }

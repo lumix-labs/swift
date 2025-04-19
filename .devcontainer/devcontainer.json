@@ -23,8 +23,14 @@
   },
   "initializeCommand": "echo 'Container initialization starting...' && docker system prune -f",
   "onCreateCommand": "echo 'Container creation starting...'",
-  "postCreateCommand": "bash .devcontainer/post_create.sh",
-  "postStartCommand": "git config --global core.editor 'code --wait'",
+  "postCreateCommand": [
+    "bash .devcontainer/post_create.sh",
+    "chmod +x .devcontainer/husky-setup.sh && .devcontainer/husky-setup.sh"
+  ],
+  "postStartCommand": [
+    "git config --global core.editor 'code --wait'",
+    "git config --global --add safe.directory /workspace/swift"
+  ],
   "customizations": {
     "vscode": {
       "extensions": [
@@ -67,6 +73,6 @@
     "--security-opt=seccomp=unconfined"
   ],
   "appPort": [
-    "6000:6000",   // Web
+    "6000:6000"   // Web
   ]
 }
