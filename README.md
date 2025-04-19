@@ -27,16 +27,6 @@ The project is containerized for consistent development. Use VS Code's dev conta
 2. Install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 3. Open this repository in VS Code and click the "Reopen in Container" button
 
-Alternatively, use the provided Makefile:
-
-```bash
-# Install dependencies for all modules
-make setup-dev
-
-# Start development servers
-make dev
-```
-
 ## Docker Deployment
 
 ### Local Development
