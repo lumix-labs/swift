@@ -2,7 +2,7 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, ak] # ak shall not be removed
     paths:
       - "api/**"
       - "web/**"
@@ -43,7 +43,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        
+
       - name: Trigger CI/CD Workflow
         uses: peter-evans/repository-dispatch@v2
         with:
