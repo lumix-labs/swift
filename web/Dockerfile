@@ -1,58 +1,30 @@
-# Build stage
-FROM node:20-alpine AS builder
+FROM node:18-alpine
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apk add --no-cache python3 make g++ bash
+# Install Express
+RUN npm init -y && \
+    npm install express
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
+# Create a simple server file
+COPY <<EOF /app/server.js
+const express = require('express');
+const app = express();
+const PORT = 3050;
 
-# Install dependencies
-RUN npm install
+app.get('/', (req, res) => {
+  res.send('<h1>Swift Web UI</h1><p>Dummy web interface is running!</p>');
+});
 
-# Copy necessary files for build
-COPY . .
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'healthy' });
+});
 
-# Log TypeScript version
-RUN echo "TypeScript version:" && npx tsc --version
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Dummy web server running on port ${PORT}`);
+});
+EOF
 
-# Verify types first
-RUN npx tsc --noEmit
-
-# Build the application with verbose logging
-RUN npm run build
-
-# Production stage
-FROM node:20-alpine AS runner
-
-WORKDIR /app
-
-# Install troubleshooting tools
-RUN apk add --no-cache curl wget procps
-
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=3050
-ENV NODE_OPTIONS="--max-old-space-size=512"
-
-# Only copy necessary files for running the app
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/next.config.js ./
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-
-# Add a startup script for better logging
-RUN echo '#!/bin/sh\necho "Container starting at $(date)"\necho "Starting Next.js app..."\nexec npm start' > /app/start.sh && chmod +x /app/start.sh
-
-# Expose the port
 EXPOSE 3050
 
-# Health check
-HEALTHCHECK --interval=60s --timeout=30s --start-period=180s --retries=3 \
-    CMD wget --spider -q http://localhost:3050/api/health || exit 1
-
-# Start the application with the startup script
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

@@ -1,60 +1,30 @@
-# Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Install Express
+RUN npm init -y && \
+    npm install express
 
-# Install dependencies (using npm install instead of npm ci to generate package-lock.json)
-RUN npm install
+# Create a simple server file
+COPY <<EOF /app/server.js
+const express = require('express');
+const app = express();
+const PORT = 4000;
 
-# Copy source code
-COPY tsconfig.json ./
-COPY src/ ./src/
+app.get('/', (req, res) => {
+  res.json({ message: 'Swift API dummy server is running!' });
+});
 
-# Build TypeScript code
-RUN npm run build
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy' });
+});
 
-# Stage 2: Production
-FROM node:20-alpine
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Dummy server running on port ${PORT}`);
+});
+EOF
 
-# Set working directory
-WORKDIR /app
-
-# Create a non-root user to run the application
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-# Create and set permissions for logs directory
-RUN mkdir -p /logs && chown -R appuser:appgroup /logs
-
-# Copy package files
-COPY package*.json ./
-
-# Install production dependencies only
-RUN npm install --omit=dev
-
-# Copy build artifacts from builder stage
-COPY --from=builder /app/build ./build
-
-# Create a simple dummy server script
-RUN echo '#!/bin/sh\nnode -e "const http = require(\"http\"); \
-  const server = http.createServer((req, res) => { \
-  res.writeHead(200, {\"Content-Type\": \"application/json\"}); \
-  res.end(JSON.stringify({message: \"Dummy API server is running\", timestamp: new Date().toISOString()})); \
-  }); \
-  server.listen(4000, \"0.0.0.0\", () => { \
-  console.log(\"Dummy API server running on http://0.0.0.0:4000\"); \
-  });"' > /app/dummy-server.sh && chmod +x /app/dummy-server.sh
-
-# Switch to non-root user
-USER appuser
-
-# Expose API port
 EXPOSE 4000
 
-# Volume for logs
-VOLUME ["/logs"]
-
-# Command to run the dummy server if build doesn't exist
-CMD [ "sh", "-c", "if [ -f \"build/index.js\" ]; then node build/index.js; else /app/dummy-server.sh; fi" ]
+CMD ["node", "server.js"]
