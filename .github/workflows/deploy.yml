@@ -3,10 +3,14 @@ name: Deploy Application
 on:
   workflow_call:
     inputs:
-      deploymentParams:
+      infrastructureParams:
         required: true
         type: string
-        description: 'JSON string containing deployment parameters'
+        description: 'JSON string containing infrastructure parameters'
+      modulesToDeploy:
+        required: true
+        type: string
+        description: 'Comma-separated list of modules to deploy'
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
@@ -49,14 +53,14 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
       
-      - name: Parse deployment parameters
+      - name: Parse parameters
         id: parse-params
         run: |
-          if [ -n "${{ inputs.deploymentParams }}" ]; then
+          if [ -n "${{ inputs.infrastructureParams }}" ]; then
             # From workflow_call
-            PARAMS='${{ inputs.deploymentParams }}'
+            PARAMS='${{ inputs.infrastructureParams }}'
             INSTANCE_IP=$(echo $PARAMS | jq -r '.instance_ip')
-            MODULES_TO_DEPLOY=$(echo $PARAMS | jq -r '.modules_to_deploy')
+            MODULES_TO_DEPLOY="${{ inputs.modulesToDeploy }}"
           else
             # From workflow_dispatch
             INSTANCE_IP="${{ inputs.instance_ip }}"
@@ -158,6 +162,10 @@ jobs:
         run: |
           # Get ECR password for Docker login on EC2
           AWS_ECR_PASSWORD=$(aws ecr get-login-password --region ${{ secrets.AWS_REGION }})
+          
+          # Create app directories on EC2 first
+          ssh ec2 "mkdir -p /app/logs/{api,web}"
+          ssh ec2 "chmod -R 777 /app/logs"
           
           # Copy files to EC2
           scp -r deploy/* ec2:~/

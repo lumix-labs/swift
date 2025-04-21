@@ -2,10 +2,10 @@
 set -e
 
 # Setup logging
-LOGFILE="/var/log/swift-setup.log"
+LOGFILE="/var/log/infrastructure-setup.log"
 exec > >(tee -a $LOGFILE) 2>&1
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting Swift infrastructure setup"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting infrastructure setup"
 echo "$(date '+%Y-%m-%d %H:%M:%S') - AWS Region: ${aws_region}"
 
 # Install Docker and Docker Compose
@@ -25,11 +25,6 @@ unzip awscliv2.zip
 ./aws/install
 rm -rf aws awscliv2.zip
 
-# Create app directories
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Creating application directories"
-mkdir -p /app/logs/{api,web,mcp-server}
-chmod -R 777 /app/logs
-
 # Configure AWS region
 echo "$(date '+%Y-%m-%d %H:%M:%S') - Configuring AWS region"
 aws configure set region ${aws_region}
@@ -45,10 +40,10 @@ cat > /var/www/html/index.html << EOL
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Swift Instance Health Check</title>
+    <title>Infrastructure Health Check</title>
 </head>
 <body>
-    <h1>Swift Infrastructure is Ready</h1>
+    <h1>Infrastructure is Ready</h1>
     <p>This instance is ready for application deployment</p>
     <p>Instance provision time: $(date)</p>
 </body>

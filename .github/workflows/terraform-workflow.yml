@@ -7,14 +7,10 @@ on:
         required: true
         type: string
         description: 'Terraform action to perform (plan or apply)'
-      modules_to_deploy:
-        required: false
-        type: string
-        description: 'Comma-separated list of modules to deploy'
     outputs:
-      deployment_params:
-        description: "Deployment parameters as JSON"
-        value: ${{ jobs.terraform.outputs.deployment_params }}
+      infrastructure_params:
+        description: "Infrastructure parameters as JSON"
+        value: ${{ jobs.terraform.outputs.infrastructure_params }}
     secrets:
       TF_API_TOKEN:
         required: true
@@ -27,7 +23,7 @@ jobs:
       run:
         working-directory: ./terraform
     outputs:
-      deployment_params: ${{ steps.extract-params.outputs.deployment_params }}
+      infrastructure_params: ${{ steps.extract-params.outputs.infrastructure_params }}
     
     steps:
       - name: Checkout code
@@ -67,24 +63,22 @@ jobs:
         if: inputs.action == 'apply'
         run: terraform apply -auto-approve tfplan
 
-      - name: Extract Deployment Parameters
+      - name: Extract Infrastructure Parameters
         if: inputs.action == 'apply'
         id: extract-params
         run: |
-          # Create a JSON object with deployment parameters
-          DEPLOYMENT_PARAMS=$(cat <<EOF
+          # Create a JSON object with infrastructure parameters
+          INFRASTRUCTURE_PARAMS=$(cat <<EOF
           {
             "instance_ip": "$(terraform output -json instance_public_ip 2>/dev/null | tr -d '"' || echo "")",
-            "api_endpoint": "$(terraform output -json api_endpoint 2>/dev/null | tr -d '"' || echo "")",
-            "web_endpoint": "$(terraform output -json web_endpoint 2>/dev/null | tr -d '"' || echo "")",
-            "modules_to_deploy": "${{ inputs.modules_to_deploy }}"
+            "instance_id": "$(terraform output -json instance_id 2>/dev/null | tr -d '"' || echo "")"
           }
           EOF
           )
           
           # Escape JSON for GitHub Actions output
-          DEPLOYMENT_PARAMS="${DEPLOYMENT_PARAMS//'%'/'%25'}"
-          DEPLOYMENT_PARAMS="${DEPLOYMENT_PARAMS//$'\n'/'%0A'}"
-          DEPLOYMENT_PARAMS="${DEPLOYMENT_PARAMS//$'\r'/'%0D'}"
+          INFRASTRUCTURE_PARAMS="${INFRASTRUCTURE_PARAMS//'%'/'%25'}"
+          INFRASTRUCTURE_PARAMS="${INFRASTRUCTURE_PARAMS//$'\n'/'%0A'}"
+          INFRASTRUCTURE_PARAMS="${INFRASTRUCTURE_PARAMS//$'\r'/'%0D'}"
           
-          echo "deployment_params=${DEPLOYMENT_PARAMS}" >> $GITHUB_OUTPUT
+          echo "infrastructure_params=${INFRASTRUCTURE_PARAMS}" >> $GITHUB_OUTPUT

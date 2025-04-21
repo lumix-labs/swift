@@ -1,0 +1,51 @@
+name: Infrastructure and Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_terraform:
+        description: 'Skip Terraform steps'
+        type: boolean
+        default: false
+      modules_to_deploy:
+        description: 'Comma-separated list of modules to deploy (api,web)'
+        type: string
+        default: 'api,web'
+
+jobs:
+  terraform_plan:
+    name: Terraform Plan
+    if: ${{ !inputs.skip_terraform }}
+    uses: ./.github/workflows/terraform-workflow.yml
+    with:
+      action: plan
+    secrets:
+      TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+
+  terraform_apply:
+    name: Terraform Apply
+    needs: terraform_plan
+    if: ${{ !inputs.skip_terraform && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/terraform-workflow.yml
+    with:
+      action: apply
+    secrets:
+      TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+      
+  deploy:
+    name: Deploy Application
+    needs: [terraform_apply]
+    # Run even if terraform steps are skipped
+    if: ${{ always() && (inputs.skip_terraform || success()) }}
+    uses: ./.github/workflows/deploy.yml
+    with:
+      infrastructureParams: ${{ inputs.skip_terraform && '{"instance_ip":"${{ secrets.INSTANCE_IP }}"}' || needs.terraform_apply.outputs.infrastructure_params }}
+      modulesToDeploy: ${{ inputs.modules_to_deploy || 'api,web' }}
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}

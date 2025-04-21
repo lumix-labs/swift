@@ -16,7 +16,6 @@ terraform {
 
   backend "remote" {
     organization = "lumixlabs"
-
     workspaces {
       name = "swift"
     }
