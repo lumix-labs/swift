@@ -82,3 +82,10 @@ variable "ssh_private_key_path" {
   default     = ""
   sensitive   = true
 }
+
+variable "ssh_private_key_content" {
+  description = "Content of the SSH private key for remote provisioning"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

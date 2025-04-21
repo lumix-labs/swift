@@ -6,7 +6,7 @@ on:
       action:
         required: true
         type: string
-        description: 'Terraform action to perform (plan or apply)'
+        description: "Terraform action to perform (plan or apply)"
     outputs:
       infrastructure_params:
         description: "Infrastructure parameters as JSON"
@@ -14,6 +14,8 @@ on:
     secrets:
       TF_API_TOKEN:
         required: true
+      SSH_PRIVATE_KEY:
+        required: false
 
 jobs:
   terraform:
@@ -24,7 +26,7 @@ jobs:
         working-directory: ./terraform
     outputs:
       infrastructure_params: ${{ steps.extract-params.outputs.infrastructure_params }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -49,6 +51,14 @@ jobs:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
           TF_LOG: DEBUG
         run: terraform init -input=false -upgrade
+
+      - name: Setup SSH key
+        run: |
+          if [ -n "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "TF_VAR_ssh_private_key_content<<EOF" >> $GITHUB_ENV
+            echo "${{ secrets.SSH_PRIVATE_KEY }}" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          fi
 
       - name: Debug after init failure
         if: failure()
@@ -82,8 +92,8 @@ jobs:
           # Extract values individually using -raw to avoid JSON formatting issues
           INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null || echo "")
           INSTANCE_ID=$(terraform output -raw instance_id 2>/dev/null || echo "")
-          
+
           # Create compact single-line JSON without newlines or special characters
           INFRASTRUCTURE_PARAMS="{\"instance_ip\":\"$INSTANCE_IP\",\"instance_id\":\"$INSTANCE_ID\"}"
-          
+
           echo "infrastructure_params=$INFRASTRUCTURE_PARAMS" >> $GITHUB_OUTPUT

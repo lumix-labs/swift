@@ -31,3 +31,10 @@ variable "ssh_private_key" {
   default     = ""
   sensitive   = true
 }
+
+variable "ssh_private_key_content" {
+  description = "Content of the private SSH key for remote-exec connection"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

@@ -6,13 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       skip_terraform:
-        description: 'Skip Terraform steps'
+        description: "Skip Terraform steps"
         type: boolean
         default: false
       modules_to_deploy:
-        description: 'Comma-separated list of modules to deploy (api,web)'
+        description: "Comma-separated list of modules to deploy (api,web)"
         type: string
-        default: 'api,web'
+        default: "api,web"
 
 jobs:
   terraform_plan:
@@ -23,6 +23,7 @@ jobs:
       action: plan
     secrets:
       TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
   terraform_apply:
     name: Terraform Apply
@@ -33,7 +34,8 @@ jobs:
       action: apply
     secrets:
       TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
-      
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
   deploy:
     name: Deploy Application
     needs: [terraform_apply]
