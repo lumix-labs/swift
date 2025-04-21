@@ -14,7 +14,7 @@ resource "null_resource" "setup_nginx" {
       user        = "ec2-user"
       host        = var.instance_ip
       private_key = var.ssh_private_key_content != "" ? var.ssh_private_key_content : (var.ssh_private_key != "" ? file(var.ssh_private_key) : null)
-      agent       = var.ssh_private_key_content == "" && var.ssh_private_key == ""
+      agent       = false
     }
 
     inline = [
@@ -50,7 +50,7 @@ resource "null_resource" "setup_cloudflare_ips" {
       user        = "ec2-user"
       host        = var.instance_ip
       private_key = var.ssh_private_key_content != "" ? var.ssh_private_key_content : (var.ssh_private_key != "" ? file(var.ssh_private_key) : null)
-      agent       = var.ssh_private_key_content == "" && var.ssh_private_key == ""
+      agent       = false
     }
 
     inline = [
