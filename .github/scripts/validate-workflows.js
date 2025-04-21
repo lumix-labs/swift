@@ -92,23 +92,34 @@ function validateWorkflowPatterns(filePath) {
       
       // Check secrets configuration
       if (wc.secrets) {
-        // GitHub Actions has a special syntax: secrets: inherit
-        // This can be represented in YAML as either a string or an object
+        // GitHub Actions supports both "secrets: inherit" (as string)
+        // and "secrets: inherit: true" (as object) syntax
         if (wc.secrets === "inherit") {
           // Valid: secrets: inherit (parsed as string)
           log(`Valid secrets format: 'secrets: inherit'`, colors.green);
-        } else if (wc.secrets.inherit !== undefined) {
-          // Check if inherit is a boolean or null
-          if (typeof wc.secrets.inherit !== 'boolean' && 
-              wc.secrets.inherit !== null && 
-              wc.secrets.inherit !== 'inherit') {
-            log(`Error: When using 'secrets.inherit', value must be true, false, null, or "inherit"`, colors.red);
-            log(`Found: ${typeof wc.secrets.inherit} with value: ${wc.secrets.inherit}`, colors.red);
-            valid = false;
+        } else if (typeof wc.secrets === 'object') {
+          if (wc.secrets.inherit !== undefined) {
+            // Check if inherit is a boolean or null
+            if (typeof wc.secrets.inherit !== 'boolean' && 
+                wc.secrets.inherit !== null && 
+                wc.secrets.inherit !== 'inherit') {
+              log(`Error: When using 'secrets.inherit', value must be true, false, or null`, colors.red);
+              log(`Found: ${typeof wc.secrets.inherit} with value: ${wc.secrets.inherit}`, colors.red);
+              valid = false;
+            }
+          } else {
+            // Check each secret definition for required property
+            for (const [name, secret] of Object.entries(wc.secrets)) {
+              if (secret.required !== undefined && typeof secret.required !== 'boolean') {
+                log(`Error: Secret '${name}.required' must be a boolean in ${filePath}`, colors.red);
+                valid = false;
+              }
+            }
           }
-        } else {
-          // Other secrets configurations are valid but must follow GitHub's schema
-          log(`Using custom secrets configuration, ensure it matches GitHub's schema`, colors.yellow);
+        } else if (wc.secrets !== 'inherit') {
+          // Neither a string "inherit" nor an object with secret definitions
+          log(`Error: Invalid secrets format in ${filePath}. Must be "inherit" or an object with secret definitions`, colors.red);
+          valid = false;
         }
       }
       
