@@ -1,0 +1,70 @@
+name: Build and Push Module Image
+
+on:
+  workflow_call:
+    inputs:
+      module:
+        required: true
+        type: string
+        description: 'Module name (e.g., api, web)'
+      repository:
+        required: true
+        type: string
+        description: 'ECR repository name (e.g., swift-api, swift-web)'
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      AWS_REGION:
+        required: true
+      AWS_ACCOUNT_ID:
+        required: true
+
+jobs:
+  build-and-push:
+    name: Build and Push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    outputs:
+      image_uri: ${{ steps.image-info.outputs.image_uri }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: ./.github/workflows/actions/configure-aws
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: ./.github/workflows/actions/ecr-login
+      
+      - name: Build and push Docker image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ inputs.repository }}
+          IMAGE_TAG: ${{ github.sha }}
+          MODULE: ${{ inputs.module }}
+        run: |
+          cd $MODULE
+          echo "Building $MODULE image from $MODULE directory"
+          
+          # Build the Docker image
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          
+          # Push the Docker image
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+      
+      - name: Output image URI
+        id: image-info
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ inputs.repository }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "image_uri=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT

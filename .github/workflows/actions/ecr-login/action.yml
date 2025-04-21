@@ -1,0 +1,17 @@
+name: 'Login to Amazon ECR'
+description: 'Authenticates with Amazon ECR'
+
+outputs:
+  registry:
+    description: 'The ECR registry URL'
+    value: ${{ steps.login.outputs.registry }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Login to Amazon ECR
+      id: login
+      shell: bash
+      run: |
+        aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+        echo "registry=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com" >> $GITHUB_OUTPUT
