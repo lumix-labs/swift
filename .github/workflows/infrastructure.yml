@@ -2,7 +2,7 @@ name: Infrastructure Deployment
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, ak]
     paths:
       - "api/**"
       - "web/**"
@@ -127,20 +127,6 @@ jobs:
         run: |
           # Create terraform.tfvars from example and secrets
           cp terraform.tfvars.example terraform.tfvars
-          
-          # Update with repository values
-          if [[ -n "${{ needs.check-module-changes.outputs.modules_to_deploy }}" ]]; then
-            modules=($(echo "${{ needs.check-module-changes.outputs.modules_to_deploy }}" | tr ',' ' '))
-            for module in "${modules[@]}"; do
-              if [[ "$module" == "api" ]]; then
-                echo "container_image_api=\"${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/lumixlabs/swift-api:${{ github.sha }}\"" >> terraform.tfvars
-              elif [[ "$module" == "web" ]]; then
-                echo "container_image_web=\"${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/lumixlabs/swift-web:${{ github.sha }}\"" >> terraform.tfvars
-              elif [[ "$module" == "mcp-server" ]]; then
-                echo "container_image_mcp=\"${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/lumixlabs/swift-mcp-server:${{ github.sha }}\"" >> terraform.tfvars
-              fi
-            done
-          fi
           
           # Add other secrets
           if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then

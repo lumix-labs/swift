@@ -2,7 +2,7 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [master, main, ak] # ak shall not be removed
+    branches: [master, main, ak] # do not remove ak
     paths:
       - "api/**"
       - "web/**"
@@ -36,21 +36,57 @@ on:
           - "false"
 
 jobs:
-  # This workflow now simply calls the CI/CD orchestration pipeline
-  trigger-cicd:
-    name: Trigger CI/CD Pipeline
+  check-changes:
+    name: Check Modified Modules
     runs-on: ubuntu-latest
+    outputs:
+      api_changed: ${{ steps.filter.outputs.api }}
+      web_changed: ${{ steps.filter.outputs.web }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Trigger CI/CD Workflow
-        uses: peter-evans/repository-dispatch@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          event-type: trigger-cicd
-          client-payload: |
-            {
-              "forceInfraUpdate": "false",
-              "skipDeployment": "false"
-            }
+          fetch-depth: 50
+
+      - name: Check for file changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'api/**'
+            web:
+              - 'web/**'
+
+  build-api:
+    name: Build API Image
+    needs: check-changes
+    if: |
+      (needs.check-changes.outputs.api_changed == 'true') ||
+      (github.event.inputs.forceBuildApi == 'true')
+    uses: ./.github/workflows/build-module.yml
+    with:
+      module: api
+      repository: lumixlabs/swift-api
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+
+  build-web:
+    name: Build Web Image
+    needs: check-changes
+    if: |
+      (needs.check-changes.outputs.web_changed == 'true') ||
+      (github.event.inputs.forceBuildWeb == 'true')
+    uses: ./.github/workflows/build-module.yml
+    with:
+      module: web
+      repository: lumixlabs/swift-api
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}

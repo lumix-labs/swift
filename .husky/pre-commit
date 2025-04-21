@@ -21,6 +21,17 @@ if [ -f "$ROOT_DIR/.husky/fix-eslint-errors.sh" ]; then
   "$ROOT_DIR/.husky/fix-eslint-errors.sh"
 fi
 
+# Run complete validation with local-ci.js
+echo "Running comprehensive validation..."
+cd "$ROOT_DIR" && npm run ci
+VALIDATION_EXIT_CODE=$?
+if [ $VALIDATION_EXIT_CODE -ne 0 ]; then
+  echo "❌ Validation failed. Please fix the issues before committing."
+  EXIT_CODE=$VALIDATION_EXIT_CODE
+else
+  echo "✅ Validation completed successfully."
+fi
+
 # Check if there are any changes in API-Server files
 if git diff --cached --name-only | grep -q "api-server/"; then
   echo "Checking API-Server files..."
@@ -74,7 +85,5 @@ if [ $EXIT_CODE -ne 0 ]; then
 else
   echo "✅ Pre-commit checks completed successfully."
 fi
-
-# Removed duplicate commit message checking since it's already done in commit-msg hook
 
 exit $EXIT_CODE
