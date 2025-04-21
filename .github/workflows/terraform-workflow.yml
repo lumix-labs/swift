@@ -15,6 +15,9 @@ on:
       deployment_params:
         description: "Deployment parameters as JSON"
         value: ${{ jobs.terraform.outputs.deployment_params }}
+    secrets:
+      TF_API_TOKEN:
+        required: true
 
 jobs:
   terraform:
@@ -28,7 +31,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2

@@ -149,6 +149,8 @@ jobs:
     with:
       action: plan
       modules_to_deploy: ${{ needs.check-changes.outputs.modules_to_deploy }}
+    secrets:
+      TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
 
   terraform-apply:
     name: Terraform Apply
@@ -158,6 +160,8 @@ jobs:
     with:
       action: apply
       modules_to_deploy: ${{ needs.check-changes.outputs.modules_to_deploy }}
+    secrets:
+      TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
 
   deploy:
     name: Deploy Application
