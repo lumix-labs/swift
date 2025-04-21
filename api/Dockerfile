@@ -39,15 +39,15 @@ COPY --from=builder /app/build ./build
 
 # Create a simple dummy server script
 RUN echo '#!/bin/sh\nnode -e "const http = require(\"http\"); \
-const server = http.createServer((req, res) => { \
+  const server = http.createServer((req, res) => { \
   res.writeHead(200, {\"Content-Type\": \"application/json\"}); \
   res.end(JSON.stringify({message: \"Dummy API server is running\", timestamp: new Date().toISOString()})); \
-}); \
-server.listen(4000, \"0.0.0.0\", () => { \
+  }); \
+  server.listen(4000, \"0.0.0.0\", () => { \
   console.log(\"Dummy API server running on http://0.0.0.0:4000\"); \
-});"' > /app/dummy-server.sh && chmod +x /app/dummy-server.sh
+  });"' > /app/dummy-server.sh && chmod +x /app/dummy-server.sh
 
-# Switch to non-root user
+# Switch user
 USER appuser
 
 # Expose API port
