@@ -67,28 +67,13 @@ jobs:
         id: plan
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-        run: terraform plan -out=tfplan
-
-      - name: Save Plan
-        if: inputs.action == 'plan'
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan
-          path: terraform/tfplan
-          retention-days: 5
-
-      - name: Download Plan
-        if: inputs.action == 'apply'
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-plan
-          path: terraform
+        run: terraform plan
 
       - name: Terraform Apply
         if: inputs.action == 'apply'
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -auto-approve
 
       - name: Extract Infrastructure Parameters
         if: inputs.action == 'apply'
