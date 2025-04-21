@@ -4,31 +4,31 @@ resource "aws_security_group" "instance_sg" {
   description = "Security group for the EC2 instance"
   vpc_id      = var.vpc_id
 
-  # HTTP
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow HTTP access from anywhere"
-  }
-
-  # HTTPS
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow HTTPS access from anywhere"
-  }
-
   # SSH
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow SSH access from anywhere"
+    cidr_blocks = ["0.0.0.0/0"]  # Consider restricting to your IP range for production
+    description = "Allow SSH access from trusted IPs"
+  }
+
+  # Web app port - direct access for Cloudflare
+  ingress {
+    from_port   = 3050
+    to_port     = 3050
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # In production, restrict to Cloudflare IP ranges
+    description = "Allow web app access from Cloudflare"
+  }
+
+  # API port - direct access for Cloudflare
+  ingress {
+    from_port   = 4000
+    to_port     = 4000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # In production, restrict to Cloudflare IP ranges
+    description = "Allow API access from Cloudflare"
   }
 
   # Allow all outbound traffic
@@ -75,26 +75,11 @@ resource "aws_iam_role_policy_attachment" "ssm_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-# Directly add ECR permissions to the role instead of creating a custom policy
-resource "aws_iam_role_policy" "ecr_inline_policy" {
-  name = "${var.project_name}-ecr-inline-policy"
-  role = aws_iam_role.ec2_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage",
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:GetAuthorizationToken"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
+# Use the AWS managed policy instead of creating a custom one
+# Attach ECR read-only access policy (this is an existing AWS managed policy)
+resource "aws_iam_role_policy_attachment" "ecr_policy" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
 # Create instance profile from the IAM role

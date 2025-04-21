@@ -35,10 +35,11 @@ resource "aws_instance" "swift_instance" {
 
   user_data = templatefile("${path.module}/user_data.sh.tpl", {
     aws_region = var.aws_region,
-    api_port = "4000",
-    web_port = "3050",
     container_image_api = var.container_image_api,
-    container_image_web = var.container_image_web
+    container_image_web = var.container_image_web,
+    path = {
+      module = path.module
+    }
   })
 
   # Add lifecycle policy for safer deployments
@@ -64,19 +65,4 @@ resource "aws_eip" "swift_eip" {
   }
 }
 
-# CloudWatch Alarms for instance monitoring
-resource "aws_cloudwatch_metric_alarm" "cpu_alarm" {
-  alarm_name          = "${var.project_name}-cpu-alarm"
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/EC2"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "80"
-  alarm_description   = "This metric monitors EC2 CPU utilization"
-  
-  dimensions = {
-    InstanceId = aws_instance.swift_instance.id
-  }
-}
+# CloudWatch resources removed as requested

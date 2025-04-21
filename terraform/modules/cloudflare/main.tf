@@ -51,11 +51,11 @@ resource "cloudflare_zone_settings_override" "ssl_settings" {
   zone_id = var.cloudflare_zone_id
 
   settings {
-    ssl = "flexible" # SSL terminated at Cloudflare
-    tls_1_3 = "on"
-    min_tls_version = "1.2"
+    ssl                      = "flexible" # SSL terminated at Cloudflare
+    tls_1_3                  = "on"
+    min_tls_version          = "1.2"
     automatic_https_rewrites = "on"
-    always_use_https = "on"
+    always_use_https         = "on"
     # Removed both origin_error_page_pass_thru and sort_query_string_for_cache settings
   }
 }
