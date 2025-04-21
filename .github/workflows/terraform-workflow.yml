@@ -37,11 +37,16 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform Init
-        run: terraform init
+        id: init
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: terraform init -input=false
 
       - name: Terraform Plan
         if: inputs.action == 'plan'
         id: plan
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
         run: terraform plan -out=tfplan
 
       - name: Save Plan
@@ -61,6 +66,8 @@ jobs:
 
       - name: Terraform Apply
         if: inputs.action == 'apply'
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
         run: terraform apply -auto-approve tfplan
 
       - name: Extract Infrastructure Parameters

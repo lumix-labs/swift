@@ -1,3 +1,4 @@
+# Explicit provider configuration for this module
 terraform {
   required_providers {
     cloudflare = {
@@ -6,6 +7,8 @@ terraform {
     }
   }
 }
+
+# Cloudflare DNS records and settings
 
 # DNS Records for Web and API services
 resource "cloudflare_record" "web" {
