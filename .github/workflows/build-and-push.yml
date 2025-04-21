@@ -136,7 +136,6 @@ jobs:
     with:
       action: plan
       modules_to_deploy: ${{ needs.check-changes.outputs.modules_to_deploy }}
-    secrets: inherit
 
   terraform-apply:
     name: Terraform Apply
@@ -149,7 +148,6 @@ jobs:
     with:
       action: apply
       modules_to_deploy: ${{ needs.check-changes.outputs.modules_to_deploy }}
-    secrets: inherit
 
   deploy:
     name: Deploy Application
@@ -162,4 +160,9 @@ jobs:
     uses: ./.github/workflows/deploy.yml
     with:
       deploymentParams: ${{ needs.terraform-apply.outputs.deployment_params }}
-    secrets: inherit
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}

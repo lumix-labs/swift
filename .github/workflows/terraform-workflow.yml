@@ -15,7 +15,6 @@ on:
       deployment_params:
         description: "Deployment parameters as JSON"
         value: ${{ jobs.terraform.outputs.deployment_params }}
-    secrets: inherit
 
 jobs:
   terraform:
@@ -35,34 +34,10 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.4.6
-
-      - name: Configure AWS credentials
-        uses: ./.github/workflows/actions/configure-aws
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
       - name: Terraform Init
         run: terraform init
-
-      - name: Create tfvars file
-        run: |
-          # Create terraform.tfvars from example and secrets
-          cp terraform.tfvars.example terraform.tfvars
-          
-          # Add other secrets
-          if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
-            echo "cloudflare_api_token=\"${{ secrets.CLOUDFLARE_API_TOKEN }}\"" >> terraform.tfvars
-          fi
-          
-          if [ -n "${{ secrets.CLOUDFLARE_ZONE_ID }}" ]; then
-            echo "cloudflare_zone_id=\"${{ secrets.CLOUDFLARE_ZONE_ID }}\"" >> terraform.tfvars
-          fi
-          
-          if [ -n "${{ secrets.DOMAIN_NAME }}" ]; then
-            echo "domain_name=\"${{ secrets.DOMAIN_NAME }}\"" >> terraform.tfvars
-          fi
 
       - name: Terraform Plan
         if: inputs.action == 'plan'
