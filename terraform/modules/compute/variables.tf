@@ -55,7 +55,7 @@ variable "container_image_api" {
   description = "Container image URI for the API service (e.g., 'account_id.dkr.ecr.region.amazonaws.com/swift-api:latest')"
   type        = string
   default     = ""
-  
+
   validation {
     condition     = var.container_image_api == "" || can(regex("^[0-9]+\\.dkr\\.ecr\\.[a-z0-9-]+\\.amazonaws\\.com\\/[a-zA-Z0-9-_/]+:[a-zA-Z0-9-_.]+$", var.container_image_api))
     error_message = "The container_image_api must be a valid ECR image URI in the format: 'account_id.dkr.ecr.region.amazonaws.com/repository:tag'"
@@ -66,7 +66,7 @@ variable "container_image_web" {
   description = "Container image URI for the Web service (e.g., 'account_id.dkr.ecr.region.amazonaws.com/swift-web:latest')"
   type        = string
   default     = ""
-  
+
   validation {
     condition     = var.container_image_web == "" || can(regex("^[0-9]+\\.dkr\\.ecr\\.[a-z0-9-]+\\.amazonaws\\.com\\/[a-zA-Z0-9-_/]+:[a-zA-Z0-9-_.]+$", var.container_image_web))
     error_message = "The container_image_web must be a valid ECR image URI in the format: 'account_id.dkr.ecr.region.amazonaws.com/repository:tag'"
