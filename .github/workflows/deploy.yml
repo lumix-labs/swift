@@ -145,15 +145,15 @@ jobs:
             web:
               image: ${{ steps.login-ecr.outputs.registry }}/lumixlabs/swift-web:${{ github.sha }}
               ports:
-                - "3050:3050"
+                - "80:80"
               restart: always
               volumes:
                 - /app/logs/web:/logs
               environment:
                 - NODE_ENV=production
-                - PORT=3050
+                - PORT=80
               healthcheck:
-                test: ["CMD", "wget", "--spider", "-q", "http://localhost:3050/"]
+                test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
                 interval: 30s
                 timeout: 10s
                 retries: 3
@@ -171,99 +171,6 @@ jobs:
             swift-network:
               driver: bridge
           EOL
-      
-      # Create Nginx configuration script
-      - name: Create Nginx configuration
-        run: |
-          cat > deploy/setup-nginx.sh << 'EOL'
-          #!/bin/bash
-          set -e
-
-          echo "Setting up Nginx reverse proxy..."
-
-          # Install Nginx if not already installed
-          if ! rpm -q nginx &>/dev/null; then
-            echo "Installing Nginx..."
-            sudo amazon-linux-extras install -y nginx1
-          else
-            echo "Nginx is already installed"
-          fi
-
-          # Make sure Nginx is enabled and running
-          sudo systemctl enable nginx
-          sudo systemctl start nginx
-
-          # Create Nginx configuration for the application
-          echo "Creating Nginx configuration..."
-          cat > /tmp/swift.conf << 'EONGINX'
-          # Nginx configuration for Swift application
-
-          # Web frontend configuration
-          server {
-              listen 80;
-              server_name nxtra.co www.nxtra.co;
-              
-              access_log /var/log/nginx/web_access.log;
-              error_log /var/log/nginx/web_error.log;
-              
-              location / {
-                  proxy_pass http://localhost:3050;
-                  proxy_set_header Host $host;
-                  proxy_set_header X-Real-IP $remote_addr;
-                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                  proxy_set_header X-Forwarded-Proto $scheme;
-                  
-                  # WebSocket support if needed
-                  proxy_http_version 1.1;
-                  proxy_set_header Upgrade $http_upgrade;
-                  proxy_set_header Connection "upgrade";
-                  
-                  # Timeouts
-                  proxy_connect_timeout 60s;
-                  proxy_send_timeout 60s;
-                  proxy_read_timeout 60s;
-              }
-          }
-          
-          # API configuration
-          server {
-              listen 80;
-              server_name api.nxtra.co;
-              
-              access_log /var/log/nginx/api_access.log;
-              error_log /var/log/nginx/api_error.log;
-              
-              location / {
-                  proxy_pass http://localhost:4000;
-                  proxy_set_header Host $host;
-                  proxy_set_header X-Real-IP $remote_addr;
-                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                  proxy_set_header X-Forwarded-Proto $scheme;
-                  
-                  # API timeouts
-                  proxy_connect_timeout 60s;
-                  proxy_send_timeout 60s;
-                  proxy_read_timeout 60s;
-              }
-          }
-          EONGINX
-
-          # Apply the configuration
-          sudo mv /tmp/swift.conf /etc/nginx/conf.d/swift.conf
-          
-          # Remove default Nginx configuration if it exists
-          if [ -f /etc/nginx/conf.d/default.conf ]; then
-            sudo rm -f /etc/nginx/conf.d/default.conf
-          fi
-          
-          # Test and reload Nginx
-          echo "Testing Nginx configuration..."
-          sudo nginx -t && sudo systemctl reload nginx
-          
-          echo "Nginx setup complete!"
-          EOL
-          
-          chmod +x deploy/setup-nginx.sh
       
       # Create a direct SSM deployment script that doesn't use S3
       - name: Create deployment script
@@ -308,10 +215,6 @@ jobs:
           # Check container status
           echo "Container status:"
           docker-compose ps
-          
-          # Set up Nginx reverse proxy
-          echo "Setting up Nginx reverse proxy..."
-          ./setup-nginx.sh
 
           echo "Deployment completed at $(date)"
           EOL
@@ -372,7 +275,6 @@ jobs:
           # Create base64 encoded docker-compose file to avoid issues with quotes and whitespace
           DOCKER_COMPOSE_BASE64=$(base64 -w 0 deploy/docker-compose.yml)
           DEPLOYMENT_SCRIPT_BASE64=$(base64 -w 0 deploy/run-deployment.sh)
-          NGINX_SCRIPT_BASE64=$(base64 -w 0 deploy/setup-nginx.sh)
           
           # Send command to instance using SSM document
           CMD_ID=$(aws ssm send-command \
@@ -384,8 +286,7 @@ jobs:
               \"cd /tmp/swift-deploy\",
               \"echo ${DOCKER_COMPOSE_BASE64} | base64 --decode > docker-compose.yml\",
               \"echo ${DEPLOYMENT_SCRIPT_BASE64} | base64 --decode > run-deployment.sh\", 
-              \"echo ${NGINX_SCRIPT_BASE64} | base64 --decode > setup-nginx.sh\",
-              \"chmod +x run-deployment.sh setup-nginx.sh\",
+              \"chmod +x run-deployment.sh\",
               \"AWS_ECR_REGISTRY='${{ steps.login-ecr.outputs.registry }}' AWS_REGION='${{ secrets.AWS_REGION }}' ./run-deployment.sh\"
             ]" \
             --timeout-seconds 600 \
@@ -445,24 +346,6 @@ jobs:
           # Verify services using SSM
           IFS=',' read -ra MODULES <<< "${{ steps.parse-params.outputs.modules_to_deploy }}"
           
-          # First verify Nginx is running
-          echo "Checking Nginx service..."
-          NGINX_CMD_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --parameters commands="[\"systemctl status nginx\"]" \
-            --output text \
-            --query "Command.CommandId")
-            
-          sleep 5
-          
-          # Get Nginx status
-          aws ssm get-command-invocation \
-            --command-id "$NGINX_CMD_ID" \
-            --instance-id "$INSTANCE_ID" \
-            --query "StandardOutputContent" \
-            --output text || echo "Could not verify Nginx service"
-          
           for MODULE in "${MODULES[@]}"; do
             if [[ "$MODULE" == "api" ]]; then
               echo "Checking API service..."
@@ -489,7 +372,7 @@ jobs:
               VERIFY_CMD_ID=$(aws ssm send-command \
                 --instance-ids "$INSTANCE_ID" \
                 --document-name "AWS-RunShellScript" \
-                --parameters commands="[\"cd /app && docker-compose ps web && curl -s http://localhost:3050/ | head -20 || echo 'Web service is not responding'\"]" \
+                --parameters commands="[\"cd /app && docker-compose ps web && curl -s http://localhost:80/ | head -20 || echo 'Web service is not responding'\"]" \
                 --output text \
                 --query "Command.CommandId")
                 

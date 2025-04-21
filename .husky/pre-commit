@@ -45,12 +45,12 @@ if git diff --cached --name-only | grep -q "\.github/workflows/"; then
   fi
 fi
 
-# Check if there are any changes in API-Server files
-if git diff --cached --name-only | grep -q "api-server/"; then
-  echo "Checking API-Server files..."
-  cd "$ROOT_DIR/api-server" && npm run lint
+# Check if there are any changes in API files
+if git diff --cached --name-only | grep -q "api/"; then
+  echo "Checking API files..."
+  cd "$ROOT_DIR/api" && npm run lint
   API_EXIT_CODE=$?
-  echo "API-Server linting complete with exit code: $API_EXIT_CODE"
+  echo "API linting complete with exit code: $API_EXIT_CODE"
   if [ $API_EXIT_CODE -ne 0 ]; then
     EXIT_CODE=$API_EXIT_CODE
   fi

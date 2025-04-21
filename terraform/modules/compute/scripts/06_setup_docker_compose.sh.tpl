@@ -25,15 +25,15 @@ services:
   web:
     image: ${CONTAINER_IMAGE_WEB}
     ports:
-      - "3050:3050"
+      - "80:80"
     restart: always
     volumes:
       - ./logs/web:/logs
     environment:
       - NODE_ENV=production
-      - PORT=3050
+      - PORT=80
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3050/"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -74,7 +74,7 @@ services:
   web:
     image: httpd:latest
     ports:
-      - "3050:80"
+      - "80:80"
     restart: always
     volumes:
       - ./logs/web:/usr/local/apache2/logs
@@ -171,7 +171,7 @@ RUN mkdir -p public && \\
 # Create a simple server.js file
 RUN echo 'const express = require("express"); \\
 const app = express(); \\
-const port = process.env.PORT || 3050; \\
+const port = process.env.PORT || 80; \\
 \\
 app.use(express.static("public")); \\
 \\
@@ -183,7 +183,7 @@ app.listen(port, () => { \\
   console.log(`Web server listening at http://localhost:\${port}`); \\
 });' > server.js
 
-EXPOSE 3050
+EXPOSE 80
 VOLUME ["/logs"]
 CMD ["node", "server.js"]
 INNEREOF
@@ -202,13 +202,13 @@ services:
   web:
     image: swift-web:latest
     ports:
-      - "3050:3050"
+      - "80:80"
     restart: always
     volumes:
       - ./logs/web:/logs
     environment:
       - NODE_ENV=production
-      - PORT=3050
+      - PORT=80
     networks:
       - swift-network
 

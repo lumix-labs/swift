@@ -39,15 +39,6 @@ resource "aws_security_group" "instance_sg" {
     description = "API"
   }
 
-  # Allow Web port
-  ingress {
-    from_port   = 3050
-    to_port     = 3050
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Web"
-  }
-
   # Allow all outbound traffic
   egress {
     from_port   = 0

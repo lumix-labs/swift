@@ -6,10 +6,10 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "next dev --port 3050",
-    "dev:turbo": "next dev --turbopack --port 3050",
+    "dev": "next dev --port 80",
+    "dev:turbo": "next dev --turbopack --port 80",
     "build": "next build",
-    "start": "next start --port 3050",
+    "start": "next start --port 80",
     "lint": "next lint",
     "cloudflare-build": "bash ./cloudflare-pages-build.sh"
   },

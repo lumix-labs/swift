@@ -5,9 +5,9 @@ ROOT_DIR=$(git rev-parse --show-toplevel)
 # This script can be customized to fix common ESLint errors in your codebase
 # Examples below are placeholders - update based on your actual code patterns
 
-# Fix common issues in API-Server
-if [ -d "$ROOT_DIR/api-server/src" ]; then
-  echo "Fixing common issues in API-Server..."
+# Fix common issues in API
+if [ -d "$ROOT_DIR/api/src" ]; then
+  echo "Fixing common issues in API..."
   # Example fixes:
   # - Unused variable fixes
   # - Import fixes

@@ -10,7 +10,7 @@ RUN npm init -y && \
 COPY <<EOF /app/server.js
 const express = require('express');
 const app = express();
-const PORT = 3050;
+const PORT = 80;
 
 app.get('/', (req, res) => {
   res.send('<h1>Swift Web UI</h1><p>Dummy web interface is running!</p>');
@@ -25,6 +25,6 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 EOF
 
-EXPOSE 3050
+EXPOSE 80
 
 CMD ["node", "server.js"]

@@ -140,28 +140,6 @@ function runTypeCheck(module) {
   return runCommand(`npx tsc --noEmit`, moduleDir);
 }
 
-// Run build check to ensure the module can build
-function runBuildCheck(module) {
-  log(`\n${colors.bright}${colors.blue}Checking build for ${module}${colors.reset}`);
-  
-  const moduleDir = path.join(rootDir, module);
-  if (!fs.existsSync(path.join(moduleDir, 'package.json'))) {
-    log(`No package.json found for ${module}. Skipping build check.`, colors.yellow);
-    return true;
-  }
-  
-  // Determine build command based on available scripts
-  const packageJson = require(path.join(moduleDir, 'package.json'));
-  const hasBuild = packageJson.scripts && packageJson.scripts.build;
-  
-  if (!hasBuild) {
-    log(`No build script found for ${module}. Skipping.`, colors.yellow);
-    return true;
-  }
-  
-  return runCommand(`npm run build`, moduleDir);
-}
-
 // Run checks for Docker configuration if docker files changed
 function checkDockerConfiguration(changedFiles) {
   const dockerFilesChanged = changedFiles.some(file => 
@@ -238,11 +216,7 @@ async function main() {
       log(`${colors.red}Tests failed for ${module}${colors.reset}`);
     }
     
-    // Run build check
-    if (!runBuildCheck(module)) {
-      success = false;
-      log(`${colors.red}Build check failed for ${module}${colors.reset}`);
-    }
+    // Build check removed as requested
   }
   
   // Check Docker configuration if relevant files changed

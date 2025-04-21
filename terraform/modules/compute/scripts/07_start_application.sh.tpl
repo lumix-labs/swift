@@ -97,15 +97,15 @@ services:" > docker-compose.yml
         echo "  web:
     image: ${CONTAINER_IMAGE_WEB}
     ports:
-      - \"3050:3050\"
+      - \"80:80\"
     restart: always
     volumes:
       - ./logs/web:/logs
     environment:
       - NODE_ENV=production
-      - PORT=3050
+      - PORT=80
     healthcheck:
-      test: [\"CMD\", \"wget\", \"--spider\", \"-q\", \"http://localhost:3050/\"]
+      test: [\"CMD\", \"wget\", \"--spider\", \"-q\", \"http://localhost:80/\"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -116,7 +116,7 @@ services:" > docker-compose.yml
         echo "  web:
     image: httpd:latest
     ports:
-      - \"3050:80\"
+      - \"80:80\"
     restart: always
     volumes:
       - ./logs/web:/usr/local/apache2/logs
