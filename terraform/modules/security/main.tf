@@ -1,34 +1,51 @@
-# Security Groups for EC2 instance
 resource "aws_security_group" "instance_sg" {
-  name        = "${var.project_name}-instance-sg"
-  description = "Security group for the EC2 instance"
+  name        = "${var.project_name}-${var.environment}-instance-sg"
+  description = "Security group for EC2 instances"
   vpc_id      = var.vpc_id
 
-  # SSH
+  # Allow SSH access from anywhere
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Consider restricting to your IP range for production
-    description = "Allow SSH access from trusted IPs"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "SSH"
   }
 
-  # Web app port - direct access for Cloudflare
+  # Allow HTTP access
   ingress {
-    from_port   = 3050
-    to_port     = 3050
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # In production, restrict to Cloudflare IP ranges
-    description = "Allow web app access from Cloudflare"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP"
   }
 
-  # API port - direct access for Cloudflare
+  # Allow HTTPS access
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS"
+  }
+
+  # Allow API port
   ingress {
     from_port   = 4000
     to_port     = 4000
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # In production, restrict to Cloudflare IP ranges
-    description = "Allow API access from Cloudflare"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "API"
+  }
+
+  # Allow Web port
+  ingress {
+    from_port   = 3050
+    to_port     = 3050
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Web"
   }
 
   # Allow all outbound traffic
@@ -37,18 +54,19 @@ resource "aws_security_group" "instance_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound traffic"
+    description = "All outbound traffic"
   }
 
   tags = {
-    Name        = "${var.project_name}-instance-sg"
+    Name        = "${var.project_name}-${var.environment}-instance-sg"
     Environment = var.environment
+    Project     = var.project_name
   }
 }
 
-# IAM Role for EC2 instance
+# Create IAM role for EC2 instances
 resource "aws_iam_role" "ec2_role" {
-  name = "${var.project_name}-ec2-role"
+  name = "${var.project_name}-${var.environment}-ec2-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -59,31 +77,37 @@ resource "aws_iam_role" "ec2_role" {
         Principal = {
           Service = "ec2.amazonaws.com"
         }
-      },
+      }
     ]
   })
 
   tags = {
-    Name        = "${var.project_name}-ec2-role"
+    Name        = "${var.project_name}-${var.environment}-ec2-role"
     Environment = var.environment
+    Project     = var.project_name
   }
 }
 
-# Attach managed policies to the IAM role
+# Attach AmazonSSMManagedInstanceCore policy for SSM access
 resource "aws_iam_role_policy_attachment" "ssm_policy" {
   role       = aws_iam_role.ec2_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-# Use the AWS managed policy instead of creating a custom one
-# Attach ECR read-only access policy (this is an existing AWS managed policy)
+# Attach EC2 Container Registry policy for ECR access
 resource "aws_iam_role_policy_attachment" "ecr_policy" {
   role       = aws_iam_role.ec2_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
-# Create instance profile from the IAM role
+# Attach S3 Read Only access for deployment files
+resource "aws_iam_role_policy_attachment" "s3_policy" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+}
+
+# Create EC2 instance profile
 resource "aws_iam_instance_profile" "ec2_profile" {
-  name = "${var.project_name}-ec2-profile"
+  name = "${var.project_name}-${var.environment}-ec2-profile"
   role = aws_iam_role.ec2_role.name
 }

@@ -1,59 +1,61 @@
 #!/bin/bash
 set -e
 
-# Setup logging
-LOGFILE="/var/log/infrastructure-setup.log"
-exec > >(tee -a $LOGFILE) 2>&1
+# Update system
+echo "Updating system packages..."
+yum update -y
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting infrastructure setup"
-echo "$(date '+%Y-%m-%d %H:%M:%S') - AWS Region: ${aws_region}"
+# Install required packages
+echo "Installing required packages..."
+yum install -y amazon-ssm-agent docker wget jq unzip
 
-# Install Docker and Docker Compose
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Installing Docker"
-amazon-linux-extras install docker -y
-systemctl enable docker
-systemctl start docker
+# Start and enable SSM agent
+echo "Configuring SSM agent..."
+systemctl enable amazon-ssm-agent
+systemctl start amazon-ssm-agent
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Installing Docker Compose"
+# Install Docker Compose
+echo "Installing Docker Compose..."
 curl -L "https://github.com/docker/compose/releases/download/v2.17.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
-# Install AWS CLI
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Installing AWS CLI"
+# Start and enable Docker service
+echo "Starting Docker service..."
+systemctl enable docker
+systemctl start docker
+
+# Create app directory structure
+echo "Creating application directory structure..."
+mkdir -p /app/logs/{api,web}
+chmod -R 777 /app/logs
+
+# Add the ec2-user to the docker group
+echo "Configuring Docker permissions..."
+usermod -aG docker ec2-user
+
+# AWS CLI v2 installation
+echo "Installing AWS CLI v2..."
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 ./aws/install
 rm -rf aws awscliv2.zip
 
-# Configure AWS region
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Configuring AWS region"
-aws configure set region ${aws_region}
+# Set region in AWS CLI config
+echo "Configuring AWS region..."
+mkdir -p /root/.aws
+cat > /root/.aws/config << EOF
+[default]
+region = ${aws_region}
+EOF
 
-# Add user to docker group
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Adding ec2-user to docker group"
-usermod -aG docker ec2-user
+# Create a deployment status file
+echo "Initializing deployment status..."
+cat > /app/deployment-status.json << EOF
+{
+  "initialized": true,
+  "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "instance_id": "$(curl -s http://169.254.169.254/latest/meta-data/instance-id)"
+}
+EOF
 
-# Create a simple health check endpoint for infrastructure validation
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Setting up health check endpoint"
-mkdir -p /var/www/html
-cat > /var/www/html/index.html << EOL
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Infrastructure Health Check</title>
-</head>
-<body>
-    <h1>Infrastructure is Ready</h1>
-    <p>This instance is ready for application deployment</p>
-    <p>Instance provision time: $(date)</p>
-</body>
-</html>
-EOL
-
-# Install a simple web server for health checks
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Installing Nginx for health checks"
-amazon-linux-extras install nginx1 -y
-systemctl enable nginx
-systemctl start nginx
-
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Infrastructure setup completed successfully"
+echo "EC2 instance initialization completed"
