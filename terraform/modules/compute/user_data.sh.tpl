@@ -7,29 +7,30 @@ yum update -y
 
 # Install required packages
 echo "Installing required packages..."
-yum install -y amazon-ssm-agent docker wget jq unzip
+yum install -y wget jq unzip amazon-ssm-agent
 
-# Start and enable SSM agent
-echo "Configuring SSM agent..."
+# Make sure SSM agent is properly installed and running
+echo "Ensuring SSM agent is running..."
 systemctl enable amazon-ssm-agent
 systemctl start amazon-ssm-agent
+
+# Install Docker
+echo "Installing Docker..."
+amazon-linux-extras install docker -y
+systemctl enable docker
+systemctl start docker
 
 # Install Docker Compose
 echo "Installing Docker Compose..."
 curl -L "https://github.com/docker/compose/releases/download/v2.17.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
-# Start and enable Docker service
-echo "Starting Docker service..."
-systemctl enable docker
-systemctl start docker
-
 # Create app directory structure
 echo "Creating application directory structure..."
 mkdir -p /app/logs/{api,web}
 chmod -R 777 /app/logs
 
-# Add the ec2-user to the docker group
+# Add ec2-user to the docker group
 echo "Configuring Docker permissions..."
 usermod -aG docker ec2-user
 
@@ -48,14 +49,17 @@ cat > /root/.aws/config << EOF
 region = ${aws_region}
 EOF
 
-# Create a deployment status file
-echo "Initializing deployment status..."
-cat > /app/deployment-status.json << EOF
+# Create a marker file to indicate successful initialization
+echo "Creating initialization marker..."
+cat > /app/instance-info.json << EOF
 {
   "initialized": true,
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "instance_id": "$(curl -s http://169.254.169.254/latest/meta-data/instance-id)"
+  "instance_id": "$(curl -s http://169.254.169.254/latest/meta-data/instance-id)",
+  "region": "${aws_region}",
+  "public_ip": "$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)",
+  "ssm_status": "$(systemctl is-active amazon-ssm-agent)"
 }
 EOF
 
-echo "EC2 instance initialization completed"
+echo "EC2 instance initialization completed successfully"

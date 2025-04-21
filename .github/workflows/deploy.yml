@@ -21,7 +21,7 @@ on:
       AWS_ACCOUNT_ID:
         required: true
       EC2_SSH_KEY:
-        required: false  # Made optional
+        required: false
   workflow_dispatch:
     inputs:
       instance_ip:
@@ -63,10 +63,12 @@ jobs:
             # From workflow_call - use our parameter parser
             export PARAMS='${{ inputs.infrastructureParams }}'
             INSTANCE_IP=$(.github/scripts/parse-params.sh "$PARAMS" "instance_ip")
+            INSTANCE_ID=$(.github/scripts/parse-params.sh "$PARAMS" "instance_id")
             MODULES_TO_DEPLOY="${{ inputs.modulesToDeploy }}"
           else
             # From workflow_dispatch
             INSTANCE_IP="${{ inputs.instance_ip }}"
+            INSTANCE_ID=""
             MODULES_TO_DEPLOY="${{ inputs.modules_to_deploy }}"
           fi
           
@@ -79,7 +81,24 @@ jobs:
             exit 1
           fi
           
+          # If instance ID is not available, get it from the IP
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
+            echo "Attempting to get instance ID from IP address..."
+            INSTANCE_ID=$(aws ec2 describe-instances \
+              --filters "Name=public-ip-address,Values=$INSTANCE_IP" \
+              --query "Reservations[0].Instances[0].InstanceId" \
+              --output text)
+              
+            if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
+              echo "Warning: Could not find instance ID for IP $INSTANCE_IP"
+              echo "Will proceed with SSM session manager for deployment"
+            else
+              echo "Found instance ID: $INSTANCE_ID"
+            fi
+          fi
+          
           echo "instance_ip=${INSTANCE_IP}" >> $GITHUB_OUTPUT
+          echo "instance_id=${INSTANCE_ID}" >> $GITHUB_OUTPUT
           echo "modules_to_deploy=${MODULES_TO_DEPLOY}" >> $GITHUB_OUTPUT
       
       - name: Create docker-compose file
@@ -106,7 +125,7 @@ jobs:
                 - "4000:4000"
               restart: always
               volumes:
-                - ./logs/api:/logs
+                - /app/logs/api:/logs
               environment:
                 - NODE_ENV=production
                 - PORT=4000
@@ -127,7 +146,7 @@ jobs:
                 - "3050:3050"
               restart: always
               volumes:
-                - ./logs/web:/logs
+                - /app/logs/web:/logs
               environment:
                 - NODE_ENV=production
                 - PORT=3050
@@ -151,60 +170,67 @@ jobs:
               driver: bridge
           EOL
       
-      # Use AWS SSM for secure deployment instead of SSH
-      - name: Generate deployment package
+      # Create a direct SSM deployment script that doesn't use S3
+      - name: Create deployment script
         run: |
-          mkdir -p deployment
-          cp deploy/docker-compose.yml deployment/
-          cp .github/scripts/deploy-to-ec2.sh deployment/
-          chmod +x deployment/deploy-to-ec2.sh
-          
-          # Create a metadata file for SSM
-          cat > deployment/metadata.json << EOL
-          {
-            "instance_ip": "${{ steps.parse-params.outputs.instance_ip }}",
-            "ecr_registry": "${{ steps.login-ecr.outputs.registry }}",
-            "github_sha": "${{ github.sha }}"
-          }
-          EOL
-          
-          # Create a deployment script
-          cat > deployment/run-deployment.sh << EOL
+          # Create deployment execution script
+          cat > deploy/run-deployment.sh << 'EOL'
           #!/bin/bash
           set -e
-          
-          # Get ECR password using instance IAM role
-          AWS_ECR_PASSWORD=\$(aws ecr get-login-password --region ${{ secrets.AWS_REGION }})
-          
-          # Create directories
+
+          echo "Starting deployment at $(date)"
+
+          # Create app directory if it doesn't exist
           mkdir -p /app/logs/{api,web}
           chmod -R 777 /app/logs
-          
-          # Copy files to app directory
+
+          # Copy docker-compose.yml to app directory
           cp docker-compose.yml /app/
-          
-          # Run deployment script
-          AWS_ECR_PASSWORD="\$AWS_ECR_PASSWORD" AWS_ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}" ./deploy-to-ec2.sh
+
+          # Navigate to app directory
+          cd /app
+
+          # Get ECR credentials using instance profile
+          if [ -n "${AWS_ECR_REGISTRY}" ]; then
+            echo "Logging in to ECR..."
+            AWS_ECR_PASSWORD=$(aws ecr get-login-password --region ${AWS_REGION})
+            echo "${AWS_ECR_PASSWORD}" | docker login --username AWS --password-stdin ${AWS_ECR_REGISTRY}
+          fi
+
+          # Pull Docker images
+          echo "Pulling Docker images..."
+          docker-compose pull
+
+          # Stop and remove existing containers
+          echo "Stopping existing containers..."
+          docker-compose down || true
+
+          # Start new containers
+          echo "Starting new containers..."
+          docker-compose up -d
+
+          # Check container status
+          echo "Container status:"
+          docker-compose ps
+
+          echo "Deployment completed at $(date)"
           EOL
           
-          chmod +x deployment/run-deployment.sh
-          
-          # Create deployment archive
-          cd deployment
-          zip -r ../deployment.zip ./*
-          cd ..
+          chmod +x deploy/run-deployment.sh
       
-      - name: Deploy using AWS Systems Manager
+      - name: Deploy using direct SSM command
         run: |
-          INSTANCE_ID=$(.github/scripts/parse-params.sh '${{ inputs.infrastructureParams }}' "instance_id")
+          INSTANCE_ID="${{ steps.parse-params.outputs.instance_id }}"
+          INSTANCE_IP="${{ steps.parse-params.outputs.instance_ip }}"
           
-          if [ -z "$INSTANCE_ID" ]; then
-            echo "Error: Instance ID is not available. Attempting to get it from AWS..."
-            # Try to get instance ID from IP address
-            INSTANCE_IP="${{ steps.parse-params.outputs.instance_ip }}"
-            INSTANCE_ID=$(aws ec2 describe-instances --filters "Name=public-ip-address,Values=$INSTANCE_IP" --query "Reservations[0].Instances[0].InstanceId" --output text)
-            
-            if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "None" ]; then
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
+            echo "Warning: Instance ID not available. Trying to find instance using IP $INSTANCE_IP..."
+            INSTANCE_ID=$(aws ec2 describe-instances \
+              --filters "Name=public-ip-address,Values=$INSTANCE_IP" \
+              --query "Reservations[0].Instances[0].InstanceId" \
+              --output text)
+              
+            if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
               echo "Error: Could not determine instance ID for IP $INSTANCE_IP"
               exit 1
             fi
@@ -212,35 +238,73 @@ jobs:
           
           echo "Deploying to instance: $INSTANCE_ID"
           
-          # Upload deployment package to S3
-          BUCKET_NAME="swift-deployments-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}"
+          # Check if we can connect to the instance via SSM
+          CONNECTION_STATUS=$(aws ssm describe-instance-information \
+            --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+            --query "InstanceInformationList[0].PingStatus" \
+            --output text)
+            
+          if [ "$CONNECTION_STATUS" != "Online" ]; then
+            echo "Warning: Instance $INSTANCE_ID is not currently connected to SSM (status: $CONNECTION_STATUS)"
+            echo "Waiting for SSM connection to become available..."
+            
+            # Wait for up to 2 minutes
+            for i in {1..12}; do
+              sleep 10
+              CONNECTION_STATUS=$(aws ssm describe-instance-information \
+                --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+                --query "InstanceInformationList[0].PingStatus" \
+                --output text)
+                
+              if [ "$CONNECTION_STATUS" == "Online" ]; then
+                echo "Instance is now connected to SSM!"
+                break
+              fi
+              
+              if [ $i -eq 12 ]; then
+                echo "Error: Instance failed to connect to SSM after 2 minutes"
+                echo "Please ensure the instance has an IAM role with SSM permissions and the SSM agent is running"
+                exit 1
+              fi
+            done
+          fi
           
-          # Create bucket if it doesn't exist (will fail gracefully if it exists)
-          aws s3api create-bucket --bucket $BUCKET_NAME --region ${{ secrets.AWS_REGION }} --create-bucket-configuration LocationConstraint=${{ secrets.AWS_REGION }} || true
+          # Create base64 encoded docker-compose file to avoid issues with quotes and whitespace
+          DOCKER_COMPOSE_BASE64=$(base64 -w 0 deploy/docker-compose.yml)
+          DEPLOYMENT_SCRIPT_BASE64=$(base64 -w 0 deploy/run-deployment.sh)
           
-          # Upload deployment package
-          aws s3 cp deployment.zip s3://$BUCKET_NAME/deployments/${{ github.sha }}.zip
-          
-          # Create and run SSM command
+          # Send command to instance using SSM document
           CMD_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunRemoteScript" \
-            --parameters '{"sourceType":["S3"],"sourceInfo":["{\"path\":\"https://s3.'${{ secrets.AWS_REGION }}'.amazonaws.com/'$BUCKET_NAME'/deployments/'${{ github.sha }}'.zip\"}"],"commandLine":["./run-deployment.sh"]}' \
+            --document-name "AWS-RunShellScript" \
+            --parameters "commands=[
+              \"echo 'Starting Swift deployment...\"\",
+              \"mkdir -p /tmp/swift-deploy\",
+              \"cd /tmp/swift-deploy\",
+              \"echo $DOCKER_COMPOSE_BASE64 | base64 --decode > docker-compose.yml\",
+              \"echo $DEPLOYMENT_SCRIPT_BASE64 | base64 --decode > run-deployment.sh\",
+              \"chmod +x run-deployment.sh\",
+              \"AWS_ECR_REGISTRY='${{ steps.login-ecr.outputs.registry }}' AWS_REGION='${{ secrets.AWS_REGION }}' ./run-deployment.sh\"
+            ]" \
             --timeout-seconds 600 \
             --output text \
             --query "Command.CommandId")
           
-          echo "Deployment command ID: $CMD_ID"
+          echo "SSM command ID: $CMD_ID"
           
-          # Wait for command to complete
-          aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID"
+          # Wait for command to complete (add a timeout to avoid waiting indefinitely)
+          timeout 10m aws ssm wait command-executed \
+            --command-id "$CMD_ID" \
+            --instance-id "$INSTANCE_ID" || echo "Command timed out, continuing..."
           
           # Get command result
           RESULT=$(aws ssm get-command-invocation \
             --command-id "$CMD_ID" \
             --instance-id "$INSTANCE_ID" \
             --query "Status" \
-            --output text)
+            --output text || echo "Failed to get command status")
+          
+          echo "Command status: $RESULT"
           
           if [ "$RESULT" != "Success" ]; then
             echo "Deployment failed with status: $RESULT"
@@ -248,42 +312,74 @@ jobs:
               --command-id "$CMD_ID" \
               --instance-id "$INSTANCE_ID" \
               --query "StandardErrorContent" \
-              --output text
+              --output text || echo "Could not retrieve error content"
             exit 1
           fi
+          
+          echo "Deployment output:"
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --query "StandardOutputContent" \
+            --output text || echo "Could not retrieve output content"
           
           echo "Deployment completed successfully"
       
       - name: Verify Deployment
         run: |
+          INSTANCE_ID="${{ steps.parse-params.outputs.instance_id }}"
+          
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
+            INSTANCE_IP="${{ steps.parse-params.outputs.instance_ip }}"
+            INSTANCE_ID=$(aws ec2 describe-instances \
+              --filters "Name=public-ip-address,Values=$INSTANCE_IP" \
+              --query "Reservations[0].Instances[0].InstanceId" \
+              --output text)
+          fi
+          
           echo "Waiting for services to start..."
           sleep 30
           
-          # Use AWS SSM to verify services
-          INSTANCE_ID=$(.github/scripts/parse-params.sh '${{ inputs.infrastructureParams }}' "instance_id")
-          
-          if [ -z "$INSTANCE_ID" ]; then
-            INSTANCE_IP="${{ steps.parse-params.outputs.instance_ip }}"
-            INSTANCE_ID=$(aws ec2 describe-instances --filters "Name=public-ip-address,Values=$INSTANCE_IP" --query "Reservations[0].Instances[0].InstanceId" --output text)
-          fi
-          
-          # Convert comma-separated modules to array
+          # Verify services using SSM
           IFS=',' read -ra MODULES <<< "${{ steps.parse-params.outputs.modules_to_deploy }}"
           
           for MODULE in "${MODULES[@]}"; do
             if [[ "$MODULE" == "api" ]]; then
               echo "Checking API service..."
-              aws ssm send-command \
+              
+              VERIFY_CMD_ID=$(aws ssm send-command \
                 --instance-ids "$INSTANCE_ID" \
                 --document-name "AWS-RunShellScript" \
-                --parameters '{"commands":["curl -s http://localhost:4000/healthcheck || echo \"API service is not responding\""]}' \
-                --output text
+                --parameters "commands=[\"cd /app && docker-compose ps api && curl -s http://localhost:4000/healthcheck || echo 'API service is not responding'\"]" \
+                --output text \
+                --query "Command.CommandId")
+                
+              sleep 5
+              
+              # Get verification result
+              aws ssm get-command-invocation \
+                --command-id "$VERIFY_CMD_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --query "StandardOutputContent" \
+                --output text || echo "Could not verify API service"
+              
             elif [[ "$MODULE" == "web" ]]; then
               echo "Checking Web service..."
-              aws ssm send-command \
+              
+              VERIFY_CMD_ID=$(aws ssm send-command \
                 --instance-ids "$INSTANCE_ID" \
                 --document-name "AWS-RunShellScript" \
-                --parameters '{"commands":["curl -s http://localhost:3050/ || echo \"Web service is not responding\""]}' \
-                --output text
+                --parameters "commands=[\"cd /app && docker-compose ps web && curl -s http://localhost:3050/ | head -20 || echo 'Web service is not responding'\"]" \
+                --output text \
+                --query "Command.CommandId")
+                
+              sleep 5
+              
+              # Get verification result
+              aws ssm get-command-invocation \
+                --command-id "$VERIFY_CMD_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --query "StandardOutputContent" \
+                --output text || echo "Could not verify Web service"
             fi
           done
