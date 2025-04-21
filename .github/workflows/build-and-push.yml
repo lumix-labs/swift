@@ -4,27 +4,27 @@ on:
   push:
     branches: [master, main]
     paths:
-      - 'api/**'
-      - 'web/**'
-      - '.github/workflows/**'
+      - "api/**"
+      - "web/**"
+      - ".github/workflows/**"
   workflow_dispatch:
     inputs:
       forceBuildApi:
-        description: 'Force build of API image'
+        description: "Force build of API image"
         required: false
-        default: 'false'
+        default: "false"
         type: choice
         options:
-          - 'true'
-          - 'false'
+          - "true"
+          - "false"
       forceBuildWeb:
-        description: 'Force build of Web image'
+        description: "Force build of Web image"
         required: false
-        default: 'false'
+        default: "false"
         type: choice
         options:
-          - 'true'
-          - 'false'
+          - "true"
+          - "false"
 
 jobs:
   check-changes:
@@ -33,13 +33,13 @@ jobs:
     outputs:
       api_changed: ${{ steps.filter.outputs.api }}
       web_changed: ${{ steps.filter.outputs.web }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
           fetch-depth: 50
-      
+
       - name: Check for file changes
         uses: dorny/paths-filter@v2
         id: filter
@@ -49,7 +49,7 @@ jobs:
               - 'api/**'
             web:
               - 'web/**'
-  
+
   build-api:
     name: Build API Image
     needs: check-changes
