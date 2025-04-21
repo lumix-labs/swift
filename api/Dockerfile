@@ -47,7 +47,7 @@ RUN echo '#!/bin/sh\nnode -e "const http = require(\"http\"); \
   console.log(\"Dummy API server running on http://0.0.0.0:4000\"); \
   });"' > /app/dummy-server.sh && chmod +x /app/dummy-server.sh
 
-# Switch user
+# Switch to non-root user
 USER appuser
 
 # Expose API port
