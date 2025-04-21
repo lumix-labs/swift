@@ -32,7 +32,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.5.7  # Updated from 1.4.6 to fix variable validation issues
+          terraform_version: 1.5.7
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
           terraform_wrapper: false
 
@@ -42,51 +42,13 @@ jobs:
       - name: Debug backend.tf
         run: cat backend.tf
 
-      # Create .terraform.lock.hcl to fix provider resolution
-      - name: Create provider lock file
-        run: |
-          cat > .terraform.lock.hcl << EOF
-          # This file is maintained automatically by "terraform init".
-          # Manual edits may be lost in future updates.
-
-          provider "registry.terraform.io/cloudflare/cloudflare" {
-            version     = "3.35.0"
-            constraints = "~> 3.35"
-            hashes = [
-              "h1:P2tTxkuJ6HWBcAASpVLZTsQCoxFE8K7AjqFwy9F+RvA=",
-              "zh:13e8e5afed9404d7ec87bb5c6af96a514c697f3a35b1dbcdab050c021fa30207",
-              "zh:1db3e03928a666cc3e0deafb2dcb1e7a14371f334a5bbfa5f21caf4ee1a34fb7",
-            ]
-          }
-
-          provider "registry.terraform.io/hashicorp/aws" {
-            version     = "4.67.0"
-            constraints = "~> 4.16"
-            hashes = [
-              "h1:LfOuBkdYCzQhtiRvVIxdP/KGJODa3cRsKjn8xKCTbVY=",
-              "zh:0843017ecc24385f2b45f2c5fce79dc25b258e50d516877b3affee3bef34f060",
-              "zh:19876066cfa60de91834ec569a6448dab8c2518b8a71b5ca870b2444febddac6",
-            ]
-          }
-
-          provider "registry.terraform.io/hashicorp/random" {
-            version     = "3.7.1"
-            constraints = "~> 3.4"
-            hashes = [
-              "h1:X8yH8mYV2PtchHB7k0HEIieDbVz4zpzRPeQI+8rWA4Y=",
-              "zh:0dab9ba4b4b6c2983a64937da06b47d2554e3072e666383e8ab388a03892482a",
-              "zh:704e3d19da758ee476313853839770147991b8325890ce752cafa1b3231a6979",
-            ]
-          }
-          EOF
-
-      # Initialize with remote backend
+      # Initialize with -upgrade flag to ignore the lock file
       - name: Terraform Init
         id: init
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
           TF_LOG: DEBUG
-        run: terraform init -input=false
+        run: terraform init -input=false -upgrade
 
       - name: Debug after init failure
         if: failure()
