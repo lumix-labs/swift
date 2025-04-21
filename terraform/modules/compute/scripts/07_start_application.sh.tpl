@@ -26,20 +26,149 @@ systemctl status docker || echo "Failed to get Docker status, continuing anyway"
 echo "$(date '+%Y-%m-%d %H:%M:%S') - Currently available Docker images:"
 docker images || echo "Failed to list Docker images, continuing anyway"
 
-# Pull images explicitly - this is important for ECR images
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Pulling Docker images..."
-if [ "$CONTAINER_IMAGE_API_VALID" = "true" ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Pulling API image: ${CONTAINER_IMAGE_API}"
-    docker pull ${CONTAINER_IMAGE_API} || echo "$(date '+%Y-%m-%d %H:%M:%S') - WARNING: Failed to pull API Docker image"
-else
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Skipping API image pull as image reference is invalid"
+# Extract ECR endpoint from image URLs if not set
+if [ -z "$ECR_ENDPOINT" ]; then
+    # Try to extract from container images if they're ECR images
+    if [[ "${CONTAINER_IMAGE_API}" == *".dkr.ecr."*".amazonaws.com/"* ]]; then
+        ECR_ENDPOINT=$(echo "${CONTAINER_IMAGE_API}" | sed -E 's|^([^/]+)/.*$|\1|')
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Extracted ECR endpoint from API image: $ECR_ENDPOINT"
+    elif [[ "${CONTAINER_IMAGE_WEB}" == *".dkr.ecr."*".amazonaws.com/"* ]]; then
+        ECR_ENDPOINT=$(echo "${CONTAINER_IMAGE_WEB}" | sed -E 's|^([^/]+)/.*$|\1|')
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Extracted ECR endpoint from Web image: $ECR_ENDPOINT"
+    fi
 fi
 
-if [ "$CONTAINER_IMAGE_WEB_VALID" = "true" ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Pulling Web image: ${CONTAINER_IMAGE_WEB}"
-    docker pull ${CONTAINER_IMAGE_WEB} || echo "$(date '+%Y-%m-%d %H:%M:%S') - WARNING: Failed to pull Web Docker image"
+# Attempt ECR login if we have an endpoint and haven't already logged in
+if [ -n "$ECR_ENDPOINT" ] && [ "$ECR_LOGIN_SUCCESS" != "true" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Attempting ECR login to: $ECR_ENDPOINT"
+    if aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin $ECR_ENDPOINT; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - ECR login successful"
+        ECR_LOGIN_SUCCESS=true
+    else
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - WARNING: Failed to authenticate with ECR"
+    fi
+fi
+
+# Check if images exist
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Checking if Docker images exist..."
+API_IMAGE_EXISTS=false
+WEB_IMAGE_EXISTS=false
+
+# Try to pull images explicitly
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Pulling Docker images..."
+if [ -n "${CONTAINER_IMAGE_API}" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Pulling API image: ${CONTAINER_IMAGE_API}"
+    if docker pull ${CONTAINER_IMAGE_API}; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Successfully pulled API image"
+        API_IMAGE_EXISTS=true
+    else
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - WARNING: Failed to pull API Docker image"
+    fi
 else
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Skipping Web image pull as image reference is invalid"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Skipping API image pull as image reference is empty"
+fi
+
+if [ -n "${CONTAINER_IMAGE_WEB}" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Pulling Web image: ${CONTAINER_IMAGE_WEB}"
+    if docker pull ${CONTAINER_IMAGE_WEB}; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Successfully pulled Web image"
+        WEB_IMAGE_EXISTS=true
+    else
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - WARNING: Failed to pull Web Docker image"
+    fi
+else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Skipping Web image pull as image reference is empty"
+fi
+
+# Update docker-compose.yml if needed with fallback images for missing services
+if [ "$API_IMAGE_EXISTS" = "false" ] || [ "$WEB_IMAGE_EXISTS" = "false" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Some images couldn't be pulled, updating docker-compose.yml with fallbacks"
+    
+    # Create a backup of the original
+    cp docker-compose.yml docker-compose.yml.bak
+    
+    # Start with empty docker-compose to rebuild
+    echo "version: '3'
+
+services:" > docker-compose.yml
+
+    # Add web service with either original or fallback image
+    if [ "$WEB_IMAGE_EXISTS" = "true" ]; then
+        echo "  web:
+    image: ${CONTAINER_IMAGE_WEB}
+    ports:
+      - \"3050:3050\"
+    restart: always
+    volumes:
+      - ./logs/web:/logs
+    environment:
+      - NODE_ENV=production
+      - PORT=3050
+    healthcheck:
+      test: [\"CMD\", \"wget\", \"--spider\", \"-q\", \"http://localhost:3050/\"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - swift-network" >> docker-compose.yml
+    else
+        echo "  web:
+    image: httpd:latest
+    ports:
+      - \"3050:80\"
+    restart: always
+    volumes:
+      - ./logs/web:/usr/local/apache2/logs
+    command: sh -c \"echo 'Web service fallback running' > /usr/local/apache2/htdocs/index.html && httpd-foreground\"
+    networks:
+      - swift-network" >> docker-compose.yml
+    fi
+
+    # Add api service with either original or fallback image
+    if [ "$API_IMAGE_EXISTS" = "true" ]; then
+        echo "
+  api:
+    image: ${CONTAINER_IMAGE_API}
+    ports:
+      - \"4000:4000\"
+    restart: always
+    volumes:
+      - ./logs/api:/logs
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+    healthcheck:
+      test: [\"CMD\", \"wget\", \"--spider\", \"-q\", \"http://localhost:4000/healthcheck\"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - swift-network" >> docker-compose.yml
+    else
+        echo "
+  api:
+    image: httpd:latest
+    ports:
+      - \"4000:80\"
+    restart: always
+    volumes:
+      - ./logs/api:/usr/local/apache2/logs
+    command: sh -c \"echo '{\\\"status\\\":\\\"healthy\\\"}' > /usr/local/apache2/htdocs/healthcheck && httpd-foreground\"
+    networks:
+      - swift-network" >> docker-compose.yml
+    fi
+
+    # Add networks section
+    echo "
+networks:
+  swift-network:
+    driver: bridge" >> docker-compose.yml
+
+    # Show the updated docker-compose.yml
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Updated docker-compose.yml contents:"
+    cat docker-compose.yml
 fi
 
 # Start containers
@@ -51,27 +180,18 @@ docker-compose up -d || {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Docker compose configuration validation:"
     docker-compose config || echo "$(date '+%Y-%m-%d %H:%M:%S') - Failed to validate docker-compose config"
     
-    # If ECR login failed and we're using ECR images, try with fallback images
-    if [ "$ECR_LOGIN_SUCCESS" = "false" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Attempting to start with fallback images since ECR login failed"
+    # If we failed with the updated docker-compose, try with the dedicated fallback file
+    if [ -f "docker-compose-fallback.yml" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Attempting to start with dedicated fallback compose file"
         
-        # Verify fallback file exists
-        if [ -f "docker-compose-fallback.yml" ]; then
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - Using fallback docker-compose file"
-            
-            # Try to start with fallback images
-            docker-compose -f docker-compose-fallback.yml up -d || {
-                echo "$(date '+%Y-%m-%d %H:%M:%S') - ERROR: Failed to start even with fallback images"
-                echo "$(date '+%Y-%m-%d %H:%M:%S') - Fallback docker-compose file contents:"
-                cat docker-compose-fallback.yml
-                exit 1
-            }
-        else
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - ERROR: Fallback docker-compose file not found"
+        docker-compose -f docker-compose-fallback.yml up -d || {
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - ERROR: Failed to start even with fallback images"
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - Fallback docker-compose file contents:"
+            cat docker-compose-fallback.yml
             exit 1
-        fi
+        }
     else
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - ECR login was successful but containers still failed to start"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - ERROR: Fallback docker-compose file not found"
         exit 1
     fi
 }

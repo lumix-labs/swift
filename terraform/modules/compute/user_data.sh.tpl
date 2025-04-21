@@ -57,13 +57,70 @@ export AWS_REGION="${aws_region}"
 export CONTAINER_IMAGE_API="${container_image_api}"
 export CONTAINER_IMAGE_WEB="${container_image_web}"
 
+# Create a persistent environment file
+cat > /etc/swift-environment << EOL
+LOGFILE="/var/log/swift-setup.log"
+AWS_REGION="${aws_region}"
+CONTAINER_IMAGE_API="${container_image_api}"
+CONTAINER_IMAGE_WEB="${container_image_web}"
+EOL
+
 # Execute each script in sequence
 for script in $SCRIPT_DIR/*.sh; do
   echo "$(date '+%Y-%m-%d %H:%M:%S') - Executing $(basename $script)" | tee -a $LOGFILE
-  bash "$script" || {
+  
+  # Source the environment exports if available
+  if [ -f "/tmp/aws-env-exports.sh" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Sourcing environment exports" | tee -a $LOGFILE
+    source /tmp/aws-env-exports.sh
+  fi
+  
+  # Execute the script with full environment
+  bash -c "
+    export LOGFILE=\"$LOGFILE\"
+    export AWS_REGION=\"$AWS_REGION\"
+    export CONTAINER_IMAGE_API=\"$CONTAINER_IMAGE_API\"
+    export CONTAINER_IMAGE_WEB=\"$CONTAINER_IMAGE_WEB\"
+    export ECR_ENDPOINT=\"$ECR_ENDPOINT\"
+    export ECR_LOGIN_SUCCESS=\"$ECR_LOGIN_SUCCESS\"
+    
+    $script
+  " || {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - ERROR: Script $(basename $script) failed with exit code $?" | tee -a $LOGFILE
     exit 1
   }
 done
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') - Swift application setup completed successfully"
+
+# Add a diagnostic script that can help troubleshoot any future issues
+cat > /usr/local/bin/swift-diagnostic << 'EOL'
+#!/bin/bash
+echo "Swift Diagnostic Tool"
+echo "====================="
+echo "Checking Docker service status:"
+systemctl status docker
+
+echo -e "\nChecking running containers:"
+docker ps -a
+
+echo -e "\nChecking Docker images:"
+docker images
+
+echo -e "\nChecking container logs:"
+for container in $(docker ps -a --format "{{.Names}}"); do
+  echo -e "\nLogs for $container:"
+  docker logs $container | tail -n 50
+done
+
+echo -e "\nChecking application deployment logs:"
+tail -n 100 /var/log/swift-setup.log
+
+echo -e "\nChecking system memory usage:"
+free -h
+
+echo -e "\nChecking disk space:"
+df -h
+EOL
+
+chmod +x /usr/local/bin/swift-diagnostic
