@@ -1,0 +1,48 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "api/**"
+      - "web/**"
+      - "mcp-server/**"
+      - "terraform/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+    inputs:
+      forceInfraUpdate:
+        description: "Force infrastructure update"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      skipDeployment:
+        description: "Skip deployment step"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+  repository_dispatch:
+    types: [trigger-cicd]
+
+jobs:
+  infrastructure:
+    name: Infrastructure Deployment
+    uses: ./.github/workflows/infrastructure.yml
+    with:
+      forceInfraUpdate: ${{ github.event.inputs.forceInfraUpdate || github.event.client_payload.forceInfraUpdate || 'false' }}
+    secrets: inherit
+  
+  deploy:
+    name: Application Deployment
+    needs: infrastructure
+    if: ${{ always() && (needs.infrastructure.result == 'success') && (github.event.inputs.skipDeployment != 'true') && (github.event.client_payload.skipDeployment != 'true') }}
+    uses: ./.github/workflows/deploy.yml
+    with:
+      deploymentParams: ${{ needs.infrastructure.outputs.deployment_params }}
+    secrets: inherit

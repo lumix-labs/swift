@@ -50,33 +50,6 @@ variable "cloudflare_zone_id" {
   description = "Cloudflare zone ID"
   type        = string
   # No default - will be fetched from Terraform Cloud
-  
-  validation {
-    condition     = length(var.cloudflare_zone_id) > 0
-    error_message = "Cloudflare zone ID must be provided. It should be set in Terraform Cloud variables."
-  }
-}
-
-variable "container_image_api" {
-  description = "Container image for API service"
-  type        = string
-  # No default - will be fetched from Terraform Cloud
-  
-  validation {
-    condition     = length(var.container_image_api) > 0
-    error_message = "Container image for API service must be provided. It should be set in Terraform Cloud variables."
-  }
-}
-
-variable "container_image_web" {
-  description = "Container image for Web service"
-  type        = string
-  # No default - will be fetched from Terraform Cloud
-  
-  validation {
-    condition     = length(var.container_image_web) > 0
-    error_message = "Container image for Web service must be provided. It should be set in Terraform Cloud variables."
-  }
 }
 
 variable "key_pair_name" {
@@ -90,5 +63,3 @@ variable "domain_name" {
   type        = string
   default     = "swift-app.com"
 }
-
-# Removed enable_backup variable as backups are not required

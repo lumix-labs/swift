@@ -30,8 +30,6 @@ module "compute" {
   instance_type         = var.instance_type
   key_name              = var.key_pair_name != "" ? var.key_pair_name : null
   instance_profile_name = module.security.ec2_instance_profile
-  container_image_api   = var.container_image_api
-  container_image_web   = var.container_image_web
 }
 
 module "cloudflare" {

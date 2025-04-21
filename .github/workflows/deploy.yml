@@ -1,0 +1,231 @@
+name: Deploy Application
+
+on:
+  workflow_call:
+    inputs:
+      deploymentParams:
+        required: true
+        type: string
+        description: 'JSON string containing deployment parameters'
+  workflow_dispatch:
+    inputs:
+      instance_ip:
+        description: 'EC2 Instance IP'
+        required: true
+        type: string
+      modules_to_deploy:
+        description: 'Comma-separated list of modules to deploy (api,web,mcp-server)'
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Configure AWS credentials
+        uses: ./.github/workflows/actions/configure-aws
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+        
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: ./.github/workflows/actions/ecr-login
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+      
+      - name: Parse deployment parameters
+        id: parse-params
+        run: |
+          if [ -n "${{ inputs.deploymentParams }}" ]; then
+            # From workflow_call
+            PARAMS='${{ inputs.deploymentParams }}'
+            INSTANCE_IP=$(echo $PARAMS | jq -r '.instance_ip')
+            MODULES_TO_DEPLOY=$(echo $PARAMS | jq -r '.modules_to_deploy')
+          else
+            # From workflow_dispatch
+            INSTANCE_IP="${{ inputs.instance_ip }}"
+            MODULES_TO_DEPLOY="${{ inputs.modules_to_deploy }}"
+          fi
+          
+          echo "instance_ip=${INSTANCE_IP}" >> $GITHUB_OUTPUT
+          echo "modules_to_deploy=${MODULES_TO_DEPLOY}" >> $GITHUB_OUTPUT
+      
+      - name: Create docker-compose file
+        run: |
+          mkdir -p deploy
+          
+          # Create docker-compose.yml content
+          echo "version: '3'
+
+          services:" > deploy/docker-compose.yml
+          
+          # Convert comma-separated modules to array
+          IFS=',' read -ra MODULES <<< "${{ steps.parse-params.outputs.modules_to_deploy }}"
+          
+          # Add each module to docker-compose
+          for MODULE in "${MODULES[@]}"; do
+            if [[ "$MODULE" == "api" ]]; then
+              echo "  api:
+            image: ${{ steps.login-ecr.outputs.registry }}/lumixlabs/swift-api:${{ github.sha }}
+            ports:
+              - \"4000:4000\"
+            restart: always
+            volumes:
+              - ./logs/api:/logs
+            environment:
+              - NODE_ENV=production
+              - PORT=4000
+            healthcheck:
+              test: [\"CMD\", \"wget\", \"--spider\", \"-q\", \"http://localhost:4000/healthcheck\"]
+              interval: 30s
+              timeout: 10s
+              retries: 3
+              start_period: 10s
+            networks:
+              - swift-network" >> deploy/docker-compose.yml
+            elif [[ "$MODULE" == "web" ]]; then
+              echo "  web:
+            image: ${{ steps.login-ecr.outputs.registry }}/lumixlabs/swift-web:${{ github.sha }}
+            ports:
+              - \"3050:3050\"
+            restart: always
+            volumes:
+              - ./logs/web:/logs
+            environment:
+              - NODE_ENV=production
+              - PORT=3050
+            healthcheck:
+              test: [\"CMD\", \"wget\", \"--spider\", \"-q\", \"http://localhost:3050/\"]
+              interval: 30s
+              timeout: 10s
+              retries: 3
+              start_period: 10s
+            networks:
+              - swift-network" >> deploy/docker-compose.yml
+            elif [[ "$MODULE" == "mcp-server" ]]; then
+              echo "  mcp-server:
+            image: ${{ steps.login-ecr.outputs.registry }}/lumixlabs/swift-mcp-server:${{ github.sha }}
+            ports:
+              - \"5000:5000\"
+            restart: always
+            volumes:
+              - ./logs/mcp-server:/logs
+            environment:
+              - NODE_ENV=production
+              - PORT=5000
+            healthcheck:
+              test: [\"CMD\", \"wget\", \"--spider\", \"-q\", \"http://localhost:5000/healthcheck\"]
+              interval: 30s
+              timeout: 10s
+              retries: 3
+              start_period: 10s
+            networks:
+              - swift-network" >> deploy/docker-compose.yml
+            fi
+          done
+          
+          # Add networks section
+          echo "
+          networks:
+            swift-network:
+              driver: bridge" >> deploy/docker-compose.yml
+          
+          # Create deploy script
+          cat > deploy/deploy.sh << 'EOF'
+          #!/bin/bash
+          set -e
+
+          # Install Docker if not installed
+          if ! command -v docker &> /dev/null; then
+            echo "Installing Docker..."
+            sudo apt-get update
+            sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+            sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+            sudo apt-get update
+            sudo apt-get install -y docker-ce
+            sudo systemctl enable docker
+            sudo systemctl start docker
+            sudo usermod -aG docker ubuntu
+          fi
+
+          # Install Docker Compose if not installed
+          if ! command -v docker-compose &> /dev/null; then
+            echo "Installing Docker Compose..."
+            sudo curl -L "https://github.com/docker/compose/releases/download/v2.17.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            sudo chmod +x /usr/local/bin/docker-compose
+          fi
+
+          # Create app directory if it doesn't exist
+          sudo mkdir -p /app/logs/{api,web,mcp-server}
+          sudo chmod -R 777 /app/logs
+
+          # Copy docker-compose.yml to app directory
+          sudo cp docker-compose.yml /app/
+
+          # Navigate to app directory
+          cd /app
+
+          # Pull images
+          echo "Pulling Docker images..."
+          docker-compose pull
+
+          # Stop and remove existing containers
+          echo "Stopping existing containers..."
+          docker-compose down || true
+
+          # Start new containers
+          echo "Starting new containers..."
+          docker-compose up -d
+
+          # Check container status
+          echo "Checking container status..."
+          docker-compose ps
+          EOF
+          
+          chmod +x deploy/deploy.sh
+      
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key.pem
+          chmod 600 ~/.ssh/ec2_key.pem
+          echo -e "Host ec2\n\tHostName ${{ steps.parse-params.outputs.instance_ip }}\n\tUser ubuntu\n\tIdentityFile ~/.ssh/ec2_key.pem\n\tStrictHostKeyChecking no" > ~/.ssh/config
+        
+      - name: Deploy to EC2
+        run: |
+          # Copy files to EC2
+          scp -r deploy/* ec2:~/
+          
+          # Execute deploy script on EC2
+          ssh ec2 "./deploy.sh"
+      
+      - name: Verify Deployment
+        run: |
+          # Give containers time to start up
+          echo "Waiting for containers to start..."
+          sleep 30
+          
+          # Verify services are running
+          IFS=',' read -ra MODULES <<< "${{ steps.parse-params.outputs.modules_to_deploy }}"
+          
+          for MODULE in "${MODULES[@]}"; do
+            if [[ "$MODULE" == "api" ]]; then
+              echo "Checking API service..."
+              ssh ec2 "curl -s http://localhost:4000/healthcheck || echo 'API service is not responding'"
+            elif [[ "$MODULE" == "web" ]]; then
+              echo "Checking Web service..."
+              ssh ec2 "curl -s http://localhost:3050/ || echo 'Web service is not responding'"
+            elif [[ "$MODULE" == "mcp-server" ]]; then
+              echo "Checking MCP Server service..."
+              ssh ec2 "curl -s http://localhost:5000/healthcheck || echo 'MCP Server is not responding'"
+            fi
+          done

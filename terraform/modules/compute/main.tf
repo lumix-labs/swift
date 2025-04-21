@@ -35,8 +35,6 @@ resource "aws_instance" "swift_instance" {
 
   user_data = templatefile("${path.module}/user_data.sh.tpl", {
     aws_region = var.aws_region,
-    container_image_api = var.container_image_api,
-    container_image_web = var.container_image_web,
     path = {
       module = path.module
     }
@@ -64,5 +62,3 @@ resource "aws_eip" "swift_eip" {
     Project     = var.project_name
   }
 }
-
-# CloudWatch resources removed as requested
