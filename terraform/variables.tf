@@ -52,6 +52,13 @@ variable "cloudflare_zone_id" {
   # No default - will be fetched from Terraform Cloud
 }
 
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token"
+  type        = string
+  sensitive   = true
+  # No default - will be fetched from Terraform Cloud
+}
+
 variable "key_pair_name" {
   description = "Name of the SSH key pair to use with the EC2 instance"
   type        = string

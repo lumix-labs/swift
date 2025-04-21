@@ -35,6 +35,7 @@ jobs:
         with:
           terraform_version: 1.4.6
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          terraform_wrapper: false
 
       - name: Terraform Init
         run: terraform init
@@ -67,33 +68,16 @@ jobs:
         if: inputs.action == 'apply'
         id: extract-params
         run: |
-          # Ensure infrastructure is applied before extracting outputs
-          sleep 10
-
-          # Check if outputs exist
-          if terraform output -json instance_public_ip >/dev/null 2>&1; then
-            # Create a JSON object with deployment parameters
-            DEPLOYMENT_PARAMS=$(cat <<EOF
-            {
-              "instance_ip": "$(terraform output -json instance_public_ip | tr -d '"')",
-              "api_endpoint": "$(terraform output -json api_endpoint | tr -d '"')",
-              "web_endpoint": "$(terraform output -json web_endpoint | tr -d '"')",
-              "modules_to_deploy": "${{ inputs.modules_to_deploy }}"
-            }
-            EOF
-            )
-          else
-            # Fallback if outputs don't exist
-            DEPLOYMENT_PARAMS=$(cat <<EOF
-            {
-              "instance_ip": "",
-              "api_endpoint": "",
-              "web_endpoint": "",
-              "modules_to_deploy": "${{ inputs.modules_to_deploy }}"
-            }
-            EOF
-            )
-          fi
+          # Create a JSON object with deployment parameters
+          DEPLOYMENT_PARAMS=$(cat <<EOF
+          {
+            "instance_ip": "$(terraform output -json instance_public_ip 2>/dev/null | tr -d '"' || echo "")",
+            "api_endpoint": "$(terraform output -json api_endpoint 2>/dev/null | tr -d '"' || echo "")",
+            "web_endpoint": "$(terraform output -json web_endpoint 2>/dev/null | tr -d '"' || echo "")",
+            "modules_to_deploy": "${{ inputs.modules_to_deploy }}"
+          }
+          EOF
+          )
           
           # Escape JSON for GitHub Actions output
           DEPLOYMENT_PARAMS="${DEPLOYMENT_PARAMS//'%'/'%25'}"

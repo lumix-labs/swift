@@ -53,6 +53,9 @@ function getAllWorkflowFiles() {
 
 // Parse and validate YAML syntax
 function validateYamlSyntax(filePath) {
+  if (!fs.existsSync(filePath)){
+    return true
+  }
   try {
     const content = fs.readFileSync(filePath, 'utf8');
     yaml.load(content);
@@ -66,6 +69,9 @@ function validateYamlSyntax(filePath) {
 
 // Validate common GitHub workflow patterns 
 function validateWorkflowPatterns(filePath) {
+  if (!fs.existsSync(filePath)){
+    return true
+  }
   try {
     const content = fs.readFileSync(filePath, 'utf8');
     const workflow = yaml.load(content);

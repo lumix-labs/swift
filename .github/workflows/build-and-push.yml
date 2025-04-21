@@ -52,6 +52,8 @@ jobs:
       web_changed: ${{ steps.filter.outputs.web }}
       terraform_changed: ${{ steps.filter.outputs.terraform }}
       modules_to_deploy: ${{ steps.set-modules.outputs.modules_to_deploy }}
+      should_deploy_infra: ${{ steps.check-deploy.outputs.should_deploy_infra }}
+      should_skip_deployment: ${{ steps.check-deploy.outputs.should_skip_deployment }}
 
     steps:
       - name: Checkout code
@@ -76,11 +78,13 @@ jobs:
         run: |
           MODULES=()
           
-          if [[ "${{ steps.filter.outputs.api }}" == "true" ]]; then
+          # Check if API changed or force build requested
+          if [[ "${{ steps.filter.outputs.api }}" == "true" || "${{ github.event.inputs.forceBuildApi }}" == "true" ]]; then
             MODULES+=("api")
           fi
           
-          if [[ "${{ steps.filter.outputs.web }}" == "true" ]]; then
+          # Check if Web changed or force build requested
+          if [[ "${{ steps.filter.outputs.web }}" == "true" || "${{ github.event.inputs.forceBuildWeb }}" == "true" ]]; then
             MODULES+=("web")
           fi
           
@@ -92,12 +96,27 @@ jobs:
             echo "modules_to_deploy=" >> $GITHUB_OUTPUT
           fi
 
+      - name: Check deployment conditions
+        id: check-deploy
+        run: |
+          # Check if we should deploy infrastructure
+          if [[ "${{ steps.filter.outputs.terraform }}" == "true" || "${{ github.event.inputs.forceInfraUpdate }}" == "true" || "${{ steps.set-modules.outputs.modules_to_deploy }}" != "" ]]; then
+            echo "should_deploy_infra=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_deploy_infra=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Check if we should skip deployment
+          if [[ "${{ github.event.inputs.skipDeployment }}" == "true" ]]; then
+            echo "should_skip_deployment=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_skip_deployment=false" >> $GITHUB_OUTPUT
+          fi
+
   build-api:
     name: Build API Image
     needs: check-changes
-    if: |
-      (needs.check-changes.outputs.api_changed == 'true') ||
-      (github.event.inputs.forceBuildApi == 'true')
+    if: needs.check-changes.outputs.api_changed == 'true' || github.event.inputs.forceBuildApi == 'true'
     uses: ./.github/workflows/build-module.yml
     with:
       module: api
@@ -111,9 +130,7 @@ jobs:
   build-web:
     name: Build Web Image
     needs: check-changes
-    if: |
-      (needs.check-changes.outputs.web_changed == 'true') ||
-      (github.event.inputs.forceBuildWeb == 'true')
+    if: needs.check-changes.outputs.web_changed == 'true' || github.event.inputs.forceBuildWeb == 'true'
     uses: ./.github/workflows/build-module.yml
     with:
       module: web
@@ -127,11 +144,7 @@ jobs:
   terraform-plan:
     name: Terraform Plan
     needs: [check-changes, build-api, build-web]
-    if: |
-      always() && 
-      (needs.check-changes.outputs.modules_to_deploy != '' || 
-       needs.check-changes.outputs.terraform_changed == 'true' || 
-       github.event.inputs.forceInfraUpdate == 'true')
+    if: needs.check-changes.outputs.should_deploy_infra == 'true'
     uses: ./.github/workflows/terraform-workflow.yml
     with:
       action: plan
@@ -140,10 +153,7 @@ jobs:
   terraform-apply:
     name: Terraform Apply
     needs: [terraform-plan, check-changes]
-    if: |
-      always() && 
-      (needs.terraform-plan.result == 'success') && 
-      (github.event.inputs.skipDeployment != 'true')
+    if: needs.terraform-plan.result == 'success' && needs.check-changes.outputs.should_skip_deployment == 'false'
     uses: ./.github/workflows/terraform-workflow.yml
     with:
       action: apply
@@ -152,11 +162,10 @@ jobs:
   deploy:
     name: Deploy Application
     needs: [terraform-apply, check-changes]
-    if: |
-      always() && 
-      (needs.terraform-apply.result == 'success') && 
-      (needs.check-changes.outputs.modules_to_deploy != '') && 
-      (github.event.inputs.skipDeployment != 'true')
+    if: >
+      needs.terraform-apply.result == 'success' && 
+      needs.check-changes.outputs.modules_to_deploy != '' && 
+      needs.check-changes.outputs.should_skip_deployment == 'false'
     uses: ./.github/workflows/deploy.yml
     with:
       deploymentParams: ${{ needs.terraform-apply.outputs.deployment_params }}
