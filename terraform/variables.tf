@@ -75,3 +75,10 @@ variable "container_image_web" {
   type        = string
   default     = "618206799106.dkr.ecr.ap-south-1.amazonaws.com/lumixlabs/swift-web:latest"
 }
+
+variable "ssh_private_key_path" {
+  description = "Path to the SSH private key file for remote provisioning"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

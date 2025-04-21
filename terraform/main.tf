@@ -41,3 +41,17 @@ module "cloudflare" {
   instance_ip        = module.compute.instance_public_ip
   domain_name        = var.domain_name
 }
+
+module "nginx" {
+  source = "./modules/nginx"
+
+  instance_id      = module.compute.instance_id
+  instance_ip      = module.compute.instance_public_ip
+  domain_name      = var.domain_name
+  web_service_port = 3050
+  api_service_port = 4000
+  ssh_private_key  = var.ssh_private_key_path
+  
+  # Add dependency on Cloudflare module to ensure DNS is configured first
+  depends_on = [module.cloudflare]
+}
