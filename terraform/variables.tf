@@ -70,3 +70,15 @@ variable "domain_name" {
   type        = string
   default     = "swift-app.com"
 }
+
+variable "container_image_api" {
+  description = "ECR image URI for the API container"
+  type        = string
+  default     = "618206799106.dkr.ecr.ap-south-1.amazonaws.com/swift-api:latest"
+}
+
+variable "container_image_web" {
+  description = "ECR image URI for the Web container"
+  type        = string
+  default     = "618206799106.dkr.ecr.ap-south-1.amazonaws.com/swift-web:latest"
+}
