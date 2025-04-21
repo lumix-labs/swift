@@ -55,6 +55,13 @@ jobs:
             MODULES_TO_DEPLOY="${{ inputs.modules_to_deploy }}"
           fi
           
+          # Validate instance_ip is not empty
+          if [ -z "$INSTANCE_IP" ] || [ "$INSTANCE_IP" == "null" ]; then
+            echo "Error: Instance IP is empty or null. Cannot proceed with deployment."
+            echo "This usually happens when infrastructure outputs are not available."
+            exit 1
+          fi
+          
           echo "instance_ip=${INSTANCE_IP}" >> $GITHUB_OUTPUT
           echo "modules_to_deploy=${MODULES_TO_DEPLOY}" >> $GITHUB_OUTPUT
       
@@ -174,6 +181,12 @@ jobs:
           # Navigate to app directory
           cd /app
 
+          # Authenticate with ECR
+          if [ -n "$AWS_ECR_PASSWORD" ]; then
+            echo "Logging in to ECR..."
+            echo "$AWS_ECR_PASSWORD" | docker login --username AWS --password-stdin $AWS_ECR_REGISTRY
+          fi
+
           # Pull images
           echo "Pulling Docker images..."
           docker-compose pull
@@ -195,6 +208,11 @@ jobs:
       
       - name: Configure SSH
         run: |
+          if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
+            echo "Error: EC2_SSH_KEY secret is not set."
+            exit 1
+          fi
+          
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key.pem
           chmod 600 ~/.ssh/ec2_key.pem
@@ -202,11 +220,14 @@ jobs:
         
       - name: Deploy to EC2
         run: |
+          # Get ECR password for Docker login on EC2
+          AWS_ECR_PASSWORD=$(aws ecr get-login-password --region ${{ secrets.AWS_REGION }})
+          
           # Copy files to EC2
           scp -r deploy/* ec2:~/
           
-          # Execute deploy script on EC2
-          ssh ec2 "./deploy.sh"
+          # Execute deploy script on EC2 with environment variables
+          ssh ec2 "AWS_ECR_PASSWORD='$AWS_ECR_PASSWORD' AWS_ECR_REGISTRY='${{ steps.login-ecr.outputs.registry }}' ./deploy.sh"
       
       - name: Verify Deployment
         run: |

@@ -44,3 +44,4 @@ jobs:
     with:
       deploymentParams: ${{ needs.infrastructure.outputs.deployment_params }}
     secrets: inherit
+    continue-on-error: false

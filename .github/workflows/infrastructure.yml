@@ -101,8 +101,6 @@ jobs:
     defaults:
       run:
         working-directory: ./terraform
-    outputs:
-      deployment_params: ${{ steps.extract-params.outputs.deployment_params }}
     
     steps:
       - name: Checkout code
@@ -145,27 +143,6 @@ jobs:
         id: plan
         run: terraform plan -out=tfplan
 
-      - name: Extract Deployment Parameters
-        id: extract-params
-        run: |
-          # Create a JSON object with deployment parameters
-          DEPLOYMENT_PARAMS=$(cat <<EOF
-          {
-            "instance_ip": "$(terraform output -json instance_public_ip | tr -d '"')",
-            "api_endpoint": "$(terraform output -json api_endpoint | tr -d '"')",
-            "web_endpoint": "$(terraform output -json web_endpoint | tr -d '"')",
-            "modules_to_deploy": "${{ needs.check-module-changes.outputs.modules_to_deploy }}"
-          }
-          EOF
-          )
-          
-          # Escape JSON for GitHub Actions output
-          DEPLOYMENT_PARAMS="${DEPLOYMENT_PARAMS//'%'/'%25'}"
-          DEPLOYMENT_PARAMS="${DEPLOYMENT_PARAMS//$'\n'/'%0A'}"
-          DEPLOYMENT_PARAMS="${DEPLOYMENT_PARAMS//$'\r'/'%0D'}"
-          
-          echo "deployment_params=${DEPLOYMENT_PARAMS}" >> $GITHUB_OUTPUT
-
       - name: Save Plan
         uses: actions/upload-artifact@v3
         with:
@@ -175,13 +152,13 @@ jobs:
 
   terraform-apply:
     name: Terraform Apply
-    needs: [terraform-plan]
+    needs: [terraform-plan, check-module-changes]
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./terraform
     outputs:
-      deployment_params: ${{ needs.terraform-plan.outputs.deployment_params }}
+      deployment_params: ${{ steps.extract-params.outputs.deployment_params }}
     
     steps:
       - name: Checkout code
@@ -210,3 +187,41 @@ jobs:
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
+
+      - name: Extract Deployment Parameters
+        id: extract-params
+        run: |
+          # Ensure infrastructure is applied before extracting outputs
+          sleep 10
+
+          # Check if outputs exist
+          if terraform output -json instance_public_ip >/dev/null 2>&1; then
+            # Create a JSON object with deployment parameters
+            DEPLOYMENT_PARAMS=$(cat <<EOF
+            {
+              "instance_ip": "$(terraform output -json instance_public_ip | tr -d '"')",
+              "api_endpoint": "$(terraform output -json api_endpoint | tr -d '"')",
+              "web_endpoint": "$(terraform output -json web_endpoint | tr -d '"')",
+              "modules_to_deploy": "${{ needs.check-module-changes.outputs.modules_to_deploy }}"
+            }
+            EOF
+            )
+          else
+            # Fallback if outputs don't exist
+            DEPLOYMENT_PARAMS=$(cat <<EOF
+            {
+              "instance_ip": "",
+              "api_endpoint": "",
+              "web_endpoint": "",
+              "modules_to_deploy": "${{ needs.check-module-changes.outputs.modules_to_deploy }}"
+            }
+            EOF
+            )
+          fi
+          
+          # Escape JSON for GitHub Actions output
+          DEPLOYMENT_PARAMS="${DEPLOYMENT_PARAMS//'%'/'%25'}"
+          DEPLOYMENT_PARAMS="${DEPLOYMENT_PARAMS//$'\n'/'%0A'}"
+          DEPLOYMENT_PARAMS="${DEPLOYMENT_PARAMS//$'\r'/'%0D'}"
+          
+          echo "deployment_params=${DEPLOYMENT_PARAMS}" >> $GITHUB_OUTPUT
