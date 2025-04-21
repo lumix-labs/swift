@@ -1,4 +1,4 @@
-name: Build and Push Docker Images
+name: Build and Deploy Pipeline
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
     paths:
       - "api/**"
       - "web/**"
-      - "mcp-server/**"
+      - "terraform/**"
       - ".github/workflows/**"
   workflow_dispatch:
     inputs:
@@ -26,8 +26,16 @@ on:
         options:
           - "true"
           - "false"
-      forceBuildMcpServer:
-        description: "Force build of MCP Server image"
+      forceInfraUpdate:
+        description: "Force infrastructure update"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      skipDeployment:
+        description: "Skip deployment step"
         required: false
         default: "false"
         type: choice
@@ -42,6 +50,8 @@ jobs:
     outputs:
       api_changed: ${{ steps.filter.outputs.api }}
       web_changed: ${{ steps.filter.outputs.web }}
+      terraform_changed: ${{ steps.filter.outputs.terraform }}
+      modules_to_deploy: ${{ steps.set-modules.outputs.modules_to_deploy }}
 
     steps:
       - name: Checkout code
@@ -58,6 +68,29 @@ jobs:
               - 'api/**'
             web:
               - 'web/**'
+            terraform:
+              - 'terraform/**'
+
+      - name: Determine modules to deploy
+        id: set-modules
+        run: |
+          MODULES=()
+          
+          if [[ "${{ steps.filter.outputs.api }}" == "true" ]]; then
+            MODULES+=("api")
+          fi
+          
+          if [[ "${{ steps.filter.outputs.web }}" == "true" ]]; then
+            MODULES+=("web")
+          fi
+          
+          # Join array with commas
+          if [ ${#MODULES[@]} -gt 0 ]; then
+            MODULES_STR=$(IFS=,; echo "${MODULES[*]}")
+            echo "modules_to_deploy=${MODULES_STR}" >> $GITHUB_OUTPUT
+          else
+            echo "modules_to_deploy=" >> $GITHUB_OUTPUT
+          fi
 
   build-api:
     name: Build API Image
@@ -84,9 +117,49 @@ jobs:
     uses: ./.github/workflows/build-module.yml
     with:
       module: web
-      repository: lumixlabs/swift-api
+      repository: lumixlabs/swift-web
     secrets:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+
+  terraform-plan:
+    name: Terraform Plan
+    needs: [check-changes, build-api, build-web]
+    if: |
+      always() && 
+      (needs.check-changes.outputs.modules_to_deploy != '' || 
+       needs.check-changes.outputs.terraform_changed == 'true' || 
+       github.event.inputs.forceInfraUpdate == 'true')
+    uses: ./.github/workflows/terraform-workflow.yml
+    with:
+      action: plan
+      modules_to_deploy: ${{ needs.check-changes.outputs.modules_to_deploy }}
+    secrets: inherit
+
+  terraform-apply:
+    name: Terraform Apply
+    needs: [terraform-plan, check-changes]
+    if: |
+      always() && 
+      (needs.terraform-plan.result == 'success') && 
+      (github.event.inputs.skipDeployment != 'true')
+    uses: ./.github/workflows/terraform-workflow.yml
+    with:
+      action: apply
+      modules_to_deploy: ${{ needs.check-changes.outputs.modules_to_deploy }}
+    secrets: inherit
+
+  deploy:
+    name: Deploy Application
+    needs: [terraform-apply, check-changes]
+    if: |
+      always() && 
+      (needs.terraform-apply.result == 'success') && 
+      (needs.check-changes.outputs.modules_to_deploy != '') && 
+      (github.event.inputs.skipDeployment != 'true')
+    uses: ./.github/workflows/deploy.yml
+    with:
+      deploymentParams: ${{ needs.terraform-apply.outputs.deployment_params }}
+    secrets: inherit

@@ -14,7 +14,7 @@ on:
         required: true
         type: string
       modules_to_deploy:
-        description: 'Comma-separated list of modules to deploy (api,web,mcp-server)'
+        description: 'Comma-separated list of modules to deploy (api,web)'
         required: true
         type: string
 
@@ -117,25 +117,6 @@ jobs:
               start_period: 10s
             networks:
               - swift-network" >> deploy/docker-compose.yml
-            elif [[ "$MODULE" == "mcp-server" ]]; then
-              echo "  mcp-server:
-            image: ${{ steps.login-ecr.outputs.registry }}/lumixlabs/swift-mcp-server:${{ github.sha }}
-            ports:
-              - \"5000:5000\"
-            restart: always
-            volumes:
-              - ./logs/mcp-server:/logs
-            environment:
-              - NODE_ENV=production
-              - PORT=5000
-            healthcheck:
-              test: [\"CMD\", \"wget\", \"--spider\", \"-q\", \"http://localhost:5000/healthcheck\"]
-              interval: 30s
-              timeout: 10s
-              retries: 3
-              start_period: 10s
-            networks:
-              - swift-network" >> deploy/docker-compose.yml
             fi
           done
           
@@ -172,7 +153,7 @@ jobs:
           fi
 
           # Create app directory if it doesn't exist
-          sudo mkdir -p /app/logs/{api,web,mcp-server}
+          sudo mkdir -p /app/logs/{api,web}
           sudo chmod -R 777 /app/logs
 
           # Copy docker-compose.yml to app directory
@@ -245,8 +226,5 @@ jobs:
             elif [[ "$MODULE" == "web" ]]; then
               echo "Checking Web service..."
               ssh ec2 "curl -s http://localhost:3050/ || echo 'Web service is not responding'"
-            elif [[ "$MODULE" == "mcp-server" ]]; then
-              echo "Checking MCP Server service..."
-              ssh ec2 "curl -s http://localhost:5000/healthcheck || echo 'MCP Server is not responding'"
             fi
           done

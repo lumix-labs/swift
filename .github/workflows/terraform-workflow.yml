@@ -1,0 +1,129 @@
+name: Terraform Workflow
+
+on:
+  workflow_call:
+    inputs:
+      action:
+        required: true
+        type: string
+        description: 'Terraform action to perform (plan or apply)'
+      modules_to_deploy:
+        required: false
+        type: string
+        description: 'Comma-separated list of modules to deploy'
+    outputs:
+      deployment_params:
+        description: "Deployment parameters as JSON"
+        value: ${{ jobs.terraform.outputs.deployment_params }}
+    secrets:
+      inherit: true
+
+jobs:
+  terraform:
+    name: Terraform ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./terraform
+    outputs:
+      deployment_params: ${{ steps.extract-params.outputs.deployment_params }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.4.6
+
+      - name: Configure AWS credentials
+        uses: ./.github/workflows/actions/configure-aws
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Create tfvars file
+        run: |
+          # Create terraform.tfvars from example and secrets
+          cp terraform.tfvars.example terraform.tfvars
+          
+          # Add other secrets
+          if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "cloudflare_api_token=\"${{ secrets.CLOUDFLARE_API_TOKEN }}\"" >> terraform.tfvars
+          fi
+          
+          if [ -n "${{ secrets.CLOUDFLARE_ZONE_ID }}" ]; then
+            echo "cloudflare_zone_id=\"${{ secrets.CLOUDFLARE_ZONE_ID }}\"" >> terraform.tfvars
+          fi
+          
+          if [ -n "${{ secrets.DOMAIN_NAME }}" ]; then
+            echo "domain_name=\"${{ secrets.DOMAIN_NAME }}\"" >> terraform.tfvars
+          fi
+
+      - name: Terraform Plan
+        if: inputs.action == 'plan'
+        id: plan
+        run: terraform plan -out=tfplan
+
+      - name: Save Plan
+        if: inputs.action == 'plan'
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-plan
+          path: terraform/tfplan
+          retention-days: 5
+
+      - name: Download Plan
+        if: inputs.action == 'apply'
+        uses: actions/download-artifact@v3
+        with:
+          name: terraform-plan
+          path: terraform
+
+      - name: Terraform Apply
+        if: inputs.action == 'apply'
+        run: terraform apply -auto-approve tfplan
+
+      - name: Extract Deployment Parameters
+        if: inputs.action == 'apply'
+        id: extract-params
+        run: |
+          # Ensure infrastructure is applied before extracting outputs
+          sleep 10
+
+          # Check if outputs exist
+          if terraform output -json instance_public_ip >/dev/null 2>&1; then
+            # Create a JSON object with deployment parameters
+            DEPLOYMENT_PARAMS=$(cat <<EOF
+            {
+              "instance_ip": "$(terraform output -json instance_public_ip | tr -d '"')",
+              "api_endpoint": "$(terraform output -json api_endpoint | tr -d '"')",
+              "web_endpoint": "$(terraform output -json web_endpoint | tr -d '"')",
+              "modules_to_deploy": "${{ inputs.modules_to_deploy }}"
+            }
+            EOF
+            )
+          else
+            # Fallback if outputs don't exist
+            DEPLOYMENT_PARAMS=$(cat <<EOF
+            {
+              "instance_ip": "",
+              "api_endpoint": "",
+              "web_endpoint": "",
+              "modules_to_deploy": "${{ inputs.modules_to_deploy }}"
+            }
+            EOF
+            )
+          fi
+          
+          # Escape JSON for GitHub Actions output
+          DEPLOYMENT_PARAMS="${DEPLOYMENT_PARAMS//'%'/'%25'}"
+          DEPLOYMENT_PARAMS="${DEPLOYMENT_PARAMS//$'\n'/'%0A'}"
+          DEPLOYMENT_PARAMS="${DEPLOYMENT_PARAMS//$'\r'/'%0D'}"
+          
+          echo "deployment_params=${DEPLOYMENT_PARAMS}" >> $GITHUB_OUTPUT
