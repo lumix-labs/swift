@@ -42,19 +42,26 @@ jobs:
       - name: Debug backend.tf
         run: cat backend.tf
 
-      - name: Debug Terraform workspace
-        env:
-          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-        run: |
-          terraform -version
-          terraform workspace list || echo "Cannot list workspaces before init"
+      # Temporarily disable remote backend for initialization
+      - name: Rename backend file for local init
+        run: mv backend.tf backend.tf.remote
 
-      - name: Terraform Init with Debug
+      # Local initialization to get modules
+      - name: Local Terraform Init
+        run: terraform init -input=false
+
+      # Restore remote backend
+      - name: Restore remote backend
+        run: |
+          mv backend.tf.remote backend.tf
+          
+      # Initialize with remote backend
+      - name: Remote Terraform Init
         id: init
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
           TF_LOG: DEBUG
-        run: terraform init -input=false
+        run: terraform init -input=false -force-copy
 
       - name: Debug after init failure
         if: failure()
