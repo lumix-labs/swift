@@ -8,7 +8,8 @@ if (!fs.existsSync(logsDir)) {
   try {
     fs.mkdirSync(logsDir, { recursive: true });
   } catch (error) {
-    console.error(`Failed to create logs directory: ${error}`);
+    // Use winston logger once initialized, avoid direct console calls
+    // Error logging will happen further down
     // Fall back to local logs directory if mounted volume is not available
     fs.mkdirSync('logs', { recursive: true });
   }
@@ -56,8 +57,16 @@ const logger = winston.createLogger({
   ]
 });
 
+// Define type for request data
+interface RequestData {
+  path?: string;
+  method?: string;
+  ip?: string;
+  [key: string]: unknown;
+}
+
 // Helper functions for different log types
-export const logRequest = (message: string, traceId: string, req?: any) => {
+export const logRequest = (message: string, traceId: string, req?: RequestData) => {
   logger.info(message, { 
     traceId, 
     type: 'REQUEST',
@@ -88,7 +97,12 @@ export const logError = (message: string, traceId: string, error?: Error) => {
   });
 };
 
-export const logInfo = (message: string, traceId: string, metadata?: any) => {
+// Define type for metadata
+interface LogMetadata {
+  [key: string]: unknown;
+}
+
+export const logInfo = (message: string, traceId: string, metadata?: LogMetadata) => {
   logger.info(message, { 
     traceId,
     type: 'INFO',

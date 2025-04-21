@@ -23,7 +23,7 @@ export const requestLoggerMiddleware = (req: Request, res: Response, next: NextF
   const originalEnd = res.end;
   
   // Override the end method properly handling all overload signatures
-  res.end = function(this: Response, chunk?: any, encoding?: BufferEncoding | (() => void), cb?: () => void): Response {
+  res.end = function(this: Response, chunk?: unknown, encoding?: BufferEncoding | (() => void), cb?: () => void): Response {
     // Calculate response time
     const responseTime = Date.now() - (req.startTime ?? Date.now());
     
@@ -32,7 +32,7 @@ export const requestLoggerMiddleware = (req: Request, res: Response, next: NextF
     
     // Call original end method with correct handling of overloads
     if (typeof encoding === 'function') {
-      return originalEnd.call(this as Response, chunk, null as any, encoding);
+      return originalEnd.call(this as Response, chunk, null as BufferEncoding, encoding);
     }
     return originalEnd.call(this as Response, chunk, encoding as BufferEncoding, cb);
   };

@@ -19,11 +19,10 @@ export const traceIdMiddleware = (req: Request, res: Response, next: NextFunctio
 };
 
 // Extend Express Request interface to include traceId
-declare global {
-  namespace Express {
-    interface Request {
-      traceId: string;
-      startTime?: number;
-    }
+// Using module augmentation instead of namespace
+declare module 'express' {
+  interface Request {
+    traceId: string;
+    startTime?: number;
   }
 }

@@ -43,6 +43,16 @@ if git diff --cached --name-only | grep -q "web/"; then
   fi
 fi
 
+# Check if there are any changes in terraform files
+if git diff --cached --name-only | grep -q "terraform/"; then
+  echo "Checking terraform files..."
+  cd "$ROOT_DIR/terraform" && terraform validate
+  TERRAFORM_EXIT_CODE=$?
+  if [ $TERRAFORM_EXIT_CODE -ne 0 ]; then
+    EXIT_CODE=$TERRAFORM_EXIT_CODE
+  fi
+fi
+
 # Check if there are any changes in MCP-Server files
 if git diff --cached --name-only | grep -q "mcp-server/"; then
   echo "Checking MCP-Server files..."

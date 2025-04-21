@@ -1,14 +1,24 @@
-output "ecr_repository_url" {
-  value       = aws_ecr_repository.swift_web.repository_url
-  description = "ECR repository URL"
+output "vpc_id" {
+  description = "ID of the VPC"
+  value       = module.networking.vpc_id
 }
 
-output "lightsail_service_url" {
-  value       = aws_lightsail_container_service.swift_web.url
-  description = "Lightsail container service URL"
+output "public_subnet_ids" {
+  description = "IDs of the public subnets"
+  value       = module.networking.public_subnet_ids
 }
 
-output "website_url" {
-  value       = "https://${var.subdomain}.${var.domain_name}"
-  description = "Website URL"
+output "private_subnet_ids" {
+  description = "IDs of the private subnets"
+  value       = module.networking.private_subnet_ids
+}
+
+output "instance_public_ip" {
+  description = "Public IP of the EC2 instance"
+  value       = module.compute.instance_public_ip
+}
+
+output "instance_id" {
+  description = "ID of the EC2 instance"
+  value       = module.compute.instance_id
 }

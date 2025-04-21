@@ -32,7 +32,8 @@
     "docker:logs": "docker-compose logs -f",
     "prepare": "husky",
     "ci": "node scripts/local-ci.js",
-    "setup-env": "node scripts/setup-env.js"
+    "setup-env": "node scripts/setup-env.js",
+    "terraform:validate": "cd terraform && terraform validate"
   },
   "devDependencies": {
     "@commitlint/cli": "^18.4.3",

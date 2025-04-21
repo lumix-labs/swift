@@ -1,0 +1,23 @@
+# Project settings
+project_name = "swift"
+environment  = "prod"
+aws_region   = "ap-south-1"
+
+# Network settings
+vpc_cidr             = "10.0.0.0/16"
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs = [] # Removed private subnets for cost optimization
+availability_zones   = ["ap-south-1a", "ap-south-1b"]
+
+# Instance settings
+instance_type = "t3.small" # Downgraded for cost savings
+key_pair_name = "swift-key"
+
+# Container images (to be defined in Terraform Cloud)
+container_image_api = "618206799106.dkr.ecr.ap-south-1.amazonaws.com/lumixlabs/swift-api:latest"
+container_image_web = "618206799106.dkr.ecr.ap-south-1.amazonaws.com/lumixlabs/swift-web:latest"
+
+# Cloudflare settings (to be defined in Terraform Cloud)
+cloudflare_api_token = "your_cloudflare_api_token_here" # Or use CLOUDFLARE_API_TOKEN env var
+cloudflare_zone_id = "your_zone_id_here"
+domain_name = "swift-app.com"
