@@ -6,11 +6,11 @@ on:
       infrastructureParams:
         required: true
         type: string
-        description: 'JSON string containing infrastructure parameters'
+        description: "JSON string containing infrastructure parameters"
       modulesToDeploy:
         required: true
         type: string
-        description: 'Comma-separated list of modules to deploy'
+        description: "Comma-separated list of modules to deploy"
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
@@ -25,11 +25,11 @@ on:
   workflow_dispatch:
     inputs:
       instance_ip:
-        description: 'EC2 Instance IP'
+        description: "EC2 Instance IP"
         required: true
         type: string
       modules_to_deploy:
-        description: 'Comma-separated list of modules to deploy (api,web)'
+        description: "Comma-separated list of modules to deploy (api,web)"
         required: true
         type: string
 
@@ -37,28 +37,28 @@ jobs:
   deploy:
     name: Deploy to EC2
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
-        
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
-      
+
       - name: Parse parameters
         id: parse-params
         run: |
           # Make parse-params.sh executable
           chmod +x .github/scripts/parse-params.sh
-          
+
           if [ -n "${{ inputs.infrastructureParams }}" ]; then
             # From workflow_call - use our parameter parser
             export PARAMS='${{ inputs.infrastructureParams }}'
@@ -71,16 +71,16 @@ jobs:
             INSTANCE_ID=""
             MODULES_TO_DEPLOY="${{ inputs.modules_to_deploy }}"
           fi
-          
+
           echo "Parsed instance_ip: $INSTANCE_IP"
-          
+
           # Validate instance_ip is not empty
           if [ -z "$INSTANCE_IP" ] || [ "$INSTANCE_IP" == "null" ]; then
             echo "Error: Instance IP is empty or null. Cannot proceed with deployment."
             echo "This usually happens when infrastructure outputs are not available."
             exit 1
           fi
-          
+
           # If instance ID is not available, get it from the IP
           if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
             echo "Attempting to get instance ID from IP address..."
@@ -96,25 +96,25 @@ jobs:
               echo "Found instance ID: $INSTANCE_ID"
             fi
           fi
-          
+
           echo "instance_ip=${INSTANCE_IP}" >> $GITHUB_OUTPUT
           echo "instance_id=${INSTANCE_ID}" >> $GITHUB_OUTPUT
           echo "modules_to_deploy=${MODULES_TO_DEPLOY}" >> $GITHUB_OUTPUT
-      
+
       - name: Create docker-compose file
         run: |
           mkdir -p deploy
-          
+
           # Create docker-compose.yml content
           cat > deploy/docker-compose.yml << EOL
           version: '3'
 
           services:
           EOL
-          
+
           # Convert comma-separated modules to array
           IFS=',' read -ra MODULES <<< "${{ steps.parse-params.outputs.modules_to_deploy }}"
-          
+
           # Add each module to docker-compose
           for MODULE in "${MODULES[@]}"; do
             if [[ "$MODULE" == "api" ]]; then
@@ -161,7 +161,7 @@ jobs:
           EOL
             fi
           done
-          
+
           # Add networks section
           cat >> deploy/docker-compose.yml << EOL
 
@@ -169,7 +169,7 @@ jobs:
             swift-network:
               driver: bridge
           EOL
-      
+
       # Create a direct SSM deployment script that doesn't use S3
       - name: Create deployment script
         run: |
@@ -193,8 +193,9 @@ jobs:
           # Get ECR credentials using instance profile
           if [ -n "${AWS_ECR_REGISTRY}" ]; then
             echo "Logging in to ECR..."
-            AWS_ECR_PASSWORD=$(aws ecr get-login-password --region ${AWS_REGION})
-            echo "${AWS_ECR_PASSWORD}" | docker login --username AWS --password-stdin ${AWS_ECR_REGISTRY}
+            # Use AWS command to get credentials and login to Docker securely
+            # This prevents the password from being exposed in logs
+            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ECR_REGISTRY}
           fi
 
           # Pull Docker images
@@ -215,14 +216,14 @@ jobs:
 
           echo "Deployment completed at $(date)"
           EOL
-          
+
           chmod +x deploy/run-deployment.sh
-      
+
       - name: Deploy using direct SSM command
         run: |
           INSTANCE_ID="${{ steps.parse-params.outputs.instance_id }}"
           INSTANCE_IP="${{ steps.parse-params.outputs.instance_ip }}"
-          
+
           if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
             echo "Warning: Instance ID not available. Trying to find instance using IP $INSTANCE_IP..."
             INSTANCE_ID=$(aws ec2 describe-instances \
@@ -235,9 +236,9 @@ jobs:
               exit 1
             fi
           fi
-          
+
           echo "Deploying to instance: $INSTANCE_ID"
-          
+
           # Check if we can connect to the instance via SSM
           CONNECTION_STATUS=$(aws ssm describe-instance-information \
             --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
@@ -268,11 +269,11 @@ jobs:
               fi
             done
           fi
-          
+
           # Create base64 encoded docker-compose file to avoid issues with quotes and whitespace
           DOCKER_COMPOSE_BASE64=$(base64 -w 0 deploy/docker-compose.yml)
           DEPLOYMENT_SCRIPT_BASE64=$(base64 -w 0 deploy/run-deployment.sh)
-          
+
           # Send command to instance using SSM document
           CMD_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
@@ -289,23 +290,23 @@ jobs:
             --timeout-seconds 600 \
             --output text \
             --query "Command.CommandId")
-          
+
           echo "SSM command ID: $CMD_ID"
-          
+
           # Wait for command to complete (add a timeout to avoid waiting indefinitely)
           timeout 10m aws ssm wait command-executed \
             --command-id "$CMD_ID" \
             --instance-id "$INSTANCE_ID" || echo "Command timed out, continuing..."
-          
+
           # Get command result
           RESULT=$(aws ssm get-command-invocation \
             --command-id "$CMD_ID" \
             --instance-id "$INSTANCE_ID" \
             --query "Status" \
             --output text || echo "Failed to get command status")
-          
+
           echo "Command status: $RESULT"
-          
+
           if [ "$RESULT" != "Success" ]; then
             echo "Deployment failed with status: $RESULT"
             aws ssm get-command-invocation \
@@ -315,20 +316,20 @@ jobs:
               --output text || echo "Could not retrieve error content"
             exit 1
           fi
-          
+
           echo "Deployment output:"
           aws ssm get-command-invocation \
             --command-id "$CMD_ID" \
             --instance-id "$INSTANCE_ID" \
             --query "StandardOutputContent" \
             --output text || echo "Could not retrieve output content"
-          
+
           echo "Deployment completed successfully"
-      
+
       - name: Verify Deployment
         run: |
           INSTANCE_ID="${{ steps.parse-params.outputs.instance_id }}"
-          
+
           if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
             INSTANCE_IP="${{ steps.parse-params.outputs.instance_ip }}"
             INSTANCE_ID=$(aws ec2 describe-instances \
@@ -336,13 +337,13 @@ jobs:
               --query "Reservations[0].Instances[0].InstanceId" \
               --output text)
           fi
-          
+
           echo "Waiting for services to start..."
           sleep 30
-          
+
           # Verify services using SSM
           IFS=',' read -ra MODULES <<< "${{ steps.parse-params.outputs.modules_to_deploy }}"
-          
+
           for MODULE in "${MODULES[@]}"; do
             if [[ "$MODULE" == "api" ]]; then
               echo "Checking API service..."
