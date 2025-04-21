@@ -9,6 +9,17 @@ on:
       - "mcp-server/**"
       - "terraform/**"
       - ".github/workflows/**"
+  workflow_call:
+    inputs:
+      forceInfraUpdate:
+        required: false
+        type: string
+        default: "false"
+        description: "Force infrastructure update"
+    outputs:
+      deployment_params:
+        description: "Deployment parameters as JSON"
+        value: ${{ jobs.terraform-apply.outputs.deployment_params }}
   workflow_dispatch:
     inputs:
       forceInfraUpdate:
@@ -79,24 +90,52 @@ jobs:
   build-images:
     name: Build Docker Images
     needs: check-module-changes
-    if: ${{ needs.check-module-changes.outputs.modules_to_deploy != '' || github.event.inputs.forceInfraUpdate == 'true' }}
-    strategy:
-      matrix:
-        module: ${{ fromJSON(format('["%s"]', join('","', split(needs.check-module-changes.outputs.modules_to_deploy, ',')))) }}
-    uses: ./.github/workflows/build-module.yml
-    with:
-      module: ${{ matrix.module }}
-      repository: lumixlabs/swift-${{ matrix.module }}
-    secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+    if: ${{ needs.check-module-changes.outputs.modules_to_deploy != '' || inputs.forceInfraUpdate == 'true' || github.event.inputs.forceInfraUpdate == 'true' }}
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: ./.github/workflows/actions/configure-aws
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: ./.github/workflows/actions/ecr-login
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+      
+      - name: Build and push modules
+        run: |
+          # Get list of modules to deploy
+          IFS=',' read -ra MODULES <<< "${{ needs.check-module-changes.outputs.modules_to_deploy }}"
+          
+          # Build and push each module
+          for MODULE in "${MODULES[@]}"; do
+            echo "Building and pushing $MODULE module..."
+            
+            # Create ECR repository if it doesn't exist
+            REPO_NAME="lumixlabs/swift-$MODULE"
+            aws ecr create-repository --repository-name $REPO_NAME || true
+            
+            # Build and push Docker image
+            cd $MODULE
+            docker build -t ${{ steps.login-ecr.outputs.registry }}/$REPO_NAME:${{ github.sha }} -t ${{ steps.login-ecr.outputs.registry }}/$REPO_NAME:latest .
+            docker push ${{ steps.login-ecr.outputs.registry }}/$REPO_NAME:${{ github.sha }}
+            docker push ${{ steps.login-ecr.outputs.registry }}/$REPO_NAME:latest
+            cd ..
+          done
 
   terraform-plan:
     name: Terraform Plan
     needs: [check-module-changes, build-images]
-    if: ${{ always() && (needs.check-module-changes.outputs.modules_to_deploy != '' || needs.check-module-changes.outputs.terraform_changed == 'true' || github.event.inputs.forceInfraUpdate == 'true') }}
+    if: ${{ always() && (needs.check-module-changes.outputs.modules_to_deploy != '' || needs.check-module-changes.outputs.terraform_changed == 'true' || inputs.forceInfraUpdate == 'true' || github.event.inputs.forceInfraUpdate == 'true') }}
     runs-on: ubuntu-latest
     defaults:
       run:

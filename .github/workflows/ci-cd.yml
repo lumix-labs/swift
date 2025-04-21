@@ -4,29 +4,29 @@ on:
   push:
     branches: [master, main, ak]
     paths:
-      - "api/**"
-      - "web/**"
-      - "mcp-server/**"
-      - "terraform/**"
-      - ".github/workflows/**"
+      - \"api/**\"
+      - \"web/**\"
+      - \"mcp-server/**\"
+      - \"terraform/**\"
+      - \".github/workflows/**\"
   workflow_dispatch:
     inputs:
       forceInfraUpdate:
-        description: "Force infrastructure update"
+        description: \"Force infrastructure update\"
         required: false
-        default: "false"
+        default: \"false\"
         type: choice
         options:
-          - "true"
-          - "false"
+          - \"true\"
+          - \"false\"
       skipDeployment:
-        description: "Skip deployment step"
+        description: \"Skip deployment step\"
         required: false
-        default: "false"
+        default: \"false\"
         type: choice
         options:
-          - "true"
-          - "false"
+          - \"true\"
+          - \"false\"
 
 jobs:
   infrastructure:
@@ -35,7 +35,7 @@ jobs:
     with:
       forceInfraUpdate: ${{ github.event.inputs.forceInfraUpdate || 'false' }}
     secrets: inherit
-  
+
   deploy:
     name: Application Deployment
     needs: infrastructure
