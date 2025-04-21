@@ -32,6 +32,19 @@ else
   echo "✅ Validation completed successfully."
 fi
 
+# Check if there are any changes in GitHub workflow files
+if git diff --cached --name-only | grep -q "\.github/workflows/"; then
+  echo "Checking GitHub workflow files..."
+  cd "$ROOT_DIR" && node .github/scripts/validate-workflows.js
+  WORKFLOW_EXIT_CODE=$?
+  if [ $WORKFLOW_EXIT_CODE -ne 0 ]; then
+    echo "❌ GitHub workflow validation failed."
+    EXIT_CODE=$WORKFLOW_EXIT_CODE
+  else
+    echo "✅ GitHub workflow validation passed."
+  fi
+fi
+
 # Check if there are any changes in API-Server files
 if git diff --cached --name-only | grep -q "api-server/"; then
   echo "Checking API-Server files..."

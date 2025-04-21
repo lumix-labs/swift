@@ -16,7 +16,7 @@ on:
         description: "Deployment parameters as JSON"
         value: ${{ jobs.terraform.outputs.deployment_params }}
     secrets:
-      inherit: true
+      inherit
 
 jobs:
   terraform:
