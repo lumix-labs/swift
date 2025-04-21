@@ -36,11 +36,37 @@ jobs:
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
           terraform_wrapper: false
 
-      - name: Terraform Init
+      - name: Debug variables.tf
+        run: cat variables.tf
+
+      - name: Debug backend.tf
+        run: cat backend.tf
+
+      - name: Debug Terraform workspace
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: |
+          terraform -version
+          terraform workspace list || echo "Cannot list workspaces before init"
+
+      - name: Terraform Init with Debug
         id: init
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TF_LOG: DEBUG
         run: terraform init -input=false
+
+      - name: Debug after init failure
+        if: failure()
+        run: |
+          echo "=== Terraform state debug ==="
+          ls -la
+          find . -name "*.tfstate*" -type f -exec ls -la {} \;
+          find . -name "*.tflock*" -type f -exec ls -la {} \;
+          echo "=== Terraform providers debug ==="
+          terraform providers || echo "Cannot run providers command"
+          echo "=== Terraform validate debug ==="
+          terraform validate || echo "Cannot validate"
 
       - name: Terraform Plan
         if: inputs.action == 'plan'
