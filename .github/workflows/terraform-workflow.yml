@@ -47,7 +47,7 @@ jobs:
 
       - name: Save Plan
         if: inputs.action == 'plan'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-plan
           path: terraform/tfplan
@@ -55,7 +55,7 @@ jobs:
 
       - name: Download Plan
         if: inputs.action == 'apply'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: terraform-plan
           path: terraform
