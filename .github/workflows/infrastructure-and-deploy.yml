@@ -41,7 +41,7 @@ jobs:
     if: ${{ always() && (inputs.skip_terraform || success()) }}
     uses: ./.github/workflows/deploy.yml
     with:
-      infrastructureParams: ${{ inputs.skip_terraform && '{"instance_ip":"${{ secrets.INSTANCE_IP }}"}' || needs.terraform_apply.outputs.infrastructure_params }}
+      infrastructureParams: ${{ inputs.skip_terraform && format('{"instance_ip":"%s"}', secrets.INSTANCE_IP) || needs.terraform_apply.outputs.infrastructure_params }}
       modulesToDeploy: ${{ inputs.modules_to_deploy || 'api,web' }}
     secrets:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}

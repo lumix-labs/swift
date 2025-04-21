@@ -79,18 +79,11 @@ jobs:
         if: inputs.action == 'apply'
         id: extract-params
         run: |
-          # Create a JSON object with infrastructure parameters
-          INFRASTRUCTURE_PARAMS=$(cat <<EOF
-          {
-            "instance_ip": "$(terraform output -json instance_public_ip 2>/dev/null | tr -d '"' || echo "")",
-            "instance_id": "$(terraform output -json instance_id 2>/dev/null | tr -d '"' || echo "")"
-          }
-          EOF
-          )
+          # Extract values individually using -raw to avoid JSON formatting issues
+          INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null || echo "")
+          INSTANCE_ID=$(terraform output -raw instance_id 2>/dev/null || echo "")
           
-          # Escape JSON for GitHub Actions output
-          INFRASTRUCTURE_PARAMS="${INFRASTRUCTURE_PARAMS//'%'/'%25'}"
-          INFRASTRUCTURE_PARAMS="${INFRASTRUCTURE_PARAMS//$'\n'/'%0A'}"
-          INFRASTRUCTURE_PARAMS="${INFRASTRUCTURE_PARAMS//$'\r'/'%0D'}"
+          # Create compact single-line JSON without newlines or special characters
+          INFRASTRUCTURE_PARAMS="{\"instance_ip\":\"$INSTANCE_IP\",\"instance_id\":\"$INSTANCE_ID\"}"
           
-          echo "infrastructure_params=${INFRASTRUCTURE_PARAMS}" >> $GITHUB_OUTPUT
+          echo "infrastructure_params=$INFRASTRUCTURE_PARAMS" >> $GITHUB_OUTPUT

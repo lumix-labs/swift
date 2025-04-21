@@ -56,16 +56,21 @@ jobs:
       - name: Parse parameters
         id: parse-params
         run: |
+          # Make parse-params.sh executable
+          chmod +x .github/scripts/parse-params.sh
+          
           if [ -n "${{ inputs.infrastructureParams }}" ]; then
-            # From workflow_call
-            PARAMS='${{ inputs.infrastructureParams }}'
-            INSTANCE_IP=$(echo $PARAMS | jq -r '.instance_ip')
+            # From workflow_call - use our parameter parser
+            export PARAMS='${{ inputs.infrastructureParams }}'
+            INSTANCE_IP=$(.github/scripts/parse-params.sh "$PARAMS" "instance_ip")
             MODULES_TO_DEPLOY="${{ inputs.modulesToDeploy }}"
           else
             # From workflow_dispatch
             INSTANCE_IP="${{ inputs.instance_ip }}"
             MODULES_TO_DEPLOY="${{ inputs.modules_to_deploy }}"
           fi
+          
+          echo "Parsed instance_ip: $INSTANCE_IP"
           
           # Validate instance_ip is not empty
           if [ -z "$INSTANCE_IP" ] || [ "$INSTANCE_IP" == "null" ]; then
