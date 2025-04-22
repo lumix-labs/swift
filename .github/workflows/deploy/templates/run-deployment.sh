@@ -4,16 +4,48 @@ set -e
 # Deployment script for Swift application
 echo "Starting Swift deployment..."
 
+# Parse command line arguments
+CONFIG_FILE=""
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --config)
+      CONFIG_FILE="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1"
+      shift
+      ;;
+  esac
+done
+
+# Read from config file if provided
+if [ -n "$CONFIG_FILE" ] && [ -f "$CONFIG_FILE" ]; then
+  echo "Reading configuration from $CONFIG_FILE"
+  # Use jq to parse JSON config if available, otherwise fallback to grep
+  if command -v jq &> /dev/null; then
+    AWS_ECR_REGISTRY=${AWS_ECR_REGISTRY:-$(jq -r '.registry // empty' "$CONFIG_FILE")}
+    AWS_REGION=${AWS_REGION:-$(jq -r '.region // empty' "$CONFIG_FILE")}
+  else
+    # Fallback if jq is not available
+    AWS_ECR_REGISTRY=${AWS_ECR_REGISTRY:-$(grep -o '"registry":"[^"]*"' "$CONFIG_FILE" | cut -d'"' -f4)}
+    AWS_REGION=${AWS_REGION:-$(grep -o '"region":"[^"]*"' "$CONFIG_FILE" | cut -d'"' -f4)}
+  fi
+fi
+
 # Check for necessary environment variables
 if [ -z "$AWS_ECR_REGISTRY" ]; then
-  echo "Error: AWS_ECR_REGISTRY environment variable is required"
+  echo "Error: AWS_ECR_REGISTRY is required (via environment variable or config file)"
   exit 1
 fi
 
 if [ -z "$AWS_REGION" ]; then
-  echo "Error: AWS_REGION environment variable is required"
+  echo "Error: AWS_REGION is required (via environment variable or config file)"
   exit 1
 fi
+
+echo "Using ECR Registry: $AWS_ECR_REGISTRY"
+echo "Using AWS Region: $AWS_REGION"
 
 # Configure AWS CLI if needed
 aws configure set default.region $AWS_REGION

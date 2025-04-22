@@ -76,7 +76,10 @@ runs:
           done
         fi
         
-        # Send command to instance using SSM document
+        # Create a config file to reliably pass variables 
+        CONFIG_BASE64=$(echo "{\"registry\":\"${{ inputs.registry }}\",\"region\":\"${{ inputs.aws_region }}\"}" | base64 -w 0)
+        
+        # Send command to instance using SSM document with improved environment variable handling
         CMD_ID=$(aws ssm send-command \
           --instance-ids "$INSTANCE_ID" \
           --document-name "AWS-RunShellScript" \
@@ -86,8 +89,11 @@ runs:
             \"cd /tmp/swift-deploy\",
             \"echo ${{ inputs.docker_compose_base64 }} | base64 --decode > docker-compose.yml\",
             \"echo ${{ inputs.deployment_script_base64 }} | base64 --decode > run-deployment.sh\", 
+            \"echo $CONFIG_BASE64 | base64 --decode > config.json\",
             \"chmod +x run-deployment.sh\",
-            \"AWS_ECR_REGISTRY='${{ inputs.registry }}' AWS_REGION='${{ inputs.aws_region }}' ./run-deployment.sh\"
+            \"export AWS_ECR_REGISTRY='${{ inputs.registry }}'\", 
+            \"export AWS_REGION='${{ inputs.aws_region }}'\",
+            \"./run-deployment.sh --config config.json\"
           ]" \
           --timeout-seconds 900 \
           --output text \
