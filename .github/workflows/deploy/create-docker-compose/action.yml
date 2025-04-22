@@ -16,27 +16,28 @@ runs:
       shell: bash
       run: |
         mkdir -p deploy
-        cp ${{ github.action_path }}/../templates/docker-compose.yml deploy/docker-compose.yml
+        
+        # Copy the root docker-compose file instead of using a template
+        cp ${{ github.workspace }}/docker-compose.yml deploy/docker-compose.yml
         
         # Print debug info
         echo "Registry value: ${{ inputs.registry }}"
         echo "Modules to deploy: ${{ inputs.modules_to_deploy }}"
         
-        # Replace variables in the template with double-quoted values for proper formatting
+        # Replace variables in the file
         REGISTRY="${{ inputs.registry }}"
-        sed -i "s|\${AWS_ECR_REGISTRY}|$REGISTRY|g" deploy/docker-compose.yml
+        sed -i "s|build:|image: \"$REGISTRY/lumixlabs/swift-|g; s|dockerfile: Dockerfile|:latest\"|g" deploy/docker-compose.yml
         
         # If specific modules were specified, remove other modules
         if [ -n "${{ inputs.modules_to_deploy }}" ]; then
           echo "Creating docker-compose.yml with modules: ${{ inputs.modules_to_deploy }}"
           IFS=',' read -ra MODULES <<< "${{ inputs.modules_to_deploy }}"
-          ALL_MODULES=("api" "web")
+          ALL_MODULES=("api-server" "web")
           
           # Find modules to remove
           for MODULE in "${ALL_MODULES[@]}"; do
-            if [[ ! " ${MODULES[*]} " =~ " ${MODULE} " ]]; then
+            if [[ ! " ${MODULES[*]} " =~ " ${MODULE//-server/}" ]]; then
               echo "Removing module ${MODULE} from docker-compose.yml"
-              # Remove the module section from docker-compose.yml safely
               # Using a more reliable pattern matching approach
               awk -v module="${MODULE}" '
               BEGIN { skip=0; }
