@@ -47,6 +47,8 @@ jobs:
   check-changes:
     name: Check Modified Modules
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       api_changed: ${{ steps.filter.outputs.api }}
       web_changed: ${{ steps.filter.outputs.web }}
@@ -122,10 +124,10 @@ jobs:
       module: api
       repository: lumixlabs/swift-api
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   build-web:
     name: Build Web Image
@@ -136,10 +138,10 @@ jobs:
       module: web
       repository: lumixlabs/swift-web
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   terraform-plan:
     name: Terraform Plan
@@ -149,7 +151,7 @@ jobs:
     with:
       action: plan
     secrets:
-      TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+      TERRAFORM_API_TOKEN: ${{ secrets.TF_AUTH }}
 
   terraform-apply:
     name: Terraform Apply
@@ -159,7 +161,7 @@ jobs:
     with:
       action: apply
     secrets:
-      TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+      TERRAFORM_API_TOKEN: ${{ secrets.TF_AUTH }}
 
   deploy:
     name: Deploy Application
@@ -173,8 +175,8 @@ jobs:
       infrastructureParams: ${{ needs.terraform-apply.outputs.infrastructure_params }}
       modulesToDeploy: ${{ needs.check-changes.outputs.modules_to_deploy }}
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

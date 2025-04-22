@@ -1,0 +1,54 @@
+name: 'Create Deployment Script'
+description: 'Generates the deployment shell script for EC2'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Create deployment script
+      shell: bash
+      run: |
+        # Create deployment execution script
+        cat > deploy/run-deployment.sh << 'EOL'
+        #!/bin/bash
+        set -e
+
+        echo "Starting deployment at $(date)"
+
+        # Create app directory if it doesn't exist
+        mkdir -p /app/logs/{api,web}
+        chmod -R 777 /app/logs
+
+        # Copy docker-compose.yml to app directory
+        cp docker-compose.yml /app/
+
+        # Navigate to app directory
+        cd /app
+
+        # Get ECR credentials using instance profile
+        if [ -n "${AWS_ECR_REGISTRY}" ]; then
+          echo "Logging in to ECR..."
+          # Use AWS command to get credentials and login to Docker securely
+          # This prevents the password from being exposed in logs
+          aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ECR_REGISTRY}
+        fi
+
+        # Pull Docker images
+        echo "Pulling Docker images..."
+        docker-compose pull
+
+        # Stop and remove existing containers
+        echo "Stopping existing containers..."
+        docker-compose down || true
+
+        # Start new containers
+        echo "Starting new containers..."
+        docker-compose up -d
+
+        # Check container status
+        echo "Container status:"
+        docker-compose ps
+
+        echo "Deployment completed at $(date)"
+        EOL
+        
+        chmod +x deploy/run-deployment.sh

@@ -1,0 +1,76 @@
+name: 'Verify Deployment'
+description: 'Verifies the deployment of modules on EC2 instance'
+
+inputs:
+  instance_id:
+    description: 'EC2 instance ID'
+    required: false
+  instance_ip:
+    description: 'EC2 instance IP'
+    required: true
+  modules_to_deploy:
+    description: 'Comma-separated list of modules to deploy'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Verify Deployment
+      shell: bash
+      run: |
+        INSTANCE_ID="${{ inputs.instance_id }}"
+        
+        if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
+          INSTANCE_IP="${{ inputs.instance_ip }}"
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=public-ip-address,Values=$INSTANCE_IP" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)
+        fi
+        
+        echo "Waiting for services to start..."
+        sleep 30
+        
+        # Verify services using SSM
+        IFS=',' read -ra MODULES <<< "${{ inputs.modules_to_deploy }}"
+        
+        for MODULE in "${MODULES[@]}"; do
+          if [[ "$MODULE" == "api" ]]; then
+            echo "Checking API service..."
+            
+            VERIFY_CMD_ID=$(aws ssm send-command \
+              --instance-ids "$INSTANCE_ID" \
+              --document-name "AWS-RunShellScript" \
+              --parameters commands="[\"cd /app && docker-compose ps api && curl -s http://localhost:4000/healthcheck || echo 'API service is not responding'\"]" \
+              --output text \
+              --query "Command.CommandId")
+              
+            sleep 5
+            
+            # Get verification result
+            aws ssm get-command-invocation \
+              --command-id "$VERIFY_CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query "StandardOutputContent" \
+              --output text || echo "Could not verify API service"
+            
+          elif [[ "$MODULE" == "web" ]]; then
+            echo "Checking Web service..."
+            
+            VERIFY_CMD_ID=$(aws ssm send-command \
+              --instance-ids "$INSTANCE_ID" \
+              --document-name "AWS-RunShellScript" \
+              --parameters commands="[\"cd /app && docker-compose ps web && curl -s http://localhost:80/ | head -20 || echo 'Web service is not responding'\"]" \
+              --output text \
+              --query "Command.CommandId")
+              
+            sleep 5
+            
+            # Get verification result
+            aws ssm get-command-invocation \
+              --command-id "$VERIFY_CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query "StandardOutputContent" \
+              --output text || echo "Could not verify Web service"
+          fi
+        done

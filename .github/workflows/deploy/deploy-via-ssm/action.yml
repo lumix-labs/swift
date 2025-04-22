@@ -1,0 +1,129 @@
+name: 'Deploy via SSM'
+description: 'Deploys application to EC2 instance using SSM'
+
+inputs:
+  instance_id:
+    description: 'EC2 instance ID'
+    required: false
+  instance_ip:
+    description: 'EC2 instance IP'
+    required: true
+  docker_compose_base64:
+    description: 'Base64 encoded docker-compose.yml'
+    required: true
+  deployment_script_base64:
+    description: 'Base64 encoded deployment script'
+    required: true
+  registry:
+    description: 'ECR registry URL'
+    required: true
+  aws_region:
+    description: 'AWS region'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Deploy using direct SSM command
+      shell: bash
+      run: |
+        INSTANCE_ID="${{ inputs.instance_id }}"
+        INSTANCE_IP="${{ inputs.instance_ip }}"
+        
+        if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
+          echo "Warning: Instance ID not available. Trying to find instance using IP $INSTANCE_IP..."
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=public-ip-address,Values=$INSTANCE_IP" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)
+            
+          if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
+            echo "Error: Could not determine instance ID for IP $INSTANCE_IP"
+            exit 1
+          fi
+        fi
+        
+        echo "Deploying to instance: $INSTANCE_ID"
+        
+        # Check if we can connect to the instance via SSM
+        CONNECTION_STATUS=$(aws ssm describe-instance-information \
+          --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+          --query "InstanceInformationList[0].PingStatus" \
+          --output text)
+          
+        if [ "$CONNECTION_STATUS" != "Online" ]; then
+          echo "Warning: Instance $INSTANCE_ID is not currently connected to SSM (status: $CONNECTION_STATUS)"
+          echo "Waiting for SSM connection to become available..."
+          
+          # Wait for up to 2 minutes
+          for i in {1..12}; do
+            sleep 10
+            CONNECTION_STATUS=$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+              --query "InstanceInformationList[0].PingStatus" \
+              --output text)
+              
+            if [ "$CONNECTION_STATUS" == "Online" ]; then
+              echo "Instance is now connected to SSM!"
+              break
+            fi
+            
+            if [ $i -eq 12 ]; then
+              echo "Error: Instance failed to connect to SSM after 2 minutes"
+              echo "Please ensure the instance has an IAM role with SSM permissions and the SSM agent is running"
+              exit 1
+            fi
+          done
+        fi
+        
+        # Send command to instance using SSM document
+        CMD_ID=$(aws ssm send-command \
+          --instance-ids "$INSTANCE_ID" \
+          --document-name "AWS-RunShellScript" \
+          --parameters commands="[
+            \"echo 'Starting Swift deployment...'\",
+            \"mkdir -p /tmp/swift-deploy\",
+            \"cd /tmp/swift-deploy\",
+            \"echo ${{ inputs.docker_compose_base64 }} | base64 --decode > docker-compose.yml\",
+            \"echo ${{ inputs.deployment_script_base64 }} | base64 --decode > run-deployment.sh\", 
+            \"chmod +x run-deployment.sh\",
+            \"AWS_ECR_REGISTRY='${{ inputs.registry }}' AWS_REGION='${{ inputs.aws_region }}' ./run-deployment.sh\"
+          ]" \
+          --timeout-seconds 600 \
+          --output text \
+          --query "Command.CommandId")
+        
+        echo "SSM command ID: $CMD_ID"
+        
+        # Wait for command to complete (add a timeout to avoid waiting indefinitely)
+        timeout 10m aws ssm wait command-executed \
+          --command-id "$CMD_ID" \
+          --instance-id "$INSTANCE_ID" || echo "Command timed out, continuing..."
+        
+        # Get command result
+        RESULT=$(aws ssm get-command-invocation \
+          --command-id "$CMD_ID" \
+          --instance-id "$INSTANCE_ID" \
+          --query "Status" \
+          --output text || echo "Failed to get command status")
+        
+        echo "Command status: $RESULT"
+        
+        if [ "$RESULT" != "Success" ]; then
+          echo "Deployment failed with status: $RESULT"
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --query "StandardErrorContent" \
+            --output text || echo "Could not retrieve error content"
+          exit 1
+        fi
+        
+        echo "Deployment output:"
+        aws ssm get-command-invocation \
+          --command-id "$CMD_ID" \
+          --instance-id "$INSTANCE_ID" \
+          --query "StandardOutputContent" \
+          --output text || echo "Could not retrieve output content"
+        
+        echo "Deployment completed successfully"

@@ -11,23 +11,40 @@ extract_json_value() {
   # Remove any newlines or carriage returns
   json=$(echo "$json" | tr -d '\n\r')
   
-  # Use a simple grep approach if jq fails
-  if ! value=$(echo "$json" | jq -r ".$key" 2>/dev/null); then
-    # Fallback to regex pattern matching
-    pattern="\"$key\"[[:space:]]*:[[:space:]]*\"([^\"]+)\""
-    if [[ $json =~ $pattern ]]; then
-      value="${BASH_REMATCH[1]}"
-    else
-      value=""
+  # First try jq for proper JSON parsing
+  if command -v jq &> /dev/null; then
+    value=$(echo "$json" | jq -r ".$key // .\"$key\" // empty" 2>/dev/null)
+    if [ -n "$value" ] && [ "$value" != "null" ]; then
+      echo "$value"
+      return 0
     fi
   fi
   
-  echo "$value"
+  # Fallback to regex pattern matching
+  pattern="\"$key\"[[:space:]]*:[[:space:]]*\"([^\"]+)\""
+  if [[ $json =~ $pattern ]]; then
+    echo "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  
+  # Try alternative pattern for non-string values
+  pattern="\"$key\"[[:space:]]*:[[:space:]]*([^,}\"]+"
+  if [[ $json =~ $pattern ]]; then
+    value="${BASH_REMATCH[1]}"
+    # Clean the value (remove trailing whitespace)
+    value=$(echo "$value" | xargs)
+    echo "$value"
+    return 0
+  fi
+  
+  # Return empty if no match found
+  echo ""
 }
 
 # Main function to parse infrastructure parameters
 parse_infrastructure_params() {
   local params="$1"
+  local key="$2"
   
   # Handle empty parameters
   if [ -z "$params" ]; then
@@ -35,14 +52,14 @@ parse_infrastructure_params() {
     return
   fi
   
-  # Extract instance IP
-  extract_json_value "$params" "instance_ip"
+  # Extract requested parameter
+  extract_json_value "$params" "$key"
 }
 
 # If called directly, use the first argument as JSON
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   if [ -n "$1" ] && [ -n "$2" ]; then
-    extract_json_value "$1" "$2"
+    parse_infrastructure_params "$1" "$2"
   else
     echo "Usage: $0 '{\"key\":\"value\"}' 'key'"
     exit 1

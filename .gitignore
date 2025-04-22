@@ -3,6 +3,42 @@
 
 ### dotenv ###
 .env
+!.env.example
+!.env.template
+
+### Secrets ###
+*secret*
+*credential*
+*password*
+*token*
+*key*
+!*template*
+!*example*
+!*dummy*
+!*sample*
+!*placeholder*
+!*token.ts
+!*key.ts
+!*token.js
+!*key.js
+!**/key-components/**
+
+### Private Configs ###
+*config*.json
+*config*.yaml
+*config*.yml
+!*config*.example.*
+!*config*.template.*
+!*config*.sample.*
+!*config.js
+!*config.ts
+!next.config.*
+!tsconfig.*
+!webpack.config.*
+!tailwind.config.*
+!postcss.config.*
+!eslint.config.*
+!commitlint.config.*
 
 ### Java ###
 # Compiled class file
@@ -32,7 +68,7 @@ replay_pid*
 
 ### NextJS ###
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.js
 
@@ -40,7 +76,7 @@ replay_pid*
 /coverage
 
 # next.js
-/.next/
+.next/
 /out/
 
 # production
@@ -224,7 +260,7 @@ cython_debug/
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+.idea/
 
 ### Python Patch ###
 # Poetry local configuration file - https://python-poetry.org/docs/configuration/#local-configuration
@@ -238,33 +274,24 @@ pyrightconfig.json
 
 ### Vue ###
 # gitignore template for Vue.js projects
-#
-# Recommended template: Node.gitignore
-
-# TODO: where does this rule come from?
 docs/_book
-
-# TODO: where does this rule come from?
 test/
 
 ### Vuejs ###
-# Recommended template: Node.gitignore
-
 node_modules/
 npm-debug.log
 yarn-error.log
 
-.DS_Store
-
 # API Server logs
 logs/
-
+*.log
 
 # Terraform
 **/.terraform/*
 *.tfstate
 *.tfstate.*
 *.tfvars
+!*.tfvars.example
 *.tfvars.json
 override.tf
 override.tf.json
@@ -272,5 +299,25 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+
+# Private directories that might contain sensitive info
+**/.ssh/
+**/.aws/
+**/.kube/
+**/vault/
+**/secrets/
+**/private/
+**/credentials/
+**/.credentials/
+
+# IDE and editor files that might contain project configurations with secrets
+.vscode/settings.json
+.vscode/launch.json
+.vscode/*.env*
+
+# Package manager auth files
+.npmrc
+.yarnrc
+.yarnrc.yml
 
 # End of https://www.toptal.com/developers/gitignore/api/python,java,nextjs,vue,vuejs,dotenv

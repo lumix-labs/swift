@@ -1,0 +1,81 @@
+name: 'Parse Deployment Parameters'
+description: 'Parses deployment parameters from either workflow_call or workflow_dispatch'
+
+inputs:
+  infrastructureParams:
+    description: 'JSON string containing infrastructure parameters'
+    required: false
+  modulesToDeploy:
+    description: 'Comma-separated list of modules to deploy from workflow_call'
+    required: false
+  instance_ip:
+    description: 'EC2 Instance IP from workflow_dispatch'
+    required: false
+  modules_to_deploy:
+    description: 'Comma-separated list of modules to deploy from workflow_dispatch'
+    required: false
+
+outputs:
+  instance_ip:
+    description: 'Parsed EC2 instance IP'
+    value: ${{ steps.parse.outputs.instance_ip }}
+  instance_id:
+    description: 'Parsed EC2 instance ID'
+    value: ${{ steps.parse.outputs.instance_id }}
+  modules_to_deploy:
+    description: 'Parsed modules to deploy'
+    value: ${{ steps.parse.outputs.modules_to_deploy }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Parse parameters
+      id: parse
+      shell: bash
+      run: |
+        # Make parse-params.sh executable if it exists
+        if [ -f "${{ github.workspace }}/.github/scripts/parse-params.sh" ]; then
+          chmod +x ${{ github.workspace }}/.github/scripts/parse-params.sh
+        fi
+        
+        if [ -n "${{ inputs.infrastructureParams }}" ]; then
+          # From workflow_call - use our parameter parser
+          export PARAMS='${{ inputs.infrastructureParams }}'
+          INSTANCE_IP=$(${{ github.workspace }}/.github/scripts/parse-params.sh "$PARAMS" "instance_ip")
+          INSTANCE_ID=$(${{ github.workspace }}/.github/scripts/parse-params.sh "$PARAMS" "instance_id")
+          MODULES_TO_DEPLOY="${{ inputs.modulesToDeploy }}"
+        else
+          # From workflow_dispatch
+          INSTANCE_IP="${{ inputs.instance_ip }}"
+          INSTANCE_ID=""
+          MODULES_TO_DEPLOY="${{ inputs.modules_to_deploy }}"
+        fi
+        
+        echo "Parsed instance_ip: $INSTANCE_IP"
+        
+        # Validate instance_ip is not empty
+        if [ -z "$INSTANCE_IP" ] || [ "$INSTANCE_IP" == "null" ]; then
+          echo "Error: Instance IP is empty or null. Cannot proceed with deployment."
+          echo "This usually happens when infrastructure outputs are not available."
+          exit 1
+        fi
+        
+        # If instance ID is not available, get it from the IP
+        if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
+          echo "Attempting to get instance ID from IP address..."
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=public-ip-address,Values=$INSTANCE_IP" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)
+            
+          if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
+            echo "Warning: Could not find instance ID for IP $INSTANCE_IP"
+            echo "Will proceed with SSM session manager for deployment"
+          else
+            echo "Found instance ID: $INSTANCE_ID"
+          fi
+        fi
+        
+        echo "instance_ip=${INSTANCE_IP}" >> $GITHUB_OUTPUT
+        echo "instance_id=${INSTANCE_ID}" >> $GITHUB_OUTPUT
+        echo "modules_to_deploy=${MODULES_TO_DEPLOY}" >> $GITHUB_OUTPUT

@@ -1,0 +1,14 @@
+# Ignore list for Husky pre-commit hooks
+# Format: Each line contains a file path pattern or "file_path:pattern"
+
+# Ignore AWS credential patterns in these specific workflow files 
+.github/workflows/build-module.yml:aws-access-key-id
+.github/workflows/deploy/main.yml:aws-access-key-id
+
+# Ignore warnings for these files (we'll implement OIDC later)
+.github/workflows/build-and-push.yml
+.github/workflows/build-module.yml
+.github/workflows/deploy.yml
+.github/workflows/deploy/main.yml
+.github/workflows/infrastructure-and-deploy.yml
+.github/workflows/terraform-workflow.yml

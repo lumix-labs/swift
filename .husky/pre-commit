@@ -1,6 +1,13 @@
-#!/usr/bin/env sh
+#!/bin/sh
 
-echo "Running pre-commit hook..."
+# Color definitions
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}🔍 Running pre-commit checks...${NC}"
 
 # Store the root directory
 ROOT_DIR=$(git rev-parse --show-toplevel)
@@ -9,94 +16,116 @@ EXIT_CODE=0
 # Check if committing to master branch
 CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
 if [ "$CURRENT_BRANCH" = "master" ] || [ "$CURRENT_BRANCH" = "main" ]; then
-  echo "❌ Direct commits to master/main branch are not allowed."
+  echo -e "${RED}❌ Direct commits to master/main branch are not allowed.${NC}"
   echo "Please create a feature branch and submit a pull request instead."
   exit 1
 fi
 
+# Run secret detection script
+if [ -f "$ROOT_DIR/.husky/detect-secrets.sh" ]; then
+  echo -e "${BLUE}🔐 Scanning for sensitive information...${NC}"
+  chmod +x "$ROOT_DIR/.husky/detect-secrets.sh"
+  "$ROOT_DIR/.husky/detect-secrets.sh"
+  SECRETS_EXIT_CODE=$?
+  if [ $SECRETS_EXIT_CODE -ne 0 ]; then
+    echo -e "${RED}❌ Sensitive information detected in staged files.${NC}"
+    echo "Please remove any sensitive data before committing."
+    EXIT_CODE=$SECRETS_EXIT_CODE
+  else
+    echo -e "${GREEN}✅ No sensitive information detected.${NC}"
+  fi
+fi
+
 # Fix known ESLint errors
 if [ -f "$ROOT_DIR/.husky/fix-eslint-errors.sh" ]; then
-  echo "Applying automated ESLint fixes..."
+  echo -e "${BLUE}🛠️ Applying automated ESLint fixes...${NC}"
   chmod +x "$ROOT_DIR/.husky/fix-eslint-errors.sh"
   "$ROOT_DIR/.husky/fix-eslint-errors.sh"
 fi
 
 # Run complete validation with local-ci.js
-echo "Running comprehensive validation..."
+echo -e "${BLUE}🧪 Running comprehensive validation...${NC}"
 cd "$ROOT_DIR" && npm run ci
 VALIDATION_EXIT_CODE=$?
 if [ $VALIDATION_EXIT_CODE -ne 0 ]; then
-  echo "❌ Validation failed. Please fix the issues before committing."
+  echo -e "${RED}❌ Validation failed. Please fix the issues before committing.${NC}"
   EXIT_CODE=$VALIDATION_EXIT_CODE
 else
-  echo "✅ Validation completed successfully."
+  echo -e "${GREEN}✅ Validation completed successfully.${NC}"
 fi
 
 # Check if there are any changes in GitHub workflow files
 if git diff --cached --name-only | grep -q "\.github/workflows/"; then
-  echo "Checking GitHub workflow files..."
-  cd "$ROOT_DIR" && node .github/scripts/validate-workflows.js
+  echo -e "${BLUE}🔍 Checking GitHub workflow files...${NC}"
+  # Check if there are ignored patterns for workflow validation
+  if [ -f "$ROOT_DIR/.huskyignore" ]; then
+    cd "$ROOT_DIR" && HUSKYIGNORE_FILE="$ROOT_DIR/.huskyignore" node .github/scripts/validate-workflows.js
+  else
+    cd "$ROOT_DIR" && node .github/scripts/validate-workflows.js
+  fi
   WORKFLOW_EXIT_CODE=$?
   if [ $WORKFLOW_EXIT_CODE -ne 0 ]; then
-    echo "❌ GitHub workflow validation failed."
+    echo -e "${RED}❌ GitHub workflow validation failed.${NC}"
     EXIT_CODE=$WORKFLOW_EXIT_CODE
   else
-    echo "✅ GitHub workflow validation passed."
+    echo -e "${GREEN}✅ GitHub workflow validation passed.${NC}"
   fi
 fi
 
-# Check if there are any changes in API files
-if git diff --cached --name-only | grep -q "api/"; then
-  echo "Checking API files..."
-  cd "$ROOT_DIR/api" && npm run lint
-  API_EXIT_CODE=$?
-  echo "API linting complete with exit code: $API_EXIT_CODE"
-  if [ $API_EXIT_CODE -ne 0 ]; then
-    EXIT_CODE=$API_EXIT_CODE
+# Module-specific linting
+check_module() {
+  local module_path="$1"
+  local module_name="$2"
+  
+  if git diff --cached --name-only | grep -q "$module_path/"; then
+    echo -e "${BLUE}🔍 Checking $module_name files...${NC}"
+    cd "$ROOT_DIR/$module_path" && npm run lint
+    local exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+      echo -e "${RED}❌ $module_name linting failed with code $exit_code.${NC}"
+      return $exit_code
+    else
+      echo -e "${GREEN}✅ $module_name linting passed.${NC}"
+      return 0
+    fi
   fi
-fi
+  return 0
+}
 
-# Check if there are any changes in Web files
-if git diff --cached --name-only | grep -q "web/"; then
-  echo "Checking Web files..."
-  cd "$ROOT_DIR/web" && npm run lint
-  WEB_EXIT_CODE=$?
-  echo "Web linting complete with exit code: $WEB_EXIT_CODE"
-  if [ $WEB_EXIT_CODE -ne 0 ]; then
-    EXIT_CODE=$WEB_EXIT_CODE
-  fi
-fi
+# Check each module
+check_module "api" "API"
+API_EXIT_CODE=$?
+[ $API_EXIT_CODE -ne 0 ] && EXIT_CODE=$API_EXIT_CODE
 
-# Check if there are any changes in terraform files
+check_module "web" "Web"
+WEB_EXIT_CODE=$?
+[ $WEB_EXIT_CODE -ne 0 ] && EXIT_CODE=$WEB_EXIT_CODE
+
+check_module "mcp-server" "MCP-Server"
+MCP_EXIT_CODE=$?
+[ $MCP_EXIT_CODE -ne 0 ] && EXIT_CODE=$MCP_EXIT_CODE
+
+# Check terraform files
 if git diff --cached --name-only | grep -q "terraform/"; then
-  echo "Checking terraform files..."
+  echo -e "${BLUE}🔍 Checking Terraform files...${NC}"
   cd "$ROOT_DIR/terraform" && terraform validate
   TERRAFORM_EXIT_CODE=$?
   if [ $TERRAFORM_EXIT_CODE -ne 0 ]; then
+    echo -e "${RED}❌ Terraform validation failed.${NC}"
     EXIT_CODE=$TERRAFORM_EXIT_CODE
+  else
+    echo -e "${GREEN}✅ Terraform validation passed.${NC}"
   fi
 fi
 
-# Check if there are any changes in MCP-Server files
-if git diff --cached --name-only | grep -q "mcp-server/"; then
-  echo "Checking MCP-Server files..."
-  cd "$ROOT_DIR/mcp-server" && npm run lint
-  MCP_EXIT_CODE=$?
-  echo "MCP-Server linting complete with exit code: $MCP_EXIT_CODE"
-  if [ $MCP_EXIT_CODE -ne 0 ]; then
-    EXIT_CODE=$MCP_EXIT_CODE
-  fi
-fi
-
-# Check if there were any linting errors
+# Final summary
 if [ $EXIT_CODE -ne 0 ]; then
-  echo "❌ Pre-commit hook failed due to linting errors."
-  echo "Please fix the linting errors before committing."
-  echo "You can run the fix script manually with: $ROOT_DIR/.husky/fix-eslint-errors.sh"
-  echo "Or bypass this check with: git commit --no-verify"
+  echo -e "${RED}❌ Pre-commit checks failed.${NC}"
+  echo "Please fix the issues before committing."
+  echo "To bypass these checks (not recommended for a public repo): git commit --no-verify"
   exit $EXIT_CODE
 else
-  echo "✅ Pre-commit checks completed successfully."
+  echo -e "${GREEN}✅ All pre-commit checks passed successfully.${NC}"
 fi
 
 exit $EXIT_CODE
