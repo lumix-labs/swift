@@ -1,10 +1,5 @@
-import { ChatProvider } from './context/ChatContext';
-import { ChatLayout } from './components/chat/ChatLayout';
+import { ClientChatWrapper } from './components/chat/ClientChatWrapper';
 
 export default function Home() {
-  return (
-    <ChatProvider>
-      <ChatLayout />
-    </ChatProvider>
-  );
+  return <ClientChatWrapper />;
 }

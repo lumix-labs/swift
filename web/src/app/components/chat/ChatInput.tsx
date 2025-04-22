@@ -1,12 +1,7 @@
+"use client"
 import { useState, FormEvent, KeyboardEvent, useRef, useEffect } from 'react';
 import { useChat } from '@/app/context/ChatContext';
-
-// Mock API call for simulating assistant response
-const mockApiCall = async (message: string): Promise<string> => {
-  // This would be replaced with a real API call
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return `I received your message: "${message}". This is a placeholder response.`;
-};
+import { chatService } from '@/app/lib/services/chat-service';
 
 export function ChatInput() {
   const [input, setInput] = useState('');
@@ -33,7 +28,7 @@ export function ChatInput() {
     // Set loading state and get assistant response
     setIsLoading(true);
     try {
-      const response = await mockApiCall(input);
+      const response = await chatService.sendMessage(input);
       addMessage({ role: 'assistant', content: response });
     } catch (error) {
       console.error('Error getting response:', error);
