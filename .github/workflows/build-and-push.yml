@@ -165,12 +165,15 @@ jobs:
 
   deploy:
     name: Deploy Application
-    needs: [terraform-apply, check-changes]
-    # Key fix: allow deployment even when only one module is available
+    # Add dependencies on the build jobs to ensure images are built first
+    needs: [terraform-apply, check-changes, build-api, build-web]
+    # Adjust conditional to run only when required jobs succeed
     if: >
-      needs.terraform-apply.result == 'success' && 
+      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped') && 
       needs.check-changes.outputs.should_skip_deployment == 'false' &&
-      needs.check-changes.outputs.modules_to_deploy != ''
+      needs.check-changes.outputs.modules_to_deploy != '' &&
+      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
+      (needs.build-web.result == 'success' || needs.build-web.result == 'skipped')
     uses: ./.github/workflows/deploy.yml
     with:
       infrastructureParams: ${{ needs.terraform-apply.outputs.infrastructure_params }}

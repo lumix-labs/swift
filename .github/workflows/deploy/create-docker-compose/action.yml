@@ -18,8 +18,13 @@ runs:
         mkdir -p deploy
         cp ${{ github.action_path }}/../templates/docker-compose.yml deploy/docker-compose.yml
         
-        # Replace variables in the template
-        sed -i "s|\${AWS_ECR_REGISTRY}|${{ inputs.registry }}|g" deploy/docker-compose.yml
+        # Print debug info
+        echo "Registry value: ${{ inputs.registry }}"
+        echo "Modules to deploy: ${{ inputs.modules_to_deploy }}"
+        
+        # Replace variables in the template with double-quoted values for proper formatting
+        REGISTRY="${{ inputs.registry }}"
+        sed -i "s|\${AWS_ECR_REGISTRY}|$REGISTRY|g" deploy/docker-compose.yml
         
         # If specific modules were specified, remove other modules
         if [ -n "${{ inputs.modules_to_deploy }}" ]; then
@@ -41,10 +46,8 @@ runs:
               ' deploy/docker-compose.yml > deploy/temp.yml && mv deploy/temp.yml deploy/docker-compose.yml
             fi
           done
-          
-          # Display final docker-compose file for debugging
-          echo "Final docker-compose.yml content:"
-          cat deploy/docker-compose.yml
-        else
-          echo "No modules specified, using full docker-compose.yml"
         fi
+          
+        # Display final docker-compose file for debugging
+        echo "Final docker-compose.yml content:"
+        cat deploy/docker-compose.yml

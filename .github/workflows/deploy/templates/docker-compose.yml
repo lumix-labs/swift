@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # API service
   api:
-    image: ${AWS_ECR_REGISTRY}/lumixlabs/swift-api:latest
+    image: "${AWS_ECR_REGISTRY}/lumixlabs/swift-api:latest"
     restart: always
     ports:
       - "3000:3000"
@@ -24,7 +24,7 @@ services:
 
   # Web frontend service
   web:
-    image: ${AWS_ECR_REGISTRY}/lumixlabs/swift-web:latest
+    image: "${AWS_ECR_REGISTRY}/lumixlabs/swift-web:latest"
     restart: always
     ports:
       - "80:80"

@@ -12,9 +12,40 @@ on:
       modules_to_deploy:
         description: "Comma-separated list of modules to deploy (api,web)"
         type: string
-        default: "api,web"
+        default: "api"
+      build_modules:
+        description: "Build modules before deployment"
+        type: boolean
+        default: true
 
 jobs:
+  # Add build jobs for modules
+  build-api:
+    name: Build API Image
+    if: ${{ github.event.inputs.build_modules == true && contains(github.event.inputs.modules_to_deploy, 'api') }}
+    uses: ./.github/workflows/build-module.yml
+    with:
+      module: api
+      repository: lumixlabs/swift-api
+    secrets:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  build-web:
+    name: Build Web Image
+    if: ${{ github.event.inputs.build_modules == true && contains(github.event.inputs.modules_to_deploy, 'web') }}
+    uses: ./.github/workflows/build-module.yml
+    with:
+      module: web
+      repository: lumixlabs/swift-web
+    secrets:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
   terraform_plan:
     name: Terraform Plan
     if: ${{ !inputs.skip_terraform }}
@@ -38,13 +69,18 @@ jobs:
 
   deploy:
     name: Deploy Application
-    needs: [terraform_apply]
-    # Run even if terraform steps are skipped
-    if: ${{ always() && (inputs.skip_terraform || success()) }}
+    # Add dependencies on terraform_apply and build jobs
+    needs: [terraform_apply, build-api, build-web]
+    # Run even if terraform steps are skipped, but ensure build jobs completed if they ran
+    if: >
+      always() && 
+      (inputs.skip_terraform || success()) && 
+      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
+      (needs.build-web.result == 'success' || needs.build-web.result == 'skipped')
     uses: ./.github/workflows/deploy.yml
     with:
       infrastructureParams: ${{ inputs.skip_terraform && format('{"instance_ip":"%s"}', secrets.INSTANCE_IP) || needs.terraform_apply.outputs.infrastructure_params }}
-      modulesToDeploy: ${{ inputs.modules_to_deploy || 'api,web' }}
+      modulesToDeploy: ${{ inputs.modules_to_deploy || 'api' }}
     secrets:
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
