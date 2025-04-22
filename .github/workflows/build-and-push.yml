@@ -79,17 +79,17 @@ jobs:
         id: set-modules
         run: |
           MODULES=()
-          
+
           # Check if API changed or force build requested
           if [[ "${{ steps.filter.outputs.api }}" == "true" || "${{ github.event.inputs.forceBuildApi }}" == "true" ]]; then
             MODULES+=("api")
           fi
-          
+
           # Check if Web changed or force build requested
-          if [[ "${{ steps.filter.outputs.web }}" == "true" || "${{ github.event.inputs.forceBuildWeb }}" == "true" ]]; then
-            MODULES+=("web")
-          fi
-          
+          # if [[ "${{ steps.filter.outputs.web }}" == "true" || "${{ github.event.inputs.forceBuildWeb }}" == "true" ]]; then
+          #   MODULES+=("web")
+          # fi
+
           # Join array with commas
           if [ ${#MODULES[@]} -gt 0 ]; then
             MODULES_STR=$(IFS=,; echo "${MODULES[*]}")
