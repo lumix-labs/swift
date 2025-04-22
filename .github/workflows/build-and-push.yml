@@ -51,7 +51,7 @@ jobs:
       contents: read
     outputs:
       api_changed: ${{ steps.filter.outputs.api }}
-      web_changed: ${{ steps.filter.outputs.web }}
+      web_changed: false
       terraform_changed: ${{ steps.filter.outputs.terraform }}
       modules_to_deploy: ${{ steps.set-modules.outputs.modules_to_deploy }}
       should_deploy_infra: ${{ steps.check-deploy.outputs.should_deploy_infra }}
