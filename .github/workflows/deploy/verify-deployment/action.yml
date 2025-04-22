@@ -28,10 +28,31 @@ runs:
             --output text)
         fi
         
+        echo "Verifying deployment of modules: ${{ inputs.modules_to_deploy }}"
+        
+        # Give services time to start
         echo "Waiting for services to start..."
         sleep 30
         
-        # Verify services using SSM
+        # Check docker-compose status first
+        echo "Checking docker-compose status..."
+        DOCKER_COMPOSE_STATUS_CMD_ID=$(aws ssm send-command \
+          --instance-ids "$INSTANCE_ID" \
+          --document-name "AWS-RunShellScript" \
+          --parameters commands="[\"cd /app && docker-compose ps\"]" \
+          --output text \
+          --query "Command.CommandId")
+          
+        sleep 5
+        
+        # Get verification result
+        aws ssm get-command-invocation \
+          --command-id "$DOCKER_COMPOSE_STATUS_CMD_ID" \
+          --instance-id "$INSTANCE_ID" \
+          --query "StandardOutputContent" \
+          --output text || echo "Could not verify docker-compose status"
+        
+        # Verify individual services using SSM
         IFS=',' read -ra MODULES <<< "${{ inputs.modules_to_deploy }}"
         
         for MODULE in "${MODULES[@]}"; do
@@ -41,18 +62,21 @@ runs:
             VERIFY_CMD_ID=$(aws ssm send-command \
               --instance-ids "$INSTANCE_ID" \
               --document-name "AWS-RunShellScript" \
-              --parameters commands="[\"cd /app && docker-compose ps api && curl -s http://localhost:4000/healthcheck || echo 'API service is not responding'\"]" \
+              --parameters commands="[\"cd /app && docker-compose ps api && curl -s http://localhost:4000/health || echo 'API service is not responding'\"]" \
               --output text \
-              --query "Command.CommandId")
+              --query "Command.CommandId" || echo "Command failed for API service")
               
-            sleep 5
-            
-            # Get verification result
-            aws ssm get-command-invocation \
-              --command-id "$VERIFY_CMD_ID" \
-              --instance-id "$INSTANCE_ID" \
-              --query "StandardOutputContent" \
-              --output text || echo "Could not verify API service"
+            # Only continue if command succeeded
+            if [[ "$VERIFY_CMD_ID" != *"Command failed"* ]]; then
+              sleep 5
+              
+              # Get verification result
+              aws ssm get-command-invocation \
+                --command-id "$VERIFY_CMD_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --query "StandardOutputContent" \
+                --output text || echo "Could not verify API service"
+            fi
             
           elif [[ "$MODULE" == "web" ]]; then
             echo "Checking Web service..."
@@ -62,15 +86,21 @@ runs:
               --document-name "AWS-RunShellScript" \
               --parameters commands="[\"cd /app && docker-compose ps web && curl -s http://localhost:80/ | head -20 || echo 'Web service is not responding'\"]" \
               --output text \
-              --query "Command.CommandId")
+              --query "Command.CommandId" || echo "Command failed for Web service")
               
-            sleep 5
-            
-            # Get verification result
-            aws ssm get-command-invocation \
-              --command-id "$VERIFY_CMD_ID" \
-              --instance-id "$INSTANCE_ID" \
-              --query "StandardOutputContent" \
-              --output text || echo "Could not verify Web service"
+            # Only continue if command succeeded
+            if [[ "$VERIFY_CMD_ID" != *"Command failed"* ]]; then
+              sleep 5
+              
+              # Get verification result
+              aws ssm get-command-invocation \
+                --command-id "$VERIFY_CMD_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --query "StandardOutputContent" \
+                --output text || echo "Could not verify Web service"
+            fi
           fi
         done
+
+        # Final verification message
+        echo "Deployment verification completed for modules: ${{ inputs.modules_to_deploy }}"

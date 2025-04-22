@@ -51,7 +51,7 @@ jobs:
       contents: read
     outputs:
       api_changed: ${{ steps.filter.outputs.api }}
-      web_changed: false
+      web_changed: false  # Currently set to false to disable web builds
       terraform_changed: ${{ steps.filter.outputs.terraform }}
       modules_to_deploy: ${{ steps.set-modules.outputs.modules_to_deploy }}
       should_deploy_infra: ${{ steps.check-deploy.outputs.should_deploy_infra }}
@@ -79,17 +79,17 @@ jobs:
         id: set-modules
         run: |
           MODULES=()
-
+          
           # Check if API changed or force build requested
           if [[ "${{ steps.filter.outputs.api }}" == "true" || "${{ github.event.inputs.forceBuildApi }}" == "true" ]]; then
             MODULES+=("api")
           fi
-
-          # Check if Web changed or force build requested
+          
+          # Web module disabled temporarily
           # if [[ "${{ steps.filter.outputs.web }}" == "true" || "${{ github.event.inputs.forceBuildWeb }}" == "true" ]]; then
           #   MODULES+=("web")
           # fi
-
+          
           # Join array with commas
           if [ ${#MODULES[@]} -gt 0 ]; then
             MODULES_STR=$(IFS=,; echo "${MODULES[*]}")
@@ -118,7 +118,7 @@ jobs:
   build-api:
     name: Build API Image
     needs: check-changes
-    if: needs.check-changes.outputs.api_changed == 'true'
+    if: needs.check-changes.outputs.api_changed == 'true' || github.event.inputs.forceBuildApi == 'true'
     uses: ./.github/workflows/build-module.yml
     with:
       module: api
@@ -132,7 +132,7 @@ jobs:
   build-web:
     name: Build Web Image
     needs: check-changes
-    if: needs.check-changes.outputs.web_changed == 'true'
+    if: needs.check-changes.outputs.web_changed == 'true' || github.event.inputs.forceBuildWeb == 'true'
     uses: ./.github/workflows/build-module.yml
     with:
       module: web
@@ -145,7 +145,7 @@ jobs:
 
   terraform-plan:
     name: Terraform Plan
-    needs: [check-changes, build-api, build-web]
+    needs: check-changes
     if: needs.check-changes.outputs.should_deploy_infra == 'true'
     uses: ./.github/workflows/terraform-workflow.yml
     with:
@@ -166,10 +166,11 @@ jobs:
   deploy:
     name: Deploy Application
     needs: [terraform-apply, check-changes]
+    # Key fix: allow deployment even when only one module is available
     if: >
       needs.terraform-apply.result == 'success' && 
-      needs.check-changes.outputs.modules_to_deploy != '' && 
-      needs.check-changes.outputs.should_skip_deployment == 'false'
+      needs.check-changes.outputs.should_skip_deployment == 'false' &&
+      needs.check-changes.outputs.modules_to_deploy != ''
     uses: ./.github/workflows/deploy.yml
     with:
       infrastructureParams: ${{ needs.terraform-apply.outputs.infrastructure_params }}

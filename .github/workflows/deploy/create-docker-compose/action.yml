@@ -23,14 +23,28 @@ runs:
         
         # If specific modules were specified, remove other modules
         if [ -n "${{ inputs.modules_to_deploy }}" ]; then
+          echo "Creating docker-compose.yml with modules: ${{ inputs.modules_to_deploy }}"
           IFS=',' read -ra MODULES <<< "${{ inputs.modules_to_deploy }}"
-          ALL_MODULES=("api" "web" "mcp-server")
+          ALL_MODULES=("api" "web")
           
           # Find modules to remove
           for MODULE in "${ALL_MODULES[@]}"; do
             if [[ ! " ${MODULES[*]} " =~ " ${MODULE} " ]]; then
-              # Remove the module section from docker-compose.yml
-              sed -i "/^  ${MODULE}:/,/^  [a-z]\\|^$/d" deploy/docker-compose.yml
+              echo "Removing module ${MODULE} from docker-compose.yml"
+              # Remove the module section from docker-compose.yml safely
+              # Using a more reliable pattern matching approach
+              awk -v module="${MODULE}" '
+              BEGIN { skip=0; }
+              $0 ~ "^  "module":" { skip=1; }
+              skip && $0 ~ "^  [a-zA-Z]|-" { skip=0; }
+              !skip { print $0; }
+              ' deploy/docker-compose.yml > deploy/temp.yml && mv deploy/temp.yml deploy/docker-compose.yml
             fi
           done
+          
+          # Display final docker-compose file for debugging
+          echo "Final docker-compose.yml content:"
+          cat deploy/docker-compose.yml
+        else
+          echo "No modules specified, using full docker-compose.yml"
         fi
