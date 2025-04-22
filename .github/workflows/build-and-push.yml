@@ -77,7 +77,7 @@ jobs:
       contents: read
     outputs:
       api_changed: ${{ steps.filter.outputs.api }}
-      web_changed: ${{ steps.filter.outputs.web }}
+      web_changed: false
       terraform_changed: ${{ steps.filter.outputs.terraform }}
       modules_to_deploy: ${{ steps.set-modules.outputs.modules_to_deploy }}
       should_deploy_infra: ${{ steps.check-deploy.outputs.should_deploy_infra }}
@@ -200,7 +200,7 @@ jobs:
       needs.check-changes.outputs.should_deploy_infra == 'true' && 
       needs.check-changes.outputs.should_skip_terraform == 'false' &&
       (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
-      ((needs.build-web.result == 'success' || needs.build-web.result == 'skipped') || needs.check-changes.outputs.web_disabled == 'true')
+      (needs.build-web.result == 'success' || needs.build-web.result == 'skipped')
     uses: ./.github/workflows/terraform-workflow.yml
     with:
       action: plan
