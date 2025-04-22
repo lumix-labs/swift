@@ -36,7 +36,7 @@ on:
 jobs:
   deploy:
     name: Deploy Application
-    uses: ./.github/workflows/deploy/main.yml
+    uses: ./.github/workflows/deploy-application-impl.yml
     with:
       infrastructureParams: ${{ inputs.infrastructureParams }}
       modulesToDeploy: ${{ inputs.modulesToDeploy }}
