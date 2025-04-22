@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # API service
+  api:
+    image: ${AWS_ECR_REGISTRY}/lumixlabs/swift-api:latest
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Web frontend service
+  web:
+    image: ${AWS_ECR_REGISTRY}/lumixlabs/swift-web:latest
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

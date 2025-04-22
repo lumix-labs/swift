@@ -89,14 +89,14 @@ runs:
             \"chmod +x run-deployment.sh\",
             \"AWS_ECR_REGISTRY='${{ inputs.registry }}' AWS_REGION='${{ inputs.aws_region }}' ./run-deployment.sh\"
           ]" \
-          --timeout-seconds 600 \
+          --timeout-seconds 900 \
           --output text \
           --query "Command.CommandId")
         
         echo "SSM command ID: $CMD_ID"
         
         # Wait for command to complete (add a timeout to avoid waiting indefinitely)
-        timeout 10m aws ssm wait command-executed \
+        timeout 15m aws ssm wait command-executed \
           --command-id "$CMD_ID" \
           --instance-id "$INSTANCE_ID" || echo "Command timed out, continuing..."
         
@@ -111,11 +111,44 @@ runs:
         
         if [ "$RESULT" != "Success" ]; then
           echo "Deployment failed with status: $RESULT"
+          
+          # Get and display both standard output and error for debugging
+          echo "Command output:"
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --query "StandardOutputContent" \
+            --output text || echo "Could not retrieve output content"
+            
+          echo "Command error:"
           aws ssm get-command-invocation \
             --command-id "$CMD_ID" \
             --instance-id "$INSTANCE_ID" \
             --query "StandardErrorContent" \
             --output text || echo "Could not retrieve error content"
+          
+          # Try to debug Docker issues specifically
+          echo "Sending follow-up command to check Docker status..."
+          aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters commands="[
+              \"echo 'Docker version:'\",
+              \"docker version || true\",
+              \"echo 'Docker info:'\",
+              \"docker info || true\",
+              \"echo 'Docker images:'\",
+              \"docker images || true\",
+              \"echo 'Docker containers:'\",
+              \"docker ps -a || true\",
+              \"echo 'Docker login test:'\",
+              \"aws ecr get-login-password --region ${{ inputs.aws_region }} | docker login --username AWS --password-stdin ${{ inputs.registry }} || true\",
+              \"echo 'Docker pull test:'\",
+              \"docker pull ${{ inputs.registry }}/lumixlabs/swift-api:latest || true\"
+            ]" \
+            --output text > /dev/null
+          
+          # Continue with error exit status
           exit 1
         fi
         
