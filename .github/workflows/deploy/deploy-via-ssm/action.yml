@@ -29,6 +29,7 @@ runs:
       run: |
         INSTANCE_ID="${{ inputs.instance_id }}"
         INSTANCE_IP="${{ inputs.instance_ip }}"
+        REGISTRY="${{ inputs.registry }}"
         
         if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
           echo "Warning: Instance ID not available. Trying to find instance using IP $INSTANCE_IP..."
@@ -44,6 +45,8 @@ runs:
         fi
         
         echo "Deploying to instance: $INSTANCE_ID"
+        echo "Using ECR registry: $REGISTRY"
+        echo "Using AWS region: ${{ inputs.aws_region }}"
         
         # Check if we can connect to the instance via SSM
         CONNECTION_STATUS=$(aws ssm describe-instance-information \
@@ -77,12 +80,8 @@ runs:
         fi
         
         # Create a config file with all required info to ensure reliable variable setting
-        CONFIG_JSON="{\"registry\":\"${{ inputs.registry }}\",\"region\":\"${{ inputs.aws_region }}\"}"
+        CONFIG_JSON="{\"registry\":\"$REGISTRY\",\"region\":\"${{ inputs.aws_region }}\"}"
         CONFIG_BASE64=$(echo "$CONFIG_JSON" | base64 -w 0)
-        
-        # Print debug information
-        echo "Using ECR registry: ${{ inputs.registry }}"
-        echo "Using AWS region: ${{ inputs.aws_region }}"
         
         # Send command to instance using SSM document with explicit environment variable setting
         CMD_ID=$(aws ssm send-command \
@@ -96,9 +95,9 @@ runs:
             \"echo ${{ inputs.deployment_script_base64 }} | base64 --decode > run-deployment.sh\", 
             \"echo $CONFIG_BASE64 | base64 --decode > config.json\",
             \"chmod +x run-deployment.sh\",
-            \"export AWS_ECR_REGISTRY='${{ inputs.registry }}'\", 
+            \"export AWS_ECR_REGISTRY='$REGISTRY'\", 
             \"export AWS_REGION='${{ inputs.aws_region }}'\",
-            \"echo \\\"Environment check: AWS_ECR_REGISTRY=${{ inputs.registry }}\\\"\",
+            \"echo \\\"Environment check: AWS_ECR_REGISTRY=$REGISTRY\\\"\",
             \"./run-deployment.sh --config config.json\"
           ]" \
           --timeout-seconds 900 \
@@ -145,7 +144,7 @@ runs:
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters commands="[
-              \"echo 'Registry value: ${{ inputs.registry }}'\",
+              \"echo 'Registry value: $REGISTRY'\",
               \"echo 'Environment variables:'\",
               \"env | grep AWS\",
               \"echo 'Docker version:'\",

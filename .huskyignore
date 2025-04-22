@@ -3,7 +3,6 @@
 
 # Ignore AWS credential patterns in these specific workflow files 
 .github/workflows/build-module.yml:aws-access-key-id
-.github/workflows/deploy/main.yml:aws-access-key-id
 .github/workflows/deploy-application-impl.yml:aws-access-key-id
 
 # Ignore warnings for these files (we'll implement OIDC later)

@@ -118,6 +118,13 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
+          
+      # Fix for the registry issue
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          mask-password: true
         
       - name: Deploy using SSM
         uses: ./.github/workflows/deploy/deploy-via-ssm
@@ -126,7 +133,7 @@ jobs:
           instance_ip: ${{ needs.prepare-deployment.outputs.instance_ip }}
           docker_compose_base64: ${{ needs.create-deployment-files.outputs.docker_compose_base64 }}
           deployment_script_base64: ${{ needs.create-deployment-files.outputs.deployment_script_base64 }}
-          registry: ${{ needs.prepare-deployment.outputs.registry }}
+          registry: ${{ steps.login-ecr.outputs.registry }}
           aws_region: ${{ secrets.AWS_REGION }}
 
   verify-deployment:
