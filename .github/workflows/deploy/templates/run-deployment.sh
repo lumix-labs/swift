@@ -33,6 +33,10 @@ if [ -n "$CONFIG_FILE" ] && [ -f "$CONFIG_FILE" ]; then
   fi
 fi
 
+# Debug information for troubleshooting
+echo "Environment variables:"
+env | grep AWS || true
+
 # Check for necessary environment variables
 if [ -z "$AWS_ECR_REGISTRY" ]; then
   echo "Error: AWS_ECR_REGISTRY is required (via environment variable or config file)"

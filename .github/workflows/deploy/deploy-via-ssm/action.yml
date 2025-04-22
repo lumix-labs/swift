@@ -76,10 +76,15 @@ runs:
           done
         fi
         
-        # Create a config file to reliably pass variables 
-        CONFIG_BASE64=$(echo "{\"registry\":\"${{ inputs.registry }}\",\"region\":\"${{ inputs.aws_region }}\"}" | base64 -w 0)
+        # Create a config file with all required info to ensure reliable variable setting
+        CONFIG_JSON="{\"registry\":\"${{ inputs.registry }}\",\"region\":\"${{ inputs.aws_region }}\"}"
+        CONFIG_BASE64=$(echo "$CONFIG_JSON" | base64 -w 0)
         
-        # Send command to instance using SSM document with improved environment variable handling
+        # Print debug information
+        echo "Using ECR registry: ${{ inputs.registry }}"
+        echo "Using AWS region: ${{ inputs.aws_region }}"
+        
+        # Send command to instance using SSM document with explicit environment variable setting
         CMD_ID=$(aws ssm send-command \
           --instance-ids "$INSTANCE_ID" \
           --document-name "AWS-RunShellScript" \
@@ -93,6 +98,7 @@ runs:
             \"chmod +x run-deployment.sh\",
             \"export AWS_ECR_REGISTRY='${{ inputs.registry }}'\", 
             \"export AWS_REGION='${{ inputs.aws_region }}'\",
+            \"echo \\\"Environment check: AWS_ECR_REGISTRY=${{ inputs.registry }}\\\"\",
             \"./run-deployment.sh --config config.json\"
           ]" \
           --timeout-seconds 900 \
@@ -139,18 +145,15 @@ runs:
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters commands="[
+              \"echo 'Registry value: ${{ inputs.registry }}'\",
+              \"echo 'Environment variables:'\",
+              \"env | grep AWS\",
               \"echo 'Docker version:'\",
               \"docker version || true\",
-              \"echo 'Docker info:'\",
-              \"docker info || true\",
               \"echo 'Docker images:'\",
               \"docker images || true\",
               \"echo 'Docker containers:'\",
-              \"docker ps -a || true\",
-              \"echo 'Docker login test:'\",
-              \"aws ecr get-login-password --region ${{ inputs.aws_region }} | docker login --username AWS --password-stdin ${{ inputs.registry }} || true\",
-              \"echo 'Docker pull test:'\",
-              \"docker pull ${{ inputs.registry }}/lumixlabs/swift-api:latest || true\"
+              \"docker ps -a || true\"
             ]" \
             --output text > /dev/null
           

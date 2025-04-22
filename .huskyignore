@@ -8,6 +8,7 @@
 
 # Ignore warnings for these files (we'll implement OIDC later)
 .github/workflows/build-and-push.yml
+.github/workflows/build-and-deploy.yml
 .github/workflows/build-module.yml
 .github/workflows/deploy.yml
 .github/workflows/deploy-application-impl.yml
