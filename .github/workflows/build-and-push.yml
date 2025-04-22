@@ -118,10 +118,10 @@ jobs:
             MODULES+=("api")
           fi
 
-          # Check if Web changed or force build requested AND web is not disabled
-          if [[ ("${{ steps.filter.outputs.web }}" == "true" || "${{ github.event.inputs.forceBuildWeb }}" == "true") && "$WEB_DISABLED" != "true" ]]; then
-            MODULES+=("web")
-          fi
+          # # Check if Web changed or force build requested AND web is not disabled
+          # if [[ ("${{ steps.filter.outputs.web }}" == "true" || "${{ github.event.inputs.forceBuildWeb }}" == "true") && "$WEB_DISABLED" != "true" ]]; then
+          #   MODULES+=("web")
+          # fi
 
           # Always include API if nothing else is selected
           if [ ${#MODULES[@]} -eq 0 ]; then
@@ -182,7 +182,7 @@ jobs:
   build-web:
     name: Build Web Image
     needs: check-changes
-    if: (needs.check-changes.outputs.web_changed == 'true' || github.event.inputs.forceBuildWeb == 'true') && needs.check-changes.outputs.web_disabled == 'false'
+    if: (needs.check-changes.outputs.web_changed == 'true')
     uses: ./.github/workflows/build-module.yml
     with:
       module: web
@@ -195,8 +195,12 @@ jobs:
 
   terraform-plan:
     name: Terraform Plan
-    needs: check-changes
-    if: needs.check-changes.outputs.should_deploy_infra == 'true' && needs.check-changes.outputs.should_skip_terraform == 'false'
+    needs: [check-changes, build-api, build-web]
+    if: |
+      needs.check-changes.outputs.should_deploy_infra == 'true' && 
+      needs.check-changes.outputs.should_skip_terraform == 'false' &&
+      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
+      ((needs.build-web.result == 'success' || needs.build-web.result == 'skipped') || needs.check-changes.outputs.web_disabled == 'true')
     uses: ./.github/workflows/terraform-workflow.yml
     with:
       action: plan
@@ -207,7 +211,10 @@ jobs:
   terraform-apply:
     name: Terraform Apply
     needs: [terraform-plan, check-changes]
-    if: always() && needs.terraform-plan.result == 'success' && needs.check-changes.outputs.should_skip_deployment == 'false' && needs.check-changes.outputs.should_skip_terraform == 'false'
+    if: |
+      needs.terraform-plan.result == 'success' && 
+      needs.check-changes.outputs.should_skip_deployment == 'false' && 
+      needs.check-changes.outputs.should_skip_terraform == 'false'
     uses: ./.github/workflows/terraform-workflow.yml
     with:
       action: apply
@@ -220,11 +227,10 @@ jobs:
     needs: [check-changes, build-api, build-web, terraform-apply]
     # Ensure deploy only runs if previous steps succeeded or were skipped
     if: |
-      always() &&
       needs.check-changes.outputs.should_skip_deployment == 'false' &&
       (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
       ((needs.build-web.result == 'success' || needs.build-web.result == 'skipped') || needs.check-changes.outputs.web_disabled == 'true') &&
-      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped' || needs.check-changes.outputs.should_skip_terraform == 'true')
+      (needs.terraform-apply.result == 'success' || needs.check-changes.outputs.should_skip_terraform == 'true')
     uses: ./.github/workflows/deploy.yml
     with:
       infrastructureParams: ${{ needs.check-changes.outputs.should_skip_terraform == 'true' && format('{"instance_ip":"%s","instance_id":"%s"}', needs.check-changes.outputs.instance_ip, needs.check-changes.outputs.instance_id) || needs.terraform-apply.outputs.infrastructure_params }}

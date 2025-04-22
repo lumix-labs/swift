@@ -21,12 +21,14 @@ runs:
         INSTANCE_ID="${{ inputs.instance_id }}"
         INSTANCE_IP="${{ inputs.instance_ip }}"
         
-        # Check if we're using fallback values from Terraform
+        # Check if we're using fallback values from Terraform - fail immediately
         if [[ "$INSTANCE_IP" == "fallback_ip_for_pipeline_continuity" ]] || [[ "$INSTANCE_ID" == "fallback_id_for_pipeline_continuity" ]]; then
-          echo "WARNING: Terraform did not properly output instance information."
-          echo "Deployment verification skipped, but pipeline continues to completion."
-          echo "Please check Terraform output and resolve infrastructure issues."
-          exit 0
+          echo "ERROR: Received fallback values for infrastructure parameters."
+          echo "This indicates that Terraform did not properly output instance information."
+          echo "Verification cannot proceed."
+          
+          # Exit with error to stop the workflow
+          exit 1
         fi
         
         if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
@@ -37,8 +39,7 @@ runs:
             
           if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
             echo "Error: Could not determine instance ID for IP $INSTANCE_IP"
-            echo "Assuming deployment verification failed, but allowing pipeline to complete."
-            exit 0
+            exit 1
           fi
         fi
         
@@ -72,6 +73,7 @@ runs:
         
         # Verify individual services using SSM
         IFS=',' read -ra MODULES <<< "${{ inputs.modules_to_deploy }}"
+        VERIFICATION_SUCCESS=true
         
         for MODULE in "${MODULES[@]}"; do
           if [[ "$MODULE" == "api" ]]; then
@@ -89,11 +91,21 @@ runs:
               sleep 5
               
               # Get verification result
-              aws ssm get-command-invocation \
+              API_STATUS=$(aws ssm get-command-invocation \
                 --command-id "$VERIFY_CMD_ID" \
                 --instance-id "$INSTANCE_ID" \
                 --query "StandardOutputContent" \
-                --output text || echo "Could not verify API service"
+                --output text || echo "Could not verify API service")
+                
+              echo "$API_STATUS"
+              
+              if [[ "$API_STATUS" == *"not responding"* ]]; then
+                echo "ERROR: API service verification failed"
+                VERIFICATION_SUCCESS=false
+              fi
+            else
+              echo "ERROR: Failed to execute API verification command"
+              VERIFICATION_SUCCESS=false
             fi
             
           elif [[ "$MODULE" == "web" ]]; then
@@ -111,14 +123,29 @@ runs:
               sleep 5
               
               # Get verification result
-              aws ssm get-command-invocation \
+              WEB_STATUS=$(aws ssm get-command-invocation \
                 --command-id "$VERIFY_CMD_ID" \
                 --instance-id "$INSTANCE_ID" \
                 --query "StandardOutputContent" \
-                --output text || echo "Could not verify Web service"
+                --output text || echo "Could not verify Web service")
+                
+              echo "$WEB_STATUS"
+              
+              if [[ "$WEB_STATUS" == *"not responding"* ]]; then
+                echo "ERROR: Web service verification failed"
+                VERIFICATION_SUCCESS=false
+              fi
+            else
+              echo "ERROR: Failed to execute Web verification command"
+              VERIFICATION_SUCCESS=false
             fi
           fi
         done
 
-        # Final verification message
-        echo "Deployment verification completed for modules: ${{ inputs.modules_to_deploy }}"
+        # Final verification message and status
+        if [ "$VERIFICATION_SUCCESS" = true ]; then
+          echo "Deployment verification completed successfully for modules: ${{ inputs.modules_to_deploy }}"
+        else
+          echo "ERROR: Deployment verification failed for one or more modules"
+          exit 1
+        fi

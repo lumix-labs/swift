@@ -31,21 +31,14 @@ runs:
         INSTANCE_IP="${{ inputs.instance_ip }}"
         REGISTRY="${{ inputs.registry }}"
         
-        # Check if we're using fallback values from Terraform
+        # Check if we're using fallback values from Terraform - fail immediately
         if [[ "$INSTANCE_IP" == "fallback_ip_for_pipeline_continuity" ]] || [[ "$INSTANCE_ID" == "fallback_id_for_pipeline_continuity" ]]; then
-          echo "WARNING: Using fallback values for infrastructure parameters."
+          echo "ERROR: Received fallback values for infrastructure parameters."
           echo "This indicates that Terraform did not properly output instance information."
-          echo "Deployment cannot proceed, but pipeline will continue to completion."
-          echo "Please check Terraform output and resolve infrastructure issues."
+          echo "Deployment cannot proceed."
           
-          # Create a summary file for verification stage
-          mkdir -p /tmp/swift-deploy
-          echo "DEPLOYMENT_STATUS=SKIPPED" > /tmp/swift-deploy/status.txt
-          echo "REASON=Terraform output was incomplete or missing" >> /tmp/swift-deploy/status.txt
-          echo "TIMESTAMP=$(date)" >> /tmp/swift-deploy/status.txt
-          
-          # Exit with success to allow pipeline to continue
-          exit 0
+          # Exit with error to stop the workflow
+          exit 1
         fi
         
         if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then

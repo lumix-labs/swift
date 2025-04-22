@@ -40,11 +40,13 @@ jobs:
           cli_config_credentials_token: ${{ secrets.TERRAFORM_API_TOKEN }}
           terraform_wrapper: false
 
-      - name: Debug variables.tf
-        run: cat variables.tf
-
-      - name: Debug backend.tf
-        run: cat backend.tf
+      - name: Setup SSH key
+        run: |
+          if [ -n "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "TF_VAR_ssh_private_key_content<<EOF" >> $GITHUB_ENV
+            echo "${{ secrets.SSH_PRIVATE_KEY }}" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          fi
 
       # Initialize with -upgrade flag to ignore the lock file
       - name: Terraform Init
@@ -54,25 +56,29 @@ jobs:
           TF_LOG: DEBUG
         run: terraform init -input=false -upgrade
 
-      - name: Setup SSH key
+      - name: Debug terraform state on init
         run: |
-          if [ -n "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
-            echo "TF_VAR_ssh_private_key_content<<EOF" >> $GITHUB_ENV
-            echo "${{ secrets.SSH_PRIVATE_KEY }}" >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-          fi
-
-      - name: Debug after init failure
-        if: failure()
-        run: |
-          echo "=== Terraform state debug ==="
+          echo "=== Terraform state info after init ==="
           ls -la
           find . -name "*.tfstate*" -type f -exec ls -la {} \;
           find . -name "*.tflock*" -type f -exec ls -la {} \;
-          echo "=== Terraform providers debug ==="
-          terraform providers || echo "Cannot run providers command"
-          echo "=== Terraform validate debug ==="
-          terraform validate || echo "Cannot validate"
+          echo "=== Terraform providers ==="
+          terraform providers
+          echo "=== Terraform validation ==="
+          terraform validate
+
+      - name: Debug module structure
+        run: |
+          echo "=== Module structure ==="
+          ls -la modules
+          ls -la modules/compute || echo "No compute module directory"
+          ls -la modules/networking || echo "No networking module directory"
+          
+          echo "=== Module outputs ==="
+          echo "Computing module outputs:"
+          grep -r "output" modules/compute/ || echo "No compute module outputs found"
+          echo "Networking module outputs:"
+          grep -r "output" modules/networking/ || echo "No networking module outputs found"
 
       - name: Terraform Plan
         if: inputs.action == 'plan'
@@ -88,34 +94,46 @@ jobs:
           TF_AUTH: ${{ secrets.TERRAFORM_API_TOKEN }}
         run: terraform apply -auto-approve
 
-      # This step always runs in the 'apply' action, even if there were no changes to apply
+      # Enhanced parameter extraction with validation
       - name: Extract Infrastructure Parameters
         if: inputs.action == 'apply'
         id: extract-params
         run: |
+          echo "=== Terraform Show ==="
+          terraform show || echo "Failed to show terraform state"
+          
+          echo "=== Terraform State List ==="
+          terraform state list || echo "Failed to list terraform state"
+          
+          echo "=== Terraform Output ==="
+          terraform output || echo "Failed to get terraform outputs"
+          
           # Extract values individually using -raw to avoid JSON formatting issues
-          INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null || echo "")
-          INSTANCE_ID=$(terraform output -raw instance_id 2>/dev/null || echo "")
-
-          # Verify parameters are set
-          if [ -z "$INSTANCE_IP" ] || [ -z "$INSTANCE_ID" ]; then
-            echo "Warning: Some infrastructure parameters are empty."
-            echo "INSTANCE_IP: $INSTANCE_IP"
-            echo "INSTANCE_ID: $INSTANCE_ID"
-            
-            # Display all available outputs
-            echo "Available Terraform outputs:"
-            terraform output
-            
-            # Ensure values are not empty to prevent pipeline failure
-            INSTANCE_IP="${INSTANCE_IP:-fallback_ip_for_pipeline_continuity}"
-            INSTANCE_ID="${INSTANCE_ID:-fallback_id_for_pipeline_continuity}"
-            
-            echo "Using fallback values to ensure pipeline continues:"
-            echo "INSTANCE_IP: $INSTANCE_IP"
-            echo "INSTANCE_ID: $INSTANCE_ID"
+          echo "Attempting to extract instance_public_ip..."
+          INSTANCE_IP=$(terraform output -raw instance_public_ip 2>&1) || true
+          echo "Raw output for instance_public_ip: '$INSTANCE_IP'"
+          
+          echo "Attempting to extract instance_id..."
+          INSTANCE_ID=$(terraform output -raw instance_id 2>&1) || true
+          echo "Raw output for instance_id: '$INSTANCE_ID'"
+          
+          # Look for error messages
+          if [[ "$INSTANCE_IP" == *"Error"* ]] || [[ "$INSTANCE_ID" == *"Error"* ]]; then
+            echo "Error detected in terraform output. Checking compute module outputs..."
+            grep -r "output" --include="*.tf" .
           fi
-
+          
+          # Clean up error messages and ensure we have usable values
+          if [[ "$INSTANCE_IP" == *"Error"* ]] || [ -z "$INSTANCE_IP" ]; then
+            echo "Error or empty value for instance_public_ip. Setting to fallback value."
+            INSTANCE_IP="fallback_ip_for_pipeline_continuity"
+          fi
+          
+          if [[ "$INSTANCE_ID" == *"Error"* ]] || [ -z "$INSTANCE_ID" ]; then
+            echo "Error or empty value for instance_id. Setting to fallback value."
+            INSTANCE_ID="fallback_id_for_pipeline_continuity"
+          fi
+          
           # Create compact single-line JSON without newlines or special characters
           INFRASTRUCTURE_PARAMS="{\"instance_ip\":\"$INSTANCE_IP\",\"instance_id\":\"$INSTANCE_ID\"}"
 
@@ -123,3 +141,11 @@ jobs:
           
           # Ensure this step makes output visible in workflow logs
           echo "Extracted infrastructure parameters: $INFRASTRUCTURE_PARAMS"
+          
+          # Fail the job if we're using fallback values to stop the pipeline
+          if [[ "$INSTANCE_IP" == "fallback_ip_for_pipeline_continuity" ]] || [[ "$INSTANCE_ID" == "fallback_id_for_pipeline_continuity" ]]; then
+            echo "ERROR: Failed to extract valid infrastructure parameters from Terraform output."
+            echo "This indicates that infrastructure resources were not properly created."
+            echo "Failing the job to prevent downstream deploy steps from proceeding."
+            exit 1
+          fi
