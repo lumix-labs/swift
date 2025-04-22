@@ -50,6 +50,16 @@ on:
         options:
           - "true"
           - "false"
+      instanceIP:
+        description: "Instance IP (used when skipping Terraform)"
+        required: false
+        default: ""
+        type: string
+      instanceID:
+        description: "Instance ID (used when skipping Terraform)"
+        required: false
+        default: ""
+        type: string
 
 jobs:
   check-changes:
@@ -65,6 +75,8 @@ jobs:
       should_deploy_infra: ${{ steps.check-deploy.outputs.should_deploy_infra }}
       should_skip_deployment: ${{ steps.check-deploy.outputs.should_skip_deployment }}
       should_skip_terraform: ${{ steps.check-deploy.outputs.should_skip_terraform }}
+      instance_ip: ${{ github.event.inputs.instanceIP }}
+      instance_id: ${{ github.event.inputs.instanceID }}
 
     steps:
       - name: Checkout code
@@ -194,7 +206,7 @@ jobs:
       (needs.build-web.result == 'success' || needs.build-web.result == 'skipped')
     uses: ./.github/workflows/deploy.yml
     with:
-      infrastructureParams: ${{ needs.check-changes.outputs.should_skip_terraform == 'true' && format('{"instance_ip":"%s","instance_id":"%s"}', secrets.INSTANCE_IP, secrets.INSTANCE_ID) || needs.terraform-apply.outputs.infrastructure_params }}
+      infrastructureParams: ${{ needs.check-changes.outputs.should_skip_terraform == 'true' && format('{"instance_ip":"%s","instance_id":"%s"}', needs.check-changes.outputs.instance_ip, needs.check-changes.outputs.instance_id) || needs.terraform-apply.outputs.infrastructure_params }}
       modulesToDeploy: ${{ needs.check-changes.outputs.modules_to_deploy }}
     secrets:
       AWS_REGION: ${{ secrets.AWS_REGION }}
