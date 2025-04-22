@@ -17,9 +17,11 @@ runs:
       run: |
         mkdir -p deploy
         
-        echo 'version: '"'"'3.8'"'"'
-
-services:' > deploy/docker-compose.yml
+        # Start with proper indentation for the initial YAML structure
+        cat > deploy/docker-compose.yml << 'EOF'
+version: '3.8'
+services:
+EOF
         
         # Convert comma-separated modules to array
         IFS=',' read -ra MODULES <<< "${{ inputs.modules_to_deploy }}"
