@@ -16,96 +16,21 @@ runs:
       shell: bash
       run: |
         mkdir -p deploy
+        cp ${{ github.action_path }}/../templates/docker-compose.yml deploy/docker-compose.yml
         
-        # Create the docker-compose.yml file with proper indentation
-        {
-          echo "version: '3.8'"
-          echo "services:"
-          
-          # Convert comma-separated modules to array
+        # Replace variables in the template
+        sed -i "s|\${AWS_ECR_REGISTRY}|${{ inputs.registry }}|g" deploy/docker-compose.yml
+        
+        # If specific modules were specified, remove other modules
+        if [ -n "${{ inputs.modules_to_deploy }}" ]; then
           IFS=',' read -ra MODULES <<< "${{ inputs.modules_to_deploy }}"
+          ALL_MODULES=("api" "web" "mcp-server")
           
-          # Add each module to docker-compose
-          for MODULE in "${MODULES[@]}"; do
-            if [[ "$MODULE" == "api" ]]; then
-              echo "  api:"
-              echo "    image: ${{ inputs.registry }}/lumixlabs/swift-api:latest"
-              echo "    ports:"
-              echo "      - \"3000:3000\""
-              echo "    restart: always"
-              echo "    volumes:"
-              echo "      - /app/logs/api:/logs"
-              echo "    environment:"
-              echo "      - NODE_ENV=production"
-              echo "      - PORT=3000"
-              echo "    healthcheck:"
-              echo "      test: [\"CMD\", \"wget\", \"-qO-\", \"http://localhost:3000/health\"]"
-              echo "      interval: 30s"
-              echo "      timeout: 10s"
-              echo "      retries: 3"
-              echo "      start_period: 10s"
-              echo "    logging:"
-              echo "      driver: \"json-file\""
-              echo "      options:"
-              echo "        max-size: \"10m\""
-              echo "        max-file: \"3\""
-              echo "    networks:"
-              echo "      - swift-network"
-            elif [[ "$MODULE" == "web" ]]; then
-              echo "  web:"
-              echo "    image: ${{ inputs.registry }}/lumixlabs/swift-web:latest"
-              echo "    ports:"
-              echo "      - \"80:80\""
-              echo "    restart: always"
-              echo "    volumes:"
-              echo "      - /app/logs/web:/logs"
-              echo "    environment:"
-              echo "      - NODE_ENV=production"
-              echo "    depends_on:"
-              echo "      - api"
-              echo "    healthcheck:"
-              echo "      test: [\"CMD\", \"wget\", \"-qO-\", \"http://localhost:80/\"]"
-              echo "      interval: 30s"
-              echo "      timeout: 10s"
-              echo "      retries: 3"
-              echo "      start_period: 10s"
-              echo "    logging:"
-              echo "      driver: \"json-file\""
-              echo "      options:"
-              echo "        max-size: \"10m\""
-              echo "        max-file: \"3\""
-              echo "    networks:"
-              echo "      - swift-network"
-            elif [[ "$MODULE" == "mcp-server" ]]; then
-              echo "  mcp-server:"
-              echo "    image: ${{ inputs.registry }}/lumixlabs/swift-mcp-server:latest"
-              echo "    ports:"
-              echo "      - \"3001:3001\""
-              echo "    restart: always"
-              echo "    volumes:"
-              echo "      - /app/logs/mcp-server:/logs"
-              echo "    environment:"
-              echo "      - NODE_ENV=production"
-              echo "      - PORT=3001"
-              echo "    healthcheck:"
-              echo "      test: [\"CMD\", \"wget\", \"-qO-\", \"http://localhost:3001/health\"]"
-              echo "      interval: 30s"
-              echo "      timeout: 10s"
-              echo "      retries: 3"
-              echo "      start_period: 10s"
-              echo "    logging:"
-              echo "      driver: \"json-file\""
-              echo "      options:"
-              echo "        max-size: \"10m\""
-              echo "        max-file: \"3\""
-              echo "    networks:"
-              echo "      - swift-network"
+          # Find modules to remove
+          for MODULE in "${ALL_MODULES[@]}"; do
+            if [[ ! " ${MODULES[*]} " =~ " ${MODULE} " ]]; then
+              # Remove the module section from docker-compose.yml
+              sed -i "/^  ${MODULE}:/,/^  [a-z]\\|^$/d" deploy/docker-compose.yml
             fi
           done
-          
-          # Add networks section
-          echo ""
-          echo "networks:"
-          echo "  swift-network:"
-          echo "    driver: bridge"
-        } > deploy/docker-compose.yml
+        fi
