@@ -83,10 +83,12 @@ jobs:
 
       - name: Terraform Apply
         if: inputs.action == 'apply'
+        id: apply
         env:
           TF_AUTH: ${{ secrets.TERRAFORM_API_TOKEN }}
         run: terraform apply -auto-approve
 
+      # This step always runs in the 'apply' action, even if there were no changes to apply
       - name: Extract Infrastructure Parameters
         if: inputs.action == 'apply'
         id: extract-params
@@ -99,3 +101,17 @@ jobs:
           INFRASTRUCTURE_PARAMS="{\"instance_ip\":\"$INSTANCE_IP\",\"instance_id\":\"$INSTANCE_ID\"}"
 
           echo "infrastructure_params=$INFRASTRUCTURE_PARAMS" >> $GITHUB_OUTPUT
+          
+          # Ensure this step makes output visible in workflow logs
+          echo "Extracted infrastructure parameters: $INFRASTRUCTURE_PARAMS"
+          
+          # Verify parameters are set
+          if [ -z "$INSTANCE_IP" ] || [ -z "$INSTANCE_ID" ]; then
+            echo "Warning: Some infrastructure parameters are empty."
+            echo "INSTANCE_IP: $INSTANCE_IP"
+            echo "INSTANCE_ID: $INSTANCE_ID"
+            
+            # Display all available outputs
+            echo "Available Terraform outputs:"
+            terraform output
+          fi

@@ -34,7 +34,7 @@ RUN apk add --no-cache curl wget procps
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV PORT=3050
+ENV PORT=80
 ENV NODE_OPTIONS="--max-old-space-size=512"
 
 # Only copy necessary files for running the app
@@ -48,11 +48,11 @@ COPY --from=builder /app/node_modules ./node_modules
 RUN echo '#!/bin/sh\necho "Container starting at $(date)"\necho "Starting Next.js app..."\nexec npm start' > /app/start.sh && chmod +x /app/start.sh
 
 # Expose the port
-EXPOSE 3050
+EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=60s --timeout=30s --start-period=180s --retries=3 \
-    CMD wget --spider -q http://localhost:3050/api/health || exit 1
+    CMD wget --spider -q http://localhost:80/api/health || exit 1
 
 # Start the application with the startup script
 CMD ["npm", "start"]

@@ -1,4 +1,4 @@
-name: Build and Deploy Pipeline
+name: Swift CI/CD Pipeline
 
 on:
   push:
@@ -42,6 +42,14 @@ on:
         options:
           - "true"
           - "false"
+      skipTerraform:
+        description: "Skip Terraform operations entirely"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
 
 jobs:
   check-changes:
@@ -51,11 +59,12 @@ jobs:
       contents: read
     outputs:
       api_changed: ${{ steps.filter.outputs.api }}
-      web_changed: false  # Currently set to false to disable web builds
+      web_changed: ${{ steps.filter.outputs.web }}  # Enabled web builds
       terraform_changed: ${{ steps.filter.outputs.terraform }}
       modules_to_deploy: ${{ steps.set-modules.outputs.modules_to_deploy }}
       should_deploy_infra: ${{ steps.check-deploy.outputs.should_deploy_infra }}
       should_skip_deployment: ${{ steps.check-deploy.outputs.should_skip_deployment }}
+      should_skip_terraform: ${{ steps.check-deploy.outputs.should_skip_terraform }}
 
     steps:
       - name: Checkout code
@@ -85,10 +94,10 @@ jobs:
             MODULES+=("api")
           fi
           
-          # Web module disabled temporarily
-          # if [[ "${{ steps.filter.outputs.web }}" == "true" || "${{ github.event.inputs.forceBuildWeb }}" == "true" ]]; then
-          #   MODULES+=("web")
-          # fi
+          # Check if Web changed or force build requested
+          if [[ "${{ steps.filter.outputs.web }}" == "true" || "${{ github.event.inputs.forceBuildWeb }}" == "true" ]]; then
+            MODULES+=("web")
+          fi
           
           # Join array with commas
           if [ ${#MODULES[@]} -gt 0 ]; then
@@ -113,6 +122,13 @@ jobs:
             echo "should_skip_deployment=true" >> $GITHUB_OUTPUT
           else
             echo "should_skip_deployment=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check if we should skip Terraform
+          if [[ "${{ github.event.inputs.skipTerraform }}" == "true" ]]; then
+            echo "should_skip_terraform=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_skip_terraform=false" >> $GITHUB_OUTPUT
           fi
 
   build-api:
@@ -146,37 +162,39 @@ jobs:
   terraform-plan:
     name: Terraform Plan
     needs: check-changes
-    if: needs.check-changes.outputs.should_deploy_infra == 'true'
+    if: needs.check-changes.outputs.should_deploy_infra == 'true' && needs.check-changes.outputs.should_skip_terraform == 'false'
     uses: ./.github/workflows/terraform-workflow.yml
     with:
       action: plan
     secrets:
       TERRAFORM_API_TOKEN: ${{ secrets.TF_AUTH }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
   terraform-apply:
     name: Terraform Apply
     needs: [terraform-plan, check-changes]
-    if: needs.terraform-plan.result == 'success' && needs.check-changes.outputs.should_skip_deployment == 'false'
+    if: needs.terraform-plan.result == 'success' && needs.check-changes.outputs.should_skip_deployment == 'false' && needs.check-changes.outputs.should_skip_terraform == 'false'
     uses: ./.github/workflows/terraform-workflow.yml
     with:
       action: apply
     secrets:
       TERRAFORM_API_TOKEN: ${{ secrets.TF_AUTH }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
   deploy:
     name: Deploy Application
-    # Add dependencies on the build jobs to ensure images are built first
+    # Add dependencies on all previous jobs
     needs: [terraform-apply, check-changes, build-api, build-web]
-    # Adjust conditional to run only when required jobs succeed
+    # Adjust conditional to run only when required jobs succeed or were skipped
     if: >
-      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped') && 
       needs.check-changes.outputs.should_skip_deployment == 'false' &&
       needs.check-changes.outputs.modules_to_deploy != '' &&
+      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped' || needs.check-changes.outputs.should_skip_terraform == 'true') &&
       (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
       (needs.build-web.result == 'success' || needs.build-web.result == 'skipped')
     uses: ./.github/workflows/deploy.yml
     with:
-      infrastructureParams: ${{ needs.terraform-apply.outputs.infrastructure_params }}
+      infrastructureParams: ${{ needs.check-changes.outputs.should_skip_terraform == 'true' && format('{"instance_ip":"%s","instance_id":"%s"}', secrets.INSTANCE_IP, secrets.INSTANCE_ID) || needs.terraform-apply.outputs.infrastructure_params }}
       modulesToDeploy: ${{ needs.check-changes.outputs.modules_to_deploy }}
     secrets:
       AWS_REGION: ${{ secrets.AWS_REGION }}

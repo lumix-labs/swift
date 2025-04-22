@@ -10,8 +10,7 @@
     "dev:turbo": "next dev --turbopack --port 80",
     "build": "next build",
     "start": "next start --port 80",
-    "lint": "next lint",
-    "cloudflare-build": "bash ./cloudflare-pages-build.sh"
+    "lint": "next lint"
   },
   "dependencies": {
     "react": "^18.2.0",
