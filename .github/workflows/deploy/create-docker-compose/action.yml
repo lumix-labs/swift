@@ -17,33 +17,104 @@ runs:
       run: |
         mkdir -p deploy
         
-        # Create basic docker-compose.yml structure
-        cat > deploy/docker-compose.yml << EOL
-version: '3.8'
+        echo 'version: '"'"'3.8'"'"'
 
-services:
-EOL
+services:' > deploy/docker-compose.yml
         
         # Convert comma-separated modules to array
         IFS=',' read -ra MODULES <<< "${{ inputs.modules_to_deploy }}"
         
-        TEMPLATE_FILE="${GITHUB_WORKSPACE}/.github/workflows/deploy/templates/docker-compose-template.yml"
-        
-        # Add each requested module to docker-compose
+        # Add each module to docker-compose
         for MODULE in "${MODULES[@]}"; do
-          # Extract the service definition from the template
           if [[ "$MODULE" == "api" ]]; then
-            SERVICE_CONTENT=$(sed -n '/^  api:/,/^  [a-z]/p' "$TEMPLATE_FILE" | head -n -1 | sed "s|\${REGISTRY}|${{ inputs.registry }}|g")
-            echo "$SERVICE_CONTENT" >> deploy/docker-compose.yml
+            cat >> deploy/docker-compose.yml << 'EOF'
+  api:
+    image: ${{ inputs.registry }}/lumixlabs/swift-api:latest
+    ports:
+      - "3000:3000" 
+    restart: always
+    volumes:
+      - /app/logs/api:/logs
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - swift-network
+EOF
           elif [[ "$MODULE" == "web" ]]; then
-            SERVICE_CONTENT=$(sed -n '/^  web:/,/^  [a-z]/p' "$TEMPLATE_FILE" | head -n -1 | sed "s|\${REGISTRY}|${{ inputs.registry }}|g")
-            echo "$SERVICE_CONTENT" >> deploy/docker-compose.yml
+            cat >> deploy/docker-compose.yml << 'EOF'
+  web:
+    image: ${{ inputs.registry }}/lumixlabs/swift-web:latest
+    ports:
+      - "80:80"
+    restart: always
+    volumes:
+      - /app/logs/web:/logs
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - swift-network
+EOF
           elif [[ "$MODULE" == "mcp-server" ]]; then
-            SERVICE_CONTENT=$(sed -n '/^  mcp-server:/,/^networks:/p' "$TEMPLATE_FILE" | head -n -1 | sed "s|\${REGISTRY}|${{ inputs.registry }}|g")
-            echo "$SERVICE_CONTENT" >> deploy/docker-compose.yml
+            cat >> deploy/docker-compose.yml << 'EOF'
+  mcp-server:
+    image: ${{ inputs.registry }}/lumixlabs/swift-mcp-server:latest
+    ports:
+      - "3001:3001"
+    restart: always
+    volumes:
+      - /app/logs/mcp-server:/logs
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - swift-network
+EOF
           fi
         done
         
         # Add networks section
-        NETWORKS_CONTENT=$(sed -n '/^networks:/,$p' "$TEMPLATE_FILE")
-        echo "$NETWORKS_CONTENT" >> deploy/docker-compose.yml
+        cat >> deploy/docker-compose.yml << 'EOF'
+
+networks:
+  swift-network:
+    driver: bridge
+EOF
+
+        # Replace registry placeholder with actual value
+        sed -i "s|\${{ inputs.registry }}|${{ inputs.registry }}|g" deploy/docker-compose.yml

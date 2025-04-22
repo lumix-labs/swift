@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+. "$(dirname "$0")/_/husky.sh"
 
 # Get the name of the branch being pushed to
 remote="$1"
@@ -16,6 +17,9 @@ do
     exit 1
   fi
 done
+
+# Validate GitHub Action files
+./.husky/validate-github-actions.sh || exit 1
 
 # Run CI checks before pushing - EXIT WITH ERROR CODE IF CHECKS FAIL
 npm run ci
