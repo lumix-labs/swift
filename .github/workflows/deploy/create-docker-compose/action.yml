@@ -17,104 +17,33 @@ runs:
       run: |
         mkdir -p deploy
         
-        # Create docker-compose.yml content
-        cat > deploy/docker-compose.yml << 'EOL'
-        version: '3.8'
+        # Create basic docker-compose.yml structure
+        cat > deploy/docker-compose.yml << EOL
+version: '3.8'
 
-        services:
-        EOL
+services:
+EOL
         
         # Convert comma-separated modules to array
         IFS=',' read -ra MODULES <<< "${{ inputs.modules_to_deploy }}"
         
-        # Add each module to docker-compose
+        TEMPLATE_FILE="${GITHUB_WORKSPACE}/.github/workflows/deploy/templates/docker-compose-template.yml"
+        
+        # Add each requested module to docker-compose
         for MODULE in "${MODULES[@]}"; do
+          # Extract the service definition from the template
           if [[ "$MODULE" == "api" ]]; then
-            cat >> deploy/docker-compose.yml << 'EOL'
-          api:
-            image: ${{ inputs.registry }}/lumixlabs/swift-api:latest
-            ports:
-              - "3000:3000" 
-            restart: always
-            volumes:
-              - /app/logs/api:/logs
-            environment:
-              - NODE_ENV=production
-              - PORT=3000
-            healthcheck:
-              test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
-              interval: 30s
-              timeout: 10s
-              retries: 3
-              start_period: 10s
-            logging:
-              driver: "json-file"
-              options:
-                max-size: "10m"
-                max-file: "3"
-            networks:
-              - swift-network
-        EOL
+            SERVICE_CONTENT=$(sed -n '/^  api:/,/^  [a-z]/p' "$TEMPLATE_FILE" | head -n -1 | sed "s|\${REGISTRY}|${{ inputs.registry }}|g")
+            echo "$SERVICE_CONTENT" >> deploy/docker-compose.yml
           elif [[ "$MODULE" == "web" ]]; then
-            cat >> deploy/docker-compose.yml << 'EOL'
-          web:
-            image: ${{ inputs.registry }}/lumixlabs/swift-web:latest
-            ports:
-              - "80:80"
-            restart: always
-            volumes:
-              - /app/logs/web:/logs
-            environment:
-              - NODE_ENV=production
-            depends_on:
-              - api
-            healthcheck:
-              test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
-              interval: 30s
-              timeout: 10s
-              retries: 3
-              start_period: 10s
-            logging:
-              driver: "json-file"
-              options:
-                max-size: "10m"
-                max-file: "3"
-            networks:
-              - swift-network
-        EOL
+            SERVICE_CONTENT=$(sed -n '/^  web:/,/^  [a-z]/p' "$TEMPLATE_FILE" | head -n -1 | sed "s|\${REGISTRY}|${{ inputs.registry }}|g")
+            echo "$SERVICE_CONTENT" >> deploy/docker-compose.yml
           elif [[ "$MODULE" == "mcp-server" ]]; then
-            cat >> deploy/docker-compose.yml << 'EOL'
-          mcp-server:
-            image: ${{ inputs.registry }}/lumixlabs/swift-mcp-server:latest
-            ports:
-              - "3001:3001"
-            restart: always
-            volumes:
-              - /app/logs/mcp-server:/logs
-            environment:
-              - NODE_ENV=production
-              - PORT=3001
-            healthcheck:
-              test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
-              interval: 30s
-              timeout: 10s
-              retries: 3
-              start_period: 10s
-            logging:
-              driver: "json-file"
-              options:
-                max-size: "10m"
-                max-file: "3"
-            networks:
-              - swift-network
-        EOL
+            SERVICE_CONTENT=$(sed -n '/^  mcp-server:/,/^networks:/p' "$TEMPLATE_FILE" | head -n -1 | sed "s|\${REGISTRY}|${{ inputs.registry }}|g")
+            echo "$SERVICE_CONTENT" >> deploy/docker-compose.yml
           fi
         done
         
         # Add networks section
-        cat >> deploy/docker-compose.yml << 'EOL'
-
-        networks:
-          swift-network:
-            driver: bridge
-        EOL
+        NETWORKS_CONTENT=$(sed -n '/^networks:/,$p' "$TEMPLATE_FILE")
+        echo "$NETWORKS_CONTENT" >> deploy/docker-compose.yml
