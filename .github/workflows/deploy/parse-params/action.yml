@@ -40,18 +40,19 @@ runs:
         
         if [ -n "${{ inputs.infrastructureParams }}" ]; then
           # From workflow_call - use our parameter parser
-          export PARAMS='${{ inputs.infrastructureParams }}'
-          INSTANCE_IP=$(${{ github.workspace }}/.github/scripts/parse-params.sh "$PARAMS" "instance_ip")
-          INSTANCE_ID=$(${{ github.workspace }}/.github/scripts/parse-params.sh "$PARAMS" "instance_id")
+          echo "Processing params from workflow_call"
+          INSTANCE_IP=$(${{ github.workspace }}/.github/scripts/parse-params.sh '${{ inputs.infrastructureParams }}' "instance_ip")
+          INSTANCE_ID=$(${{ github.workspace }}/.github/scripts/parse-params.sh '${{ inputs.infrastructureParams }}' "instance_id")
           MODULES_TO_DEPLOY="${{ inputs.modulesToDeploy }}"
         else
           # From workflow_dispatch
+          echo "Processing params from workflow_dispatch"
           INSTANCE_IP="${{ inputs.instance_ip }}"
           INSTANCE_ID=""
           MODULES_TO_DEPLOY="${{ inputs.modules_to_deploy }}"
         fi
         
-        echo "Parsed instance_ip: $INSTANCE_IP"
+        echo "Extracted instance_ip: $INSTANCE_IP"
         
         # Check if instance_ip is fallback value from Terraform output
         if [[ "$INSTANCE_IP" == "fallback_ip_for_pipeline_continuity" ]]; then
@@ -89,6 +90,6 @@ runs:
           fi
         fi
         
-        echo "instance_ip=${INSTANCE_IP}" >> $GITHUB_OUTPUT
-        echo "instance_id=${INSTANCE_ID}" >> $GITHUB_OUTPUT
-        echo "modules_to_deploy=${MODULES_TO_DEPLOY}" >> $GITHUB_OUTPUT
+        echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
+        echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+        echo "modules_to_deploy=$MODULES_TO_DEPLOY" >> $GITHUB_OUTPUT

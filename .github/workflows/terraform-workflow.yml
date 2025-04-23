@@ -6,7 +6,8 @@ on:
       action:
         required: true
         type: string
-        description: "Terraform action to perform (plan or apply)"
+        description: "Terraform action to perform (plan-apply or plan-only)"
+        default: "plan-only"
     outputs:
       infrastructure_params:
         description: "Infrastructure parameters as JSON"
@@ -19,7 +20,7 @@ on:
 
 jobs:
   terraform:
-    name: Terraform ${{ inputs.action }}
+    name: Terraform Operations
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -74,7 +75,6 @@ jobs:
           echo "Terraform validation successful."
 
       - name: Terraform Plan
-        if: inputs.action == 'plan'
         id: plan
         env:
           TF_AUTH: ${{ secrets.TERRAFORM_API_TOKEN }}
@@ -92,7 +92,7 @@ jobs:
           echo "Terraform plan completed successfully."
 
       - name: Terraform Apply
-        if: inputs.action == 'apply'
+        if: inputs.action == 'plan-apply'
         id: apply
         env:
           TF_AUTH: ${{ secrets.TERRAFORM_API_TOKEN }}
@@ -106,7 +106,7 @@ jobs:
           echo "Terraform apply successful. Infrastructure has been updated."
 
       - name: Extract Infrastructure Parameters
-        if: inputs.action == 'apply'
+        if: inputs.action == 'plan-apply'
         id: extract-params
         run: |
           echo "=== Extracting infrastructure parameters ==="
@@ -139,3 +139,12 @@ jobs:
           INFRASTRUCTURE_PARAMS="{\"instance_ip\":\"$INSTANCE_IP\",\"instance_id\":\"$INSTANCE_ID\"}"
           echo "infrastructure_params=$INFRASTRUCTURE_PARAMS" >> $GITHUB_OUTPUT
           echo "Successfully extracted infrastructure parameters: $INFRASTRUCTURE_PARAMS"
+      
+      - name: Set default output for plan-only mode
+        if: inputs.action == 'plan-only'
+        id: default-params
+        run: |
+          # Create a default JSON output when in plan-only mode
+          DEFAULT_PARAMS="{\"instance_ip\":\"plan_only_mode\",\"instance_id\":\"plan_only_mode\"}"
+          echo "infrastructure_params=$DEFAULT_PARAMS" >> $GITHUB_OUTPUT
+          echo "In plan-only mode - using placeholder infrastructure parameters"
