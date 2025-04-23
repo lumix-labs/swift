@@ -1,7 +1,7 @@
 services:
   web:
     build:
-      dockerfile: Dockerfile
+      dockerfile: CONTAINER_IMAGE_WEB
     ports:
       - "80:80"
     volumes:
@@ -24,7 +24,7 @@ services:
 
   api-server:
     build:
-      dockerfile: Dockerfile
+      dockerfile: CONTAINER_IMAGE_API
     ports:
       - "4000:4000"
     volumes:
