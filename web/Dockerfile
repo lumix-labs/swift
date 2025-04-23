@@ -6,19 +6,22 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache python3 make g++ bash
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
+# Copy tsconfig.json first to ensure path mapping is available
+COPY package*.json tsconfig.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy necessary files for build
+# Copy the rest of the application
 COPY . .
 
 # Log TypeScript version
 RUN echo "TypeScript version:" && npx tsc --version
 
-# Verify types first
+# Initialize Next.js to ensure proper resolution of paths
+RUN npx next telemetry disable
+
+# Verify types with proper path resolution
 RUN npx tsc --noEmit
 
 # Build the application with verbose logging
