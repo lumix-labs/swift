@@ -1,5 +1,5 @@
-import { Message } from '@/app/context/ChatContext';
-import { formatTimestamp } from '@/app/lib/utils';
+import { Message } from '../../context/ChatContext';
+import { formatTimestamp } from '../../lib/utils';
 
 interface ChatMessageProps {
   message: Message;

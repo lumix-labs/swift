@@ -5,11 +5,10 @@ services:
       - "80:80"
     volumes:
       - ./logs/web:/logs
-      # Comment out this volume mount that's overriding the build
-      # - ./web:/app
+      # Never mount source code over the container in production
       - /app/node_modules
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - PORT=80
     restart: unless-stopped
     healthcheck:
@@ -29,7 +28,7 @@ services:
       - ./logs/api-server:/logs
       - /app/node_modules
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - PORT=4000
     restart: unless-stopped
     healthcheck:

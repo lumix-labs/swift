@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { ThemeToggle } from './ThemeToggle';
-import { useChat } from '@/app/context/ChatContext';
+import { useChat } from 'src/app/context/ChatContext';
 
 export function Header() {
   const { clearMessages } = useChat();

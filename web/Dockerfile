@@ -6,7 +6,7 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache python3 make g++ bash
 
-# Copy tsconfig.json first to ensure path mapping is available
+# Copy package.json and tsconfig.json first for better layer caching
 COPY package*.json tsconfig.json ./
 
 # Install dependencies
@@ -15,8 +15,9 @@ RUN npm install
 # Copy the rest of the application
 COPY . .
 
-# Log TypeScript version
+# Log TypeScript version and directory structure for debugging
 RUN echo "TypeScript version:" && npx tsc --version
+RUN echo "Directory structure:" && find ./src -type f | sort
 
 # Initialize Next.js to ensure proper resolution of paths
 RUN npx next telemetry disable

@@ -6,7 +6,7 @@ import {
   useEffect, 
   ReactNode 
 } from 'react';
-import { getSystemTheme, isBrowser } from '@/app/lib/utils';
+import { getSystemTheme, isBrowser } from '../lib/utils';
 
 type Theme = 'light' | 'dark' | 'system';
 

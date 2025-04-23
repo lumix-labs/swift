@@ -1,7 +1,7 @@
 "use client"
 import { useState, FormEvent, KeyboardEvent, useRef, useEffect } from 'react';
-import { useChat } from '@/app/context/ChatContext';
-import { chatService } from '@/app/lib/services/chat-service';
+import { useChat } from 'src/app/context/ChatContext';
+import { chatService } from 'src/app/lib/services/chat-service';
 
 export function ChatInput() {
   const [input, setInput] = useState('');

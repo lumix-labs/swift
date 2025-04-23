@@ -56,14 +56,17 @@ jobs:
             echo "Adding API module for deployment due to changes"
           fi
 
+          # Add Web module if it has changes
+          if [[ "${{ steps.filter.outputs.web }}" == "true" ]]; then
+            MODULES+=("web")
+            echo "Adding Web module for deployment due to changes"
+          fi
+
           # Always include API if nothing else is selected
           if [ ${#MODULES[@]} -eq 0 ]; then
             MODULES+=("api")
             echo "No modules detected for changes, defaulting to API module"
           fi
-
-          # Deliberately skipping web module in all cases
-          echo "Web module is deliberately skipped as requested"
 
           # Join array with commas
           MODULES_STR=$(IFS=,; echo "${MODULES[*]}")
@@ -115,7 +118,8 @@ jobs:
     needs: [check-changes, build-api, build-web]
     if: |
       needs.check-changes.outputs.should_deploy_infra == 'true' && 
-      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped')
+      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
+      (needs.build-web.result == 'success' || needs.build-web.result == 'skipped')
     uses: ./.github/workflows/terraform-workflow.yml
     with:
       action: plan-apply
@@ -125,10 +129,11 @@ jobs:
 
   deploy:
     name: Deploy Application
-    needs: [check-changes, build-api, terraform]
+    needs: [check-changes, build-api, build-web, terraform]
     # Ensure deploy only runs if previous steps succeeded or were skipped
     if: |
       (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
+      (needs.build-web.result == 'success' || needs.build-web.result == 'skipped') &&
       (needs.terraform.result == 'success' || needs.terraform.result == 'skipped')
     uses: ./.github/workflows/deploy.yml
     with:
