@@ -53,99 +53,96 @@ jobs:
         id: init
         env:
           TF_AUTH: ${{ secrets.TERRAFORM_API_TOKEN }}
-          TF_LOG: DEBUG
-        run: terraform init -input=false -upgrade
-
-      - name: Debug terraform state on init
+          TF_LOG: INFO
         run: |
-          echo "=== Terraform state info after init ==="
-          ls -la
-          find . -name "*.tfstate*" -type f -exec ls -la {} \;
-          find . -name "*.tflock*" -type f -exec ls -la {} \;
-          echo "=== Terraform providers ==="
-          terraform providers
-          echo "=== Terraform validation ==="
+          echo "Running terraform init..."
+          terraform init -input=false -upgrade
+          if [ $? -ne 0 ]; then
+            echo "::error::Terraform initialization failed. Please check Terraform configuration."
+            exit 1
+          fi
+          echo "Terraform initialization successful."
+
+      - name: Terraform Validate
+        id: validate
+        run: |
+          echo "Validating Terraform configuration..."
           terraform validate
-
-      - name: Debug module structure
-        run: |
-          echo "=== Module structure ==="
-          ls -la modules
-          ls -la modules/compute || echo "No compute module directory"
-          ls -la modules/networking || echo "No networking module directory"
-          
-          echo "=== Module outputs ==="
-          echo "Computing module outputs:"
-          grep -r "output" modules/compute/ || echo "No compute module outputs found"
-          echo "Networking module outputs:"
-          grep -r "output" modules/networking/ || echo "No networking module outputs found"
+          if [ $? -ne 0 ]; then
+            echo "::error::Terraform validation failed. Please fix the configuration errors."
+            exit 1
+          fi
+          echo "Terraform validation successful."
 
       - name: Terraform Plan
         if: inputs.action == 'plan'
         id: plan
         env:
           TF_AUTH: ${{ secrets.TERRAFORM_API_TOKEN }}
-        run: terraform plan
+        run: |
+          echo "Running terraform plan..."
+          terraform plan -detailed-exitcode -out=tfplan
+          PLAN_EXIT_CODE=$?
+          if [ $PLAN_EXIT_CODE -eq 1 ]; then
+            echo "::error::Terraform plan failed. Please check the error messages above."
+            exit 1
+          fi
+          echo "Terraform plan finished. Exit code: $PLAN_EXIT_CODE"
+          echo "Changes detected: $([ $PLAN_EXIT_CODE -eq 2 ] && echo 'Yes' || echo 'No')"
 
       - name: Terraform Apply
         if: inputs.action == 'apply'
         id: apply
         env:
           TF_AUTH: ${{ secrets.TERRAFORM_API_TOKEN }}
-        run: terraform apply -auto-approve
+        run: |
+          echo "Running terraform apply..."
+          terraform apply -auto-approve
+          if [ $? -ne 0 ]; then
+            echo "::error::Terraform apply failed. Infrastructure changes were not applied."
+            exit 1
+          fi
+          echo "Terraform apply successful. Infrastructure has been updated."
 
-      # Enhanced parameter extraction with validation
       - name: Extract Infrastructure Parameters
         if: inputs.action == 'apply'
         id: extract-params
         run: |
-          echo "=== Terraform Show ==="
-          terraform show || echo "Failed to show terraform state"
+          echo "=== Extracting infrastructure parameters ==="
           
-          echo "=== Terraform State List ==="
-          terraform state list || echo "Failed to list terraform state"
+          # List available outputs
+          echo "Available Terraform outputs:"
+          terraform output || { echo "::error::Failed to get terraform outputs"; exit 1; }
           
-          echo "=== Terraform Output ==="
-          terraform output || echo "Failed to get terraform outputs"
-          
-          # Extract values individually using -raw to avoid JSON formatting issues
-          echo "Attempting to extract instance_public_ip..."
-          INSTANCE_IP=$(terraform output -raw instance_public_ip 2>&1) || true
-          echo "Raw output for instance_public_ip: '$INSTANCE_IP'"
-          
-          echo "Attempting to extract instance_id..."
-          INSTANCE_ID=$(terraform output -raw instance_id 2>&1) || true
-          echo "Raw output for instance_id: '$INSTANCE_ID'"
-          
-          # Look for error messages
-          if [[ "$INSTANCE_IP" == *"Error"* ]] || [[ "$INSTANCE_ID" == *"Error"* ]]; then
-            echo "Error detected in terraform output. Checking compute module outputs..."
-            grep -r "output" --include="*.tf" .
-          fi
-          
-          # Clean up error messages and ensure we have usable values
-          if [[ "$INSTANCE_IP" == *"Error"* ]] || [ -z "$INSTANCE_IP" ]; then
-            echo "Error or empty value for instance_public_ip. Setting to fallback value."
-            INSTANCE_IP="fallback_ip_for_pipeline_continuity"
-          fi
-          
-          if [[ "$INSTANCE_ID" == *"Error"* ]] || [ -z "$INSTANCE_ID" ]; then
-            echo "Error or empty value for instance_id. Setting to fallback value."
-            INSTANCE_ID="fallback_id_for_pipeline_continuity"
-          fi
-          
-          # Create compact single-line JSON without newlines or special characters
-          INFRASTRUCTURE_PARAMS="{\"instance_ip\":\"$INSTANCE_IP\",\"instance_id\":\"$INSTANCE_ID\"}"
-
-          echo "infrastructure_params=$INFRASTRUCTURE_PARAMS" >> $GITHUB_OUTPUT
-          
-          # Ensure this step makes output visible in workflow logs
-          echo "Extracted infrastructure parameters: $INFRASTRUCTURE_PARAMS"
-          
-          # Fail the job if we're using fallback values to stop the pipeline
-          if [[ "$INSTANCE_IP" == "fallback_ip_for_pipeline_continuity" ]] || [[ "$INSTANCE_ID" == "fallback_id_for_pipeline_continuity" ]]; then
-            echo "ERROR: Failed to extract valid infrastructure parameters from Terraform output."
-            echo "This indicates that infrastructure resources were not properly created."
-            echo "Failing the job to prevent downstream deploy steps from proceeding."
+          # Extract values using proper error handling
+          echo "Extracting instance_public_ip..."
+          if ! INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null); then
+            echo "::error::Failed to extract instance_public_ip from Terraform outputs."
+            echo "This suggests that the resource was not created properly."
             exit 1
           fi
+          echo "Extracted instance_public_ip: ${INSTANCE_IP}"
+          
+          echo "Extracting instance_id..."
+          if ! INSTANCE_ID=$(terraform output -raw instance_id 2>/dev/null); then
+            echo "::error::Failed to extract instance_id from Terraform outputs."
+            echo "This suggests that the resource was not created properly."
+            exit 1
+          fi
+          echo "Extracted instance_id: ${INSTANCE_ID}"
+          
+          # Validate extracted values
+          if [ -z "$INSTANCE_IP" ] || [ "$INSTANCE_IP" == "null" ]; then
+            echo "::error::Instance IP is empty or null. Infrastructure was not properly created."
+            exit 1
+          fi
+          
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
+            echo "::error::Instance ID is empty or null. Infrastructure was not properly created."
+            exit 1
+          fi
+          
+          # Create JSON output with validated parameters
+          INFRASTRUCTURE_PARAMS="{\"instance_ip\":\"$INSTANCE_IP\",\"instance_id\":\"$INSTANCE_ID\"}"
+          echo "infrastructure_params=$INFRASTRUCTURE_PARAMS" >> $GITHUB_OUTPUT
+          echo "Successfully extracted infrastructure parameters: $INFRASTRUCTURE_PARAMS"

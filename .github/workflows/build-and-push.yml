@@ -83,7 +83,6 @@ jobs:
       should_deploy_infra: ${{ steps.check-deploy.outputs.should_deploy_infra }}
       should_skip_deployment: ${{ steps.check-deploy.outputs.should_skip_deployment }}
       should_skip_terraform: ${{ steps.check-deploy.outputs.should_skip_terraform }}
-      web_disabled: ${{ steps.check-deploy.outputs.web_disabled }}
       instance_ip: ${{ github.event.inputs.instanceIP }}
       instance_id: ${{ github.event.inputs.instanceID }}
 
@@ -109,23 +108,27 @@ jobs:
         id: set-modules
         run: |
           MODULES=()
-
-          # Check if web is disabled via flag
-          WEB_DISABLED="${{ github.event.inputs.disableWebModule }}"
+          echo "Change detection results:"
+          echo "API changes: ${{ steps.filter.outputs.api }}"
+          echo "Web changes: ${{ steps.filter.outputs.web }}"
+          echo "Terraform changes: ${{ steps.filter.outputs.terraform }}"
 
           # Check if API changed or force build requested
           if [[ "${{ steps.filter.outputs.api }}" == "true" || "${{ github.event.inputs.forceBuildApi }}" == "true" ]]; then
             MODULES+=("api")
+            echo "Adding API module for deployment"
           fi
 
-          # # Check if Web changed or force build requested AND web is not disabled
-          # if [[ ("${{ steps.filter.outputs.web }}" == "true" || "${{ github.event.inputs.forceBuildWeb }}" == "true") && "$WEB_DISABLED" != "true" ]]; then
-          #   MODULES+=("web")
-          # fi
+          # Check if Web changed or force build requested AND web is not disabled
+          if [[ ("${{ steps.filter.outputs.web }}" == "true" || "${{ github.event.inputs.forceBuildWeb }}" == "true") && "${{ github.event.inputs.disableWebModule }}" != "true" ]]; then
+            MODULES+=("web")
+            echo "Adding Web module for deployment"
+          fi
 
           # Always include API if nothing else is selected
           if [ ${#MODULES[@]} -eq 0 ]; then
             MODULES+=("api")
+            echo "No modules detected for changes, defaulting to API module"
           fi
 
           # Join array with commas
@@ -139,30 +142,28 @@ jobs:
           # Check if we should deploy infrastructure
           if [[ "${{ steps.filter.outputs.terraform }}" == "true" || "${{ github.event.inputs.forceInfraUpdate }}" == "true" ]]; then
             echo "should_deploy_infra=true" >> $GITHUB_OUTPUT
+            echo "Infrastructure changes detected, will deploy infra"
           else
             echo "should_deploy_infra=false" >> $GITHUB_OUTPUT
+            echo "No infrastructure changes detected"
           fi
 
           # Check if we should skip deployment 
           if [[ "${{ github.event.inputs.skipDeployment }}" == "true" ]]; then
             echo "should_skip_deployment=true" >> $GITHUB_OUTPUT
+            echo "Deployment will be skipped as requested"
           else
             echo "should_skip_deployment=false" >> $GITHUB_OUTPUT
+            echo "Deployment will be performed"
           fi
 
           # Check if we should skip Terraform
           if [[ "${{ github.event.inputs.skipTerraform }}" == "true" ]]; then
             echo "should_skip_terraform=true" >> $GITHUB_OUTPUT
+            echo "Terraform operations will be skipped as requested"
           else
             echo "should_skip_terraform=false" >> $GITHUB_OUTPUT
-          fi
-
-          # Check if web module is disabled
-          if [[ "${{ github.event.inputs.disableWebModule }}" == "true" ]]; then
-            echo "web_disabled=true" >> $GITHUB_OUTPUT
-            echo "Web module is disabled"
-          else
-            echo "web_disabled=false" >> $GITHUB_OUTPUT
+            echo "Terraform operations will be performed"
           fi
 
   build-api:
@@ -182,7 +183,7 @@ jobs:
   build-web:
     name: Build Web Image
     needs: check-changes
-    if: (needs.check-changes.outputs.web_changed == 'true')
+    if: needs.check-changes.outputs.web_changed == 'true' || github.event.inputs.forceBuildWeb == 'true' && github.event.inputs.disableWebModule != 'true'
     uses: ./.github/workflows/build-module.yml
     with:
       module: web
@@ -229,7 +230,7 @@ jobs:
     if: |
       needs.check-changes.outputs.should_skip_deployment == 'false' &&
       (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
-      ((needs.build-web.result == 'success' || needs.build-web.result == 'skipped') || needs.check-changes.outputs.web_disabled == 'true') &&
+      (needs.build-web.result == 'success' || needs.build-web.result == 'skipped') &&
       (needs.terraform-apply.result == 'success' || needs.check-changes.outputs.should_skip_terraform == 'true')
     uses: ./.github/workflows/deploy.yml
     with:

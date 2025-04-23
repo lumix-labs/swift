@@ -21,32 +21,39 @@ runs:
         INSTANCE_ID="${{ inputs.instance_id }}"
         INSTANCE_IP="${{ inputs.instance_ip }}"
         
-        # Check if we're using fallback values from Terraform - fail immediately
-        if [[ "$INSTANCE_IP" == "fallback_ip_for_pipeline_continuity" ]] || [[ "$INSTANCE_ID" == "fallback_id_for_pipeline_continuity" ]]; then
-          echo "ERROR: Received fallback values for infrastructure parameters."
-          echo "This indicates that Terraform did not properly output instance information."
-          echo "Verification cannot proceed."
-          
-          # Exit with error to stop the workflow
+        echo "=== Starting deployment verification ==="
+        echo "Instance IP: $INSTANCE_IP"
+        echo "Instance ID: $INSTANCE_ID"
+        echo "Modules to deploy: ${{ inputs.modules_to_deploy }}"
+        
+        # Validate input parameters
+        if [ -z "$INSTANCE_IP" ]; then
+          echo "::error::Instance IP is empty. Cannot proceed with verification."
           exit 1
         fi
         
-        if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
+        # Get instance ID from IP if not provided
+        if [ -z "$INSTANCE_ID" ]; then
+          echo "Instance ID not provided. Attempting to get it from the IP address..."
+          
           INSTANCE_ID=$(aws ec2 describe-instances \
             --filters "Name=public-ip-address,Values=$INSTANCE_IP" \
             --query "Reservations[0].Instances[0].InstanceId" \
             --output text)
             
           if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
-            echo "Error: Could not determine instance ID for IP $INSTANCE_IP"
+            echo "::error::Could not determine instance ID for IP $INSTANCE_IP"
+            echo "Please verify that the instance exists and has the specified IP address."
             exit 1
           fi
+          
+          echo "Found instance ID: $INSTANCE_ID"
         fi
         
         echo "Verifying deployment of modules: ${{ inputs.modules_to_deploy }}"
         
         # Give services time to start
-        echo "Waiting for services to start..."
+        echo "Waiting for services to start (30 seconds)..."
         sleep 30
         
         # Check docker-compose status first
@@ -56,19 +63,29 @@ runs:
           --document-name "AWS-RunShellScript" \
           --parameters commands="[\"cd /app && docker-compose ps\"]" \
           --output text \
-          --query "Command.CommandId" || echo "Command failed for docker-compose status")
+          --query "Command.CommandId")
           
-        if [[ "$DOCKER_COMPOSE_STATUS_CMD_ID" != *"Command failed"* ]]; then
-          sleep 5
+        if [ -z "$DOCKER_COMPOSE_STATUS_CMD_ID" ]; then
+          echo "::error::Failed to send docker-compose status command to instance."
+          exit 1
+        fi
+        
+        echo "Waiting for docker-compose status command to complete (5 seconds)..."
+        sleep 5
+        
+        # Get verification result
+        DOCKER_COMPOSE_STATUS=$(aws ssm get-command-invocation \
+          --command-id "$DOCKER_COMPOSE_STATUS_CMD_ID" \
+          --instance-id "$INSTANCE_ID" \
+          --query "StandardOutputContent" \
+          --output text)
           
-          # Get verification result
-          aws ssm get-command-invocation \
-            --command-id "$DOCKER_COMPOSE_STATUS_CMD_ID" \
-            --instance-id "$INSTANCE_ID" \
-            --query "StandardOutputContent" \
-            --output text || echo "Could not verify docker-compose status"
-        else
-          echo "Failed to check docker-compose status. Verification will continue but may not be accurate."
+        echo "Docker Compose Status:"
+        echo "$DOCKER_COMPOSE_STATUS"
+        
+        if [[ "$DOCKER_COMPOSE_STATUS" == *"Error"* ]]; then
+          echo "::error::Docker compose status check failed."
+          exit 1
         fi
         
         # Verify individual services using SSM
@@ -76,36 +93,45 @@ runs:
         VERIFICATION_SUCCESS=true
         
         for MODULE in "${MODULES[@]}"; do
+          echo "=== Verifying module: $MODULE ==="
+          
           if [[ "$MODULE" == "api" ]]; then
             echo "Checking API service..."
+            
+            # Map module name to service name
+            SERVICE_NAME="api-server"
             
             VERIFY_CMD_ID=$(aws ssm send-command \
               --instance-ids "$INSTANCE_ID" \
               --document-name "AWS-RunShellScript" \
-              --parameters commands="[\"cd /app && docker-compose ps api && curl -s http://localhost:4000/health || echo 'API service is not responding'\"]" \
+              --parameters commands="[\"cd /app && docker-compose ps $SERVICE_NAME && curl -s -m 5 http://localhost:4000/health || echo 'API service is not responding'\"]" \
               --output text \
-              --query "Command.CommandId" || echo "Command failed for API service")
+              --query "Command.CommandId")
               
-            # Only continue if command succeeded
-            if [[ "$VERIFY_CMD_ID" != *"Command failed"* ]]; then
-              sleep 5
-              
-              # Get verification result
-              API_STATUS=$(aws ssm get-command-invocation \
-                --command-id "$VERIFY_CMD_ID" \
-                --instance-id "$INSTANCE_ID" \
-                --query "StandardOutputContent" \
-                --output text || echo "Could not verify API service")
-                
-              echo "$API_STATUS"
-              
-              if [[ "$API_STATUS" == *"not responding"* ]]; then
-                echo "ERROR: API service verification failed"
-                VERIFICATION_SUCCESS=false
-              fi
-            else
-              echo "ERROR: Failed to execute API verification command"
+            if [ -z "$VERIFY_CMD_ID" ]; then
+              echo "::error::Failed to send API verification command to instance."
               VERIFICATION_SUCCESS=false
+              continue
+            fi
+            
+            echo "Waiting for API verification command to complete (5 seconds)..."
+            sleep 5
+            
+            # Get verification result
+            API_STATUS=$(aws ssm get-command-invocation \
+              --command-id "$VERIFY_CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query "StandardOutputContent" \
+              --output text)
+              
+            echo "API Status:"
+            echo "$API_STATUS"
+            
+            if [[ "$API_STATUS" == *"not responding"* ]] || [[ "$API_STATUS" == *"Error"* ]]; then
+              echo "::error::API service verification failed."
+              VERIFICATION_SUCCESS=false
+            else
+              echo "API service verification successful."
             fi
             
           elif [[ "$MODULE" == "web" ]]; then
@@ -114,38 +140,46 @@ runs:
             VERIFY_CMD_ID=$(aws ssm send-command \
               --instance-ids "$INSTANCE_ID" \
               --document-name "AWS-RunShellScript" \
-              --parameters commands="[\"cd /app && docker-compose ps web && curl -s http://localhost:80/ | head -20 || echo 'Web service is not responding'\"]" \
+              --parameters commands="[\"cd /app && docker-compose ps web && curl -s -m 5 http://localhost:80/ | head -20 || echo 'Web service is not responding'\"]" \
               --output text \
-              --query "Command.CommandId" || echo "Command failed for Web service")
+              --query "Command.CommandId")
               
-            # Only continue if command succeeded
-            if [[ "$VERIFY_CMD_ID" != *"Command failed"* ]]; then
-              sleep 5
-              
-              # Get verification result
-              WEB_STATUS=$(aws ssm get-command-invocation \
-                --command-id "$VERIFY_CMD_ID" \
-                --instance-id "$INSTANCE_ID" \
-                --query "StandardOutputContent" \
-                --output text || echo "Could not verify Web service")
-                
-              echo "$WEB_STATUS"
-              
-              if [[ "$WEB_STATUS" == *"not responding"* ]]; then
-                echo "ERROR: Web service verification failed"
-                VERIFICATION_SUCCESS=false
-              fi
-            else
-              echo "ERROR: Failed to execute Web verification command"
+            if [ -z "$VERIFY_CMD_ID" ]; then
+              echo "::error::Failed to send Web verification command to instance."
               VERIFICATION_SUCCESS=false
+              continue
             fi
+            
+            echo "Waiting for Web verification command to complete (5 seconds)..."
+            sleep 5
+            
+            # Get verification result
+            WEB_STATUS=$(aws ssm get-command-invocation \
+              --command-id "$VERIFY_CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query "StandardOutputContent" \
+              --output text)
+              
+            echo "Web Status:"
+            echo "$WEB_STATUS"
+            
+            if [[ "$WEB_STATUS" == *"not responding"* ]] || [[ "$WEB_STATUS" == *"Error"* ]]; then
+              echo "::error::Web service verification failed."
+              VERIFICATION_SUCCESS=false
+            else
+              echo "Web service verification successful."
+            fi
+          else
+            echo "Warning: Unknown module '$MODULE'. No verification performed."
           fi
         done
 
         # Final verification message and status
         if [ "$VERIFICATION_SUCCESS" = true ]; then
-          echo "Deployment verification completed successfully for modules: ${{ inputs.modules_to_deploy }}"
+          echo "=== Deployment verification completed successfully ==="
+          echo "All modules have been verified: ${{ inputs.modules_to_deploy }}"
         else
-          echo "ERROR: Deployment verification failed for one or more modules"
+          echo "::error::Deployment verification failed for one or more modules."
+          echo "Please check the logs above for specific failures."
           exit 1
         fi
