@@ -1,7 +1,6 @@
 services:
   web:
-    build:
-      dockerfile: CONTAINER_IMAGE_WEB
+    image: CONTAINER_IMAGE_WEB
     ports:
       - "80:80"
     volumes:
@@ -23,8 +22,7 @@ services:
       - swift-network
 
   api-server:
-    build:
-      dockerfile: CONTAINER_IMAGE_API
+    image: CONTAINER_IMAGE_API
     ports:
       - "4000:4000"
     volumes:

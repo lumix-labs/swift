@@ -71,22 +71,19 @@ echo "Checking docker-compose.yml for correct image references..."
 if [ -n "$CONTAINER_IMAGE_API" ] || [ -n "$CONTAINER_IMAGE_WEB" ]; then
   echo "Custom container images provided, ensuring they are in docker-compose.yml"
   
+  # Create a backup of the original file
+  cp docker-compose.yml docker-compose.yml.bak
+  
   if [ -n "$CONTAINER_IMAGE_API" ]; then
-    # Check if api-server service exists in docker-compose
-    if grep -q "api-server:" docker-compose.yml; then
-      echo "Updating api-server image to: $CONTAINER_IMAGE_API"
-      # Replace the image line for api-server
-      sed -i -E "s|image:.*api.*|image: \"$CONTAINER_IMAGE_API\"|g" docker-compose.yml
-    fi
+    echo "Updating api-server image to: $CONTAINER_IMAGE_API"
+    # Replace the placeholder with the actual image reference
+    sed -i "s|image: CONTAINER_IMAGE_API|image: $CONTAINER_IMAGE_API|g" docker-compose.yml
   fi
   
   if [ -n "$CONTAINER_IMAGE_WEB" ]; then
-    # Check if web service exists in docker-compose
-    if grep -q "web:" docker-compose.yml; then
-      echo "Updating web image to: $CONTAINER_IMAGE_WEB"
-      # Replace the image line for web
-      sed -i -E "s|image:.*web.*|image: \"$CONTAINER_IMAGE_WEB\"|g" docker-compose.yml
-    fi
+    echo "Updating web image to: $CONTAINER_IMAGE_WEB"
+    # Replace the placeholder with the actual image reference
+    sed -i "s|image: CONTAINER_IMAGE_WEB|image: $CONTAINER_IMAGE_WEB|g" docker-compose.yml
   fi
   
   # Display updated docker-compose file
@@ -113,12 +110,16 @@ aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --
 
 # Pull latest images and deploy
 echo "Pulling Docker images and starting containers..."
+echo "Running docker-compose pull..."
 docker-compose pull || {
   echo "Error pulling Docker images. Retrying with more debug info..."
-  # Retry with more debug information
+  # Show detailed docker pull commands
   for service in $(docker-compose config --services); do
-    echo "Pulling image for service: $service"
-    docker-compose pull $service || echo "Failed to pull $service - continuing with other services"
+    echo "Examining service: $service"
+    image=$(docker-compose config | grep -A 5 "$service:" | grep "image:" | awk '{print $2}' | tr -d '"')
+    echo "Service $service is using image: $image"
+    echo "Attempting direct pull: docker pull $image"
+    docker pull $image || echo "Failed to pull $image - check registry permissions and image name"
   done
 }
 
@@ -134,7 +135,7 @@ echo "Verifying container status..."
 docker-compose ps
 
 # Check actual container states
-running_containers=$(docker-compose ps --services | wc -l)
+running_containers=$(docker-compose ps --services --filter "status=running" | wc -l)
 expected_containers=$(docker-compose config --services | wc -l)
 
 if [ "$running_containers" -lt "$expected_containers" ]; then
@@ -144,6 +145,8 @@ if [ "$running_containers" -lt "$expected_containers" ]; then
     docker-compose logs $service --tail 20
   done
   echo "Deployment completed with warnings"
+  # Return error status
+  exit 1
 else
   echo "All containers are running successfully!"
   echo "Deployment completed successfully"

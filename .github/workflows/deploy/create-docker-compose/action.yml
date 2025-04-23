@@ -27,8 +27,8 @@ runs:
         cp ${{ github.action_path }}/../templates/docker-compose.yml deploy/docker-compose.yml
 
         # Replace dockerfile placeholders with secrets
-        sed -i 's|dockerfile: CONTAINER_IMAGE_WEB|dockerfile: ${{ inputs.container_image_web }}/swift-web|g' deploy/docker-compose.yml
-        sed -i 's|dockerfile: CONTAINER_IMAGE_API|dockerfile: ${{ inputs.container_image_api }}/swift-api|g' deploy/docker-compose.yml
+        sed -i 's|dockerfile: CONTAINER_IMAGE_WEB|dockerfile: ${{ inputs.container_image_web }}|g' deploy/docker-compose.yml
+        sed -i 's|dockerfile: CONTAINER_IMAGE_API|dockerfile: ${{ inputs.container_image_api }}|g' deploy/docker-compose.yml
 
         # Map module names to service names in docker-compose.yml
         declare -A MODULE_MAP
