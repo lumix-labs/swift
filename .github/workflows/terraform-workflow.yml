@@ -80,14 +80,16 @@ jobs:
           TF_AUTH: ${{ secrets.TERRAFORM_API_TOKEN }}
         run: |
           echo "Running terraform plan..."
-          terraform plan -detailed-exitcode -out=tfplan
+          # Don't try to save the plan file since remote backend doesn't support it
+          terraform plan -input=false -no-color
           PLAN_EXIT_CODE=$?
-          if [ $PLAN_EXIT_CODE -eq 1 ]; then
+          
+          if [ $PLAN_EXIT_CODE -ne 0 ]; then
             echo "::error::Terraform plan failed. Please check the error messages above."
             exit 1
           fi
-          echo "Terraform plan finished. Exit code: $PLAN_EXIT_CODE"
-          echo "Changes detected: $([ $PLAN_EXIT_CODE -eq 2 ] && echo 'Yes' || echo 'No')"
+          
+          echo "Terraform plan completed successfully."
 
       - name: Terraform Apply
         if: inputs.action == 'apply'
@@ -96,7 +98,7 @@ jobs:
           TF_AUTH: ${{ secrets.TERRAFORM_API_TOKEN }}
         run: |
           echo "Running terraform apply..."
-          terraform apply -auto-approve
+          terraform apply -auto-approve -input=false
           if [ $? -ne 0 ]; then
             echo "::error::Terraform apply failed. Infrastructure changes were not applied."
             exit 1
