@@ -96,9 +96,23 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
+  build-web:
+    name: Build WEB Image
+    needs: check-changes
+    if: needs.check-changes.outputs.web_changed == 'true'
+    uses: ./.github/workflows/build-module.yml
+    with:
+      module: web
+      repository: lumixlabs/swift-web
+    secrets:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
   terraform:
     name: Terraform Operations
-    needs: [check-changes, build-api]
+    needs: [check-changes, build-api, build-web]
     if: |
       needs.check-changes.outputs.should_deploy_infra == 'true' && 
       (needs.build-api.result == 'success' || needs.build-api.result == 'skipped')
