@@ -126,3 +126,5 @@ jobs:
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      CONTAINER_IMAGE_API: ${{ secrets.CONTAINER_IMAGE_API }}
+      CONTAINER_IMAGE_WEB: ${{ secrets.CONTAINER_IMAGE_WEB }}

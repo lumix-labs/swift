@@ -1,4 +1,3 @@
-```yml
 name: Deploy Application
 
 on:
@@ -27,16 +26,10 @@ on:
         required: false
       CONTAINER_IMAGE_WEB:
         required: false
-  workflow_dispatch:
-    inputs:
-      instance_ip:
-        description: "EC2 Instance IP"
-        required: true
-        type: string
-      modules_to_deploy:
-        description: "Comma-separated list of modules to deploy (api)"
-        required: true
-        type: string
+    outputs:
+      deployment_status:
+        description: "Status of the deployment"
+        value: ${{ jobs.deploy.outputs.status }}
 
 jobs:
   deploy:
@@ -44,6 +37,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      status: ${{ steps.deployment-result.outputs.status }}
 
     steps:
       - name: Checkout code
@@ -69,9 +64,6 @@ jobs:
         with:
           infrastructureParams: ${{ inputs.infrastructureParams }}
           modulesToDeploy: ${{ inputs.modulesToDeploy }}
-          instance_ip: ${{ inputs.instance_ip }}
-          modules_to_deploy: ${{ inputs.modules_to_deploy }}
-          aws_region: ${{ secrets.AWS_REGION }}
 
       # === Create Deployment Files ===
       - name: Create docker-compose file
@@ -96,6 +88,7 @@ jobs:
 
       # === Deploy to Instance ===
       - name: Deploy using SSM
+        id: deploy-to-instance
         uses: ./.github/workflows/deploy/deploy-via-ssm
         with:
           instance_id: ${{ steps.parse-params.outputs.instance_id }}
@@ -106,4 +99,16 @@ jobs:
           aws_region: ${{ secrets.AWS_REGION }}
           container_image_api: ${{ secrets.CONTAINER_IMAGE_API }}
           container_image_web: ${{ secrets.CONTAINER_IMAGE_WEB }}
-```
+        continue-on-error: true
+
+      - name: Set deployment result
+        id: deployment-result
+        run: |
+          if [ "${{ steps.deploy-to-instance.outcome }}" == "success" ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "Deployment completed successfully"
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "Deployment failed"
+            exit 1
+          fi
