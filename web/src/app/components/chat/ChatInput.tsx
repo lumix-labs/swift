@@ -1,124 +1,82 @@
 "use client"
-import { useState, FormEvent, KeyboardEvent, useRef, useEffect } from 'react';
-import { useChat } from 'src/app/context/ChatContext';
-import { chatService } from 'src/app/lib/services/chat-service';
+
+import { useState, FormEvent } from 'react';
+import { useChat } from '../../context/ChatContext';
+import { chatService } from '../../lib/services/chat-service';
 
 export function ChatInput() {
-  const [input, setInput] = useState('');
-  const { addMessage, isLoading, setIsLoading } = useChat();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { addMessage } = useChat();
+  const [message, setMessage] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Auto-resize textarea based on content
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
-  }, [input]);
-
-  const handleSubmit = async (e?: FormEvent) => {
-    e?.preventDefault();
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
     
-    if (!input.trim() || isLoading) return;
+    if (!message.trim() || isSubmitting) return;
     
-    // Add user message to the chat
-    addMessage({ role: 'user', content: input });
-    setInput('');
+    setIsSubmitting(true);
+    const userMessage = { role: 'user' as const, content: message };
     
-    // Set loading state and get assistant response
-    setIsLoading(true);
+    // Add the user message to the chat
+    addMessage(userMessage);
+    setMessage('');
+    
     try {
-      const response = await chatService.sendMessage(input);
-      addMessage({ role: 'assistant', content: response });
+      // Get AI response
+      const response = await chatService.sendMessage(message);
+      
+      // Add the AI response to the chat
+      addMessage({
+        role: 'assistant' as const,
+        content: response
+      });
     } catch (error) {
+      // Handle error
       console.error('Error getting response:', error);
-      addMessage({ 
-        role: 'assistant', 
-        content: 'Sorry, I encountered an error processing your request.' 
+      
+      // Add an error message
+      addMessage({
+        role: 'assistant' as const,
+        content: 'Sorry, I encountered an error processing your request. Please try again.'
       });
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
+      setIsSubmitting(false);
     }
   };
 
   return (
     <form 
       onSubmit={handleSubmit} 
-      className="w-full max-w-3xl bg-white dark:bg-black border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm focus-within:ring-1 focus-within:ring-black dark:focus-within:ring-white"
+      className="flex items-end gap-2 p-4 border-t border-gray-200 dark:border-gray-800"
     >
-      <div className="flex items-end">
+      <div className="flex-1 relative">
         <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask anything..."
+          className="w-full p-3 pr-10 bg-gray-100 dark:bg-gray-800 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 min-h-10 max-h-32 overflow-auto"
+          placeholder="Ask a question..."
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSubmit(e);
+            }
+          }}
           rows={1}
-          className="w-full resize-none bg-transparent px-4 py-3 max-h-[200px] focus:outline-none placeholder:text-gray-500 dark:placeholder:text-gray-400 font-sans text-sm md:text-base"
-          disabled={isLoading}
         />
-        <div className="flex px-3 py-2">
-          {/* File attachment button - just UI for now */}
-          <button
-            type="button"
-            className="p-1 rounded-md text-gray-500 hover:text-black dark:hover:text-white"
-            disabled={isLoading}
-            aria-label="Attach file"
-          >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="20" 
-              height="20" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-            >
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-            </svg>
-          </button>
-          
-          {/* Send button */}
-          <button
-            type="submit"
-            className={`p-1 rounded-md ml-1 ${input.trim() && !isLoading 
-              ? 'text-black dark:text-white' 
-              : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
-            }`}
-            disabled={!input.trim() || isLoading}
-            aria-label="Send message"
-          >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="20" 
-              height="20" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-            >
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          </button>
-        </div>
       </div>
-      
-      {/* Tools toolbar - placeholder for future features */}
-      <div className="flex items-center px-3 py-2 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
-        <span>Tools will be implemented in future updates</span>
-      </div>
+      <button
+        type="submit"
+        disabled={isSubmitting || !message.trim()}
+        className="flex items-center justify-center w-10 h-10 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isSubmitting ? (
+          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clipRule="evenodd" />
+          </svg>
+        )}
+      </button>
     </form>
   );
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { ChatProvider } from 'src/app/context/ChatContext';
+import { ChatProvider } from '../../context/ChatContext';
 import { ChatLayout } from './ChatLayout';
 
 export function ClientChatWrapper() {

@@ -11,7 +11,10 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
     optimizeServerReact: true,
-  }
+  },
+  webpack: (config: any) => {
+    return config;
+  },
 };
 
 export default nextConfig;
