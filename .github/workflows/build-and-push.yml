@@ -128,3 +128,18 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       CONTAINER_IMAGE_API: ${{ secrets.CONTAINER_IMAGE_API }}
       CONTAINER_IMAGE_WEB: ${{ secrets.CONTAINER_IMAGE_WEB }}
+
+  verify-deployment:
+    name: Verify Deployment Status
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check deployment status
+        run: |
+          if [ "${{ needs.deploy.outputs.deployment_status }}" == "failure" ]; then
+            echo "Deployment failed with status: ${{ needs.deploy.outputs.deployment_status }}"
+            echo "Please check the deployment logs for more details"
+            exit 1
+          else
+            echo "Deployment completed successfully with status: ${{ needs.deploy.outputs.deployment_status }}"
+          fi

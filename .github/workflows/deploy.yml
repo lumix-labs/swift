@@ -110,5 +110,4 @@ jobs:
           else
             echo "status=failure" >> $GITHUB_OUTPUT
             echo "Deployment failed"
-            exit 1
           fi
