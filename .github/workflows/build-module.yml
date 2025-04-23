@@ -6,11 +6,11 @@ on:
       module:
         required: true
         type: string
-        description: 'Module name (e.g., api, web, mcp-server)'
+        description: "Module name (e.g., api, web, mcp-server)"
       repository:
         required: true
         type: string
-        description: 'ECR repository name (e.g., swift-api, swift-web)'
+        description: "ECR repository name (e.g., swift-api, swift-web)"
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
@@ -27,30 +27,29 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    
-    outputs:
-      image_uri: ${{ steps.image-info.outputs.image_uri }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
-      
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
-      
+        with:
+          mask-password: true
+
       - name: Create ECR repository if it doesn't exist
         run: |
           REPO_NAME=$(echo "${{ inputs.repository }}" | sed 's/.*\///')
           aws ecr describe-repositories --repository-names $REPO_NAME || aws ecr create-repository --repository-name $REPO_NAME
-      
+
       - name: Build and push Docker image
         id: build-image
         env:
@@ -61,19 +60,13 @@ jobs:
         run: |
           cd $MODULE
           echo "Building $MODULE image from $MODULE directory"
-          
+
           # Build the Docker image
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-          
+
           # Push the Docker image
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-      
-      - name: Output image URI
-        id: image-info
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ inputs.repository }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          echo "image_uri=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+          # Successfully built and pushed image
+          echo "Successfully built and pushed image to ECR"

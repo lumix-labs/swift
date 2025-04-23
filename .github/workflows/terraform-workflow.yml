@@ -83,14 +83,15 @@ jobs:
           # Don't try to save the plan file since remote backend doesn't support it
           terraform plan -input=false -no-color
           PLAN_EXIT_CODE=$?
-          
+
           if [ $PLAN_EXIT_CODE -ne 0 ]; then
             echo "::error::Terraform plan failed. Please check the error messages above."
             exit 1
           fi
-          
+
           echo "Terraform plan completed successfully."
 
+      # Combined Apply step - will only execute if action is plan-apply
       - name: Terraform Apply
         if: inputs.action == 'plan-apply'
         id: apply
@@ -105,46 +106,46 @@ jobs:
           fi
           echo "Terraform apply successful. Infrastructure has been updated."
 
+      # Extract parameters - this now handles both plan-apply and plan-only modes
       - name: Extract Infrastructure Parameters
-        if: inputs.action == 'plan-apply'
         id: extract-params
         run: |
           echo "=== Extracting infrastructure parameters ==="
-          
+
+          # Set default parameters for plan-only mode
+          if [[ "${{ inputs.action }}" == "plan-only" ]]; then
+            # Create a default JSON output when in plan-only mode
+            DEFAULT_PARAMS="{\"instance_ip\":\"plan_only_mode\",\"instance_id\":\"plan_only_mode\"}"
+            echo "infrastructure_params=$DEFAULT_PARAMS" >> $GITHUB_OUTPUT
+            echo "In plan-only mode - using placeholder infrastructure parameters"
+            exit 0
+          fi
+
           # List available outputs
           echo "Available Terraform outputs:"
           terraform output || { echo "::warning::Failed to get terraform outputs"; }
-          
+
           # Extract values with error handling
           echo "Extracting instance_public_ip..."
           INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null || echo "")
           echo "Extracted instance_public_ip: ${INSTANCE_IP}"
-          
+
           echo "Extracting instance_id..."
           INSTANCE_ID=$(terraform output -raw instance_id 2>/dev/null || echo "")
           echo "Extracted instance_id: ${INSTANCE_ID}"
-          
+
           # Validate extracted values
           if [ -z "$INSTANCE_IP" ] || [ "$INSTANCE_IP" == "null" ]; then
-            echo "::warning::Instance IP is empty or null. Using fallback value."
-            INSTANCE_IP="fallback_ip_for_pipeline_continuity"
+            echo "::error::Instance IP is empty or null. Terraform did not properly output instance information."
+            exit 1
           fi
-          
+
           if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
-            echo "::warning::Instance ID is empty or null. Using fallback value."
-            INSTANCE_ID="fallback_id_for_pipeline_continuity"
+            echo "::error::Instance ID is empty or null. Terraform did not properly output instance information."
+            exit 1
           fi
-          
+
           # Create JSON output with validated parameters
           INFRASTRUCTURE_PARAMS="{\"instance_ip\":\"$INSTANCE_IP\",\"instance_id\":\"$INSTANCE_ID\"}"
           echo "infrastructure_params=$INFRASTRUCTURE_PARAMS" >> $GITHUB_OUTPUT
           echo "Successfully extracted infrastructure parameters: $INFRASTRUCTURE_PARAMS"
-      
-      - name: Set default output for plan-only mode
-        if: inputs.action == 'plan-only'
-        id: default-params
-        run: |
-          # Create a default JSON output when in plan-only mode
-          DEFAULT_PARAMS="{\"instance_ip\":\"plan_only_mode\",\"instance_id\":\"plan_only_mode\"}"
-          echo "infrastructure_params=$DEFAULT_PARAMS" >> $GITHUB_OUTPUT
-          echo "In plan-only mode - using placeholder infrastructure parameters"
