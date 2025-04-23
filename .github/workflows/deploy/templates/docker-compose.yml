@@ -1,0 +1,52 @@
+services:
+  web:
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - ./logs/web:/logs
+      # Comment out this volume mount that's overriding the build
+      # - ./web:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=80
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - swift-network
+
+  api-server:
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./logs/api-server:/logs
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+    restart: unless-stopped
+    healthcheck:
+      test:
+        ["CMD", "wget", "--spider", "-q", "http://localhost:4000/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - swift-network
+
+networks:
+  swift-network:
+    driver: bridge
+
+volumes:
+  logs:
