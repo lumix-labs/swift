@@ -99,7 +99,6 @@ jobs:
           aws_region: ${{ secrets.AWS_REGION }}
           container_image_api: ${{ secrets.CONTAINER_IMAGE_API }}
           container_image_web: ${{ secrets.CONTAINER_IMAGE_WEB }}
-        continue-on-error: true
 
       - name: Set deployment result
         id: deployment-result

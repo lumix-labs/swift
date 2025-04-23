@@ -38,6 +38,7 @@ runs:
         REGISTRY="${{ inputs.registry }}"
         CONTAINER_IMAGE_API="${{ inputs.container_image_api }}"
         CONTAINER_IMAGE_WEB="${{ inputs.container_image_web }}"
+        AWS_REGION="${{ inputs.aws_region }}"
 
         echo "Using instance IP: $INSTANCE_IP"
         echo "Using instance ID: $INSTANCE_ID"
@@ -71,7 +72,7 @@ runs:
         fi
 
         echo "Deploying to instance: $INSTANCE_ID"
-        echo "Using AWS region: ${{ inputs.aws_region }}"
+        echo "Using AWS region: $AWS_REGION"
 
         # Check if we can connect to the instance via SSM
         CONNECTION_STATUS=$(aws ssm describe-instance-information \
@@ -104,18 +105,19 @@ runs:
           done
         fi
 
-        # Create a config file with all required info to ensure reliable variable setting
-        CONFIG_JSON=$(cat << EOF
-{
-  "registry": "$REGISTRY",
-  "region": "${{ inputs.aws_region }}",
-  "container_image_api": "$CONTAINER_IMAGE_API",
-  "container_image_web": "$CONTAINER_IMAGE_WEB"
-}
-EOF
-)
-        CONFIG_BASE64=$(echo "$CONFIG_JSON" | base64 -w 0)
-
+        # Create config file from template
+        CONFIG_TEMPLATE="$GITHUB_WORKSPACE/.github/workflows/deploy/templates/config.json.template"
+        CONFIG_FILE="$(mktemp)"
+        
+        # Replace variables in the template using sed (more portable than envsubst)
+        sed -e "s|\${REGISTRY}|$REGISTRY|g" \
+            -e "s|\${AWS_REGION}|$AWS_REGION|g" \
+            -e "s|\${CONTAINER_IMAGE_API}|$CONTAINER_IMAGE_API|g" \
+            -e "s|\${CONTAINER_IMAGE_WEB}|$CONTAINER_IMAGE_WEB|g" \
+            "$CONFIG_TEMPLATE" > "$CONFIG_FILE"
+            
+        CONFIG_BASE64=$(base64 -w 0 "$CONFIG_FILE")
+        
         # Send command to instance using SSM document with explicit environment variable setting
         CMD_ID=$(aws ssm send-command \
           --instance-ids "$INSTANCE_ID" \
@@ -129,7 +131,7 @@ EOF
             \"echo $CONFIG_BASE64 | base64 --decode > config.json\",
             \"chmod +x run-deployment.sh\",
             \"export AWS_ECR_REGISTRY='$REGISTRY'\", 
-            \"export AWS_REGION='${{ inputs.aws_region }}'\",
+            \"export AWS_REGION='$AWS_REGION'\",
             \"export CONTAINER_IMAGE_API='$CONTAINER_IMAGE_API'\",
             \"export CONTAINER_IMAGE_WEB='$CONTAINER_IMAGE_WEB'\",
             \"echo \\\"Environment check: AWS_ECR_REGISTRY=$REGISTRY\\\"\",

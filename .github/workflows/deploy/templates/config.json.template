@@ -1,0 +1,6 @@
+{
+  "registry": "${REGISTRY}",
+  "region": "${AWS_REGION}",
+  "container_image_api": "${CONTAINER_IMAGE_API}",
+  "container_image_web": "${CONTAINER_IMAGE_WEB}"
+}
