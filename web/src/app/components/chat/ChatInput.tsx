@@ -24,17 +24,22 @@ export function ChatInput() {
     
     if (!message.trim() || isSubmitting) return;
     
+    const userMessageContent = message.trim();
     setIsSubmitting(true);
     setIsLoading(true);
-    const userMessage = { role: 'user' as const, content: message };
     
-    // Add the user message to the chat
-    addMessage(userMessage);
+    // Clear input field immediately to improve user experience
     setMessage('');
+    
+    // Add the user message to the chat first - this ensures it's visible immediately
+    addMessage({ 
+      role: 'user' as const, 
+      content: userMessageContent 
+    });
     
     try {
       // Get AI response based on selected model
-      const response = await chatService.sendMessage(message, selectedModel);
+      const response = await chatService.sendMessage(userMessageContent, selectedModel);
       
       // Add the AI response to the chat
       addMessage({

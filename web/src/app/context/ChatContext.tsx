@@ -132,7 +132,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (savedModel) {
       setSelectedModel(savedModel);
     }
-  }, []);
+  }, [createNewSession]);
 
   // Save sessions to localStorage whenever they change
   useEffect(() => {

@@ -7,12 +7,19 @@ import { ChatMessageList } from './ChatMessageList';
 import { ChatInput } from './ChatInput';
 import { useChat } from '../../context/ChatContext';
 import { useDebounce } from '../../hooks/useDebounce';
+import { Message } from '../../context/ChatContext';
 
 export function ChatLayout() {
   const { isLoading, messages } = useChat();
   const [mounted, setMounted] = useState(false);
+  const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
   const debouncedLoading = useDebounce(isLoading, 300); // Debounce loading state to prevent flickering
-  const debouncedMessages = useDebounce(messages, 100); // Debounce messages to improve rendering performance
+
+  // Safely update display messages to prevent disappearing messages
+  useEffect(() => {
+    // Ensure that new messages are always added and don't disappear
+    setDisplayMessages(messages);
+  }, [messages]);
 
   // Safe mounting to avoid hydration issues
   useEffect(() => {
@@ -43,7 +50,7 @@ export function ChatLayout() {
       <Header />
       
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <ChatMessageList messages={debouncedMessages} />
+        <ChatMessageList messages={displayMessages} />
         
         {debouncedLoading && (
           <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-100 dark:bg-gray-800 rounded-full px-4 py-2 flex items-center space-x-2">
