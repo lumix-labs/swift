@@ -45,11 +45,6 @@ jobs:
         with:
           mask-password: true
 
-      - name: Create ECR repository if it doesn't exist
-        run: |
-          REPO_NAME=$(echo "${{ inputs.repository }}" | sed 's/.*\///')
-          aws ecr describe-repositories --repository-names $REPO_NAME || aws ecr create-repository --repository-name $REPO_NAME
-
       - name: Build and push Docker image
         id: build-image
         env:
