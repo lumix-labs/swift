@@ -29,7 +29,7 @@ on:
         required: true
         type: string
       modules_to_deploy:
-        description: 'Comma-separated list of modules to deploy (api,web)'
+        description: 'Comma-separated list of modules to deploy (api)'
         required: true
         type: string
 
