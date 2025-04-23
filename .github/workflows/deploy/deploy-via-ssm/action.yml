@@ -20,6 +20,12 @@ inputs:
   aws_region:
     description: "AWS region"
     required: true
+  container_image_api:
+    description: "Full image URI for API container"
+    required: false
+  container_image_web:
+    description: "Full image URI for web container"
+    required: false
 
 runs:
   using: "composite"
@@ -30,9 +36,14 @@ runs:
         INSTANCE_ID="${{ inputs.instance_id }}"
         INSTANCE_IP="${{ inputs.instance_ip }}"
         REGISTRY="${{ inputs.registry }}"
+        CONTAINER_IMAGE_API="${{ inputs.container_image_api }}"
+        CONTAINER_IMAGE_WEB="${{ inputs.container_image_web }}"
 
         echo "Using instance IP: $INSTANCE_IP"
         echo "Using instance ID: $INSTANCE_ID"
+        echo "Using container images:"
+        echo "  API: $CONTAINER_IMAGE_API"
+        echo "  Web: $CONTAINER_IMAGE_WEB"
 
         # Check if we're using fallback values for instance ID only (instance IP can be derived)
         if [[ "$INSTANCE_ID" == "fallback_id_for_pipeline_continuity" ]]; then
@@ -94,7 +105,15 @@ runs:
         fi
 
         # Create a config file with all required info to ensure reliable variable setting
-        CONFIG_JSON="{\"registry\":\"$REGISTRY\",\"region\":\"${{ inputs.aws_region }}\"}"
+        CONFIG_JSON=$(cat << EOF
+{
+  "registry": "$REGISTRY",
+  "region": "${{ inputs.aws_region }}",
+  "container_image_api": "$CONTAINER_IMAGE_API",
+  "container_image_web": "$CONTAINER_IMAGE_WEB"
+}
+EOF
+)
         CONFIG_BASE64=$(echo "$CONFIG_JSON" | base64 -w 0)
 
         # Send command to instance using SSM document with explicit environment variable setting
@@ -111,7 +130,11 @@ runs:
             \"chmod +x run-deployment.sh\",
             \"export AWS_ECR_REGISTRY='$REGISTRY'\", 
             \"export AWS_REGION='${{ inputs.aws_region }}'\",
+            \"export CONTAINER_IMAGE_API='$CONTAINER_IMAGE_API'\",
+            \"export CONTAINER_IMAGE_WEB='$CONTAINER_IMAGE_WEB'\",
             \"echo \\\"Environment check: AWS_ECR_REGISTRY=$REGISTRY\\\"\",
+            \"echo \\\"Environment check: CONTAINER_IMAGE_API=$CONTAINER_IMAGE_API\\\"\",
+            \"echo \\\"Environment check: CONTAINER_IMAGE_WEB=$CONTAINER_IMAGE_WEB\\\"\",
             \"./run-deployment.sh --config config.json\"
           ]" \
           --timeout-seconds 900 \
@@ -159,6 +182,8 @@ runs:
             --document-name "AWS-RunShellScript" \
             --parameters commands="[
               \"echo 'Registry value: $REGISTRY'\",
+              \"echo 'API container: $CONTAINER_IMAGE_API'\",
+              \"echo 'Web container: $CONTAINER_IMAGE_WEB'\",
               \"echo 'Environment variables:'\",
               \"env | grep AWS\",
               \"echo 'Docker version:'\",

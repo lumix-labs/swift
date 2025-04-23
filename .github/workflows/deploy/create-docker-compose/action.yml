@@ -8,6 +8,12 @@ inputs:
   modules_to_deploy:
     description: 'Comma-separated list of modules to deploy'
     required: true
+  container_image_api:
+    description: 'Full image URI for API container'
+    required: false
+  container_image_web:
+    description: 'Full image URI for web container'
+    required: false
 
 runs:
   using: "composite"
@@ -23,20 +29,58 @@ runs:
         # Print debug info for better visibility
         echo "Registry value: ${{ inputs.registry }}"
         echo "Modules to deploy: ${{ inputs.modules_to_deploy }}"
+        echo "API container image: ${{ inputs.container_image_api }}"
+        echo "Web container image: ${{ inputs.container_image_web }}"
         
-        # Replace variables in the file to use ECR images
-        REGISTRY="${{ inputs.registry }}"
-        sed -i "s|build:|image: \"$REGISTRY/lumixlabs/swift-|g; s|dockerfile: Dockerfile|:latest\"|g" deploy/docker-compose.yml
+        # Process the docker-compose file
+        # Map module names to service names in docker-compose.yml
+        declare -A MODULE_MAP
+        MODULE_MAP["api"]="api-server"
+        MODULE_MAP["web"]="web"
         
-        # If specific modules were specified, modify docker-compose.yml
+        # Map module names to their full container images
+        declare -A IMAGE_MAP
+        if [ -n "${{ inputs.container_image_api }}" ]; then
+          IMAGE_MAP["api-server"]="${{ inputs.container_image_api }}"
+        else
+          IMAGE_MAP["api-server"]="${{ inputs.registry }}/lumixlabs/swift-api:latest"
+        fi
+        
+        if [ -n "${{ inputs.container_image_web }}" ]; then
+          IMAGE_MAP["web"]="${{ inputs.container_image_web }}"
+        else
+          IMAGE_MAP["web"]="${{ inputs.registry }}/lumixlabs/swift-web:latest"
+        fi
+        
+        # Replace build instructions with specific image references
+        for SERVICE in "${!IMAGE_MAP[@]}"; do
+          # Create a sed pattern to replace the build section with image reference
+          IMAGE="${IMAGE_MAP[$SERVICE]}"
+          echo "Setting $SERVICE to use image: $IMAGE"
+          
+          # Create a temporary file with the service section
+          grep -n "^  $SERVICE:" deploy/docker-compose.yml | cut -d: -f1 > /tmp/line_num.txt
+          START_LINE=$(cat /tmp/line_num.txt)
+          
+          if [ -n "$START_LINE" ]; then
+            # Find the next service or the end of the file
+            NEXT_LINE=$(awk -v start="$START_LINE" 'NR > start && /^  [a-zA-Z0-9]/ {print NR; exit}' deploy/docker-compose.yml)
+            
+            if [ -z "$NEXT_LINE" ]; then
+              # If no next service, go until networks or volumes section
+              NEXT_LINE=$(awk -v start="$START_LINE" 'NR > start && /^[a-zA-Z0-9]/ {print NR; exit}' deploy/docker-compose.yml)
+            fi
+            
+            # Create a pattern to match the build section within this service
+            sed -i "${START_LINE},${NEXT_LINE}s|build:[^}]*dockerfile: Dockerfile[^}]*|image: \"${IMAGE}\"|" deploy/docker-compose.yml
+          else
+            echo "Warning: Could not find service $SERVICE in docker-compose.yml"
+          fi
+        done
+        
+        # If specific modules were specified, modify docker-compose.yml to exclude others
         if [ -n "${{ inputs.modules_to_deploy }}" ]; then
           echo "Creating docker-compose.yml with modules: ${{ inputs.modules_to_deploy }}"
-          
-          # Map module names to service names in docker-compose.yml
-          # This fixes the discrepancy between workflow module names and service names
-          declare -A MODULE_MAP
-          MODULE_MAP["api"]="api-server"
-          MODULE_MAP["web"]="web"
           
           IFS=',' read -ra MODULES <<< "${{ inputs.modules_to_deploy }}"
           ALL_SERVICES=("api-server" "web")
@@ -70,4 +114,4 @@ runs:
         # Display final docker-compose file for debugging
         echo "==== Final docker-compose.yml content ===="
         cat deploy/docker-compose.yml
-        echo "=========================================="
+        echo "==========================================="

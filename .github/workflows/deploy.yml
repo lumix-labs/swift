@@ -1,3 +1,4 @@
+```yml
 name: Deploy Application
 
 on:
@@ -22,6 +23,10 @@ on:
         required: true
       AWS_SECRET_ACCESS_KEY:
         required: true
+      CONTAINER_IMAGE_API:
+        required: false
+      CONTAINER_IMAGE_WEB:
+        required: false
   workflow_dispatch:
     inputs:
       instance_ip:
@@ -74,6 +79,8 @@ jobs:
         with:
           registry: ${{ steps.login-ecr.outputs.registry }}
           modules_to_deploy: ${{ steps.parse-params.outputs.modules_to_deploy }}
+          container_image_api: ${{ secrets.CONTAINER_IMAGE_API }}
+          container_image_web: ${{ secrets.CONTAINER_IMAGE_WEB }}
 
       - name: Create deployment script
         uses: ./.github/workflows/deploy/create-deployment-script
@@ -97,3 +104,6 @@ jobs:
           deployment_script_base64: ${{ steps.encode-files.outputs.deployment_script_base64 }}
           registry: ${{ steps.login-ecr.outputs.registry }}
           aws_region: ${{ secrets.AWS_REGION }}
+          container_image_api: ${{ secrets.CONTAINER_IMAGE_API }}
+          container_image_web: ${{ secrets.CONTAINER_IMAGE_WEB }}
+```
