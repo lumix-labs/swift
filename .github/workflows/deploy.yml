@@ -34,15 +34,11 @@ on:
         type: string
 
 jobs:
-  prepare-deployment:
-    name: Prepare Deployment
+  deploy:
+    name: Deploy Application
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    outputs:
-      instance_ip: ${{ steps.parse-params.outputs.instance_ip }}
-      instance_id: ${{ steps.parse-params.outputs.instance_id }}
-      modules_to_deploy: ${{ steps.parse-params.outputs.modules_to_deploy }}
 
     steps:
       - name: Checkout code
@@ -61,6 +57,7 @@ jobs:
         with:
           mask-password: true
 
+      # === Parse Parameters ===
       - name: Parse parameters
         id: parse-params
         uses: ./.github/workflows/deploy/parse-params
@@ -70,31 +67,12 @@ jobs:
           instance_ip: ${{ inputs.instance_ip }}
           modules_to_deploy: ${{ inputs.modules_to_deploy }}
 
-  create-deployment-files:
-    name: Create Deployment Files
-    needs: prepare-deployment
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      docker_compose_base64: ${{ steps.encode-files.outputs.docker_compose_base64 }}
-      deployment_script_base64: ${{ steps.encode-files.outputs.deployment_script_base64 }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-        with:
-          mask-password: true
-
+      # === Create Deployment Files ===
       - name: Create docker-compose file
         uses: ./.github/workflows/deploy/create-docker-compose
         with:
           registry: ${{ steps.login-ecr.outputs.registry }}
-          modules_to_deploy: ${{ needs.prepare-deployment.outputs.modules_to_deploy }}
+          modules_to_deploy: ${{ steps.parse-params.outputs.modules_to_deploy }}
 
       - name: Create deployment script
         uses: ./.github/workflows/deploy/create-deployment-script
@@ -108,62 +86,13 @@ jobs:
           echo "docker_compose_base64=${DOCKER_COMPOSE_BASE64}" >> $GITHUB_OUTPUT
           echo "deployment_script_base64=${DEPLOYMENT_SCRIPT_BASE64}" >> $GITHUB_OUTPUT
 
-  deploy-to-instance:
-    name: Deploy to EC2 Instance
-    needs: [prepare-deployment, create-deployment-files]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      # Get registry with password masking
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-        with:
-          mask-password: true
-
+      # === Deploy to Instance ===
       - name: Deploy using SSM
         uses: ./.github/workflows/deploy/deploy-via-ssm
         with:
-          instance_id: ${{ needs.prepare-deployment.outputs.instance_id }}
-          instance_ip: ${{ needs.prepare-deployment.outputs.instance_ip }}
-          docker_compose_base64: ${{ needs.create-deployment-files.outputs.docker_compose_base64 }}
-          deployment_script_base64: ${{ needs.create-deployment-files.outputs.deployment_script_base64 }}
+          instance_id: ${{ steps.parse-params.outputs.instance_id }}
+          instance_ip: ${{ steps.parse-params.outputs.instance_ip }}
+          docker_compose_base64: ${{ steps.encode-files.outputs.docker_compose_base64 }}
+          deployment_script_base64: ${{ steps.encode-files.outputs.deployment_script_base64 }}
           registry: ${{ steps.login-ecr.outputs.registry }}
           aws_region: ${{ secrets.AWS_REGION }}
-
-  verify-deployment:
-    name: Verify Deployment
-    needs: [prepare-deployment, deploy-to-instance]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Verify deployment
-        uses: ./.github/workflows/deploy/verify-deployment
-        with:
-          instance_id: ${{ needs.prepare-deployment.outputs.instance_id }}
-          instance_ip: ${{ needs.prepare-deployment.outputs.instance_ip }}
-          modules_to_deploy: ${{ needs.prepare-deployment.outputs.modules_to_deploy }}

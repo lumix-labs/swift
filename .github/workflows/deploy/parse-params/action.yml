@@ -67,6 +67,12 @@ runs:
           
           # Only attempt AWS lookup if not using fallback value
           if [[ "$INSTANCE_IP" != "fallback_ip_for_pipeline_continuity" && "$INSTANCE_IP" != "plan_only_mode" ]]; then
+            # Ensure AWS region is set
+            if [ -n "${{ secrets.AWS_REGION }}" ]; then
+              export AWS_REGION="${{ secrets.AWS_REGION }}"
+              echo "Setting AWS_REGION=$AWS_REGION for API calls"
+            fi
+            
             INSTANCE_ID=$(aws ec2 describe-instances \
               --filters "Name=public-ip-address,Values=$INSTANCE_IP" \
               --query "Reservations[0].Instances[0].InstanceId" \
