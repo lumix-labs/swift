@@ -66,6 +66,7 @@ jobs:
           modulesToDeploy: ${{ inputs.modulesToDeploy }}
           instance_ip: ${{ inputs.instance_ip }}
           modules_to_deploy: ${{ inputs.modules_to_deploy }}
+          aws_region: ${{ secrets.AWS_REGION }}
 
       # === Create Deployment Files ===
       - name: Create docker-compose file

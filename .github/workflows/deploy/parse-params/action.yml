@@ -14,6 +14,9 @@ inputs:
   modules_to_deploy:
     description: "Comma-separated list of modules to deploy from workflow_dispatch"
     required: false
+  aws_region:
+    description: "AWS Region"
+    required: false
 
 outputs:
   instance_ip:
@@ -68,8 +71,8 @@ runs:
           # Only attempt AWS lookup if not using fallback value
           if [[ "$INSTANCE_IP" != "fallback_ip_for_pipeline_continuity" && "$INSTANCE_IP" != "plan_only_mode" ]]; then
             # Ensure AWS region is set
-            if [ -n "${{ secrets.AWS_REGION }}" ]; then
-              export AWS_REGION="${{ secrets.AWS_REGION }}"
+            if [ -n "${{ inputs.aws_region }}" ]; then
+              export AWS_REGION="${{ inputs.aws_region }}"
               echo "Setting AWS_REGION=$AWS_REGION for API calls"
             fi
             
