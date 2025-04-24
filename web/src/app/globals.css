@@ -1,3 +1,5 @@
+@import './performance.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -22,6 +24,12 @@ body {
   font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  
+  /* Add content-visibility to help with rendering performance */
+  content-visibility: auto;
+  
+  /* Prevent layout shifts */
+  overflow-y: scroll;
 }
 
 /* Clean focus styles */
@@ -30,13 +38,34 @@ body {
   outline-offset: 2px;
 }
 
-/* Optimize transitions */
+/* Optimize transitions - only animate opacity and transform for better performance */
 @media (prefers-reduced-motion: no-preference) {
   body {
     transition: background-color 0.3s ease, color 0.3s ease;
   }
   
   a, button {
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    transition: opacity 0.2s ease, transform 0.2s ease;
   }
+}
+
+/* Memory optimization - limit animations */
+.animate-pulse {
+  animation-duration: 1.5s;
+}
+
+/* Prevent layout shifts */
+html, body {
+  height: 100%;
+  width: 100%;
+}
+
+/* Add containment to main components */
+.flex-1 {
+  contain: content;
+}
+
+/* Optimize images */
+img {
+  content-visibility: auto;
 }

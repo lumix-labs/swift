@@ -1,27 +1,36 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 
 interface ExecutiveQuestionsProps {
   onQuestionSelect: (question: string) => void;
 }
 
 export function ExecutiveQuestions({ onQuestionSelect }: ExecutiveQuestionsProps) {
-  const executiveQuestions = {
-    "CEO": "How does our codebase architecture support our scaling plans for next quarter?",
-    "CPO": "Which features have the most technical debt and how would refactoring impact our roadmap?",
-    "CMO": "How do our API endpoints support our current marketing automation integrations?",
-    "CSO": "What security vulnerabilities exist in our authentication system and how can we address them?",
-    "CIO": "What's the database performance impact of our new analytics implementation?",
-    "COO": "How would implementing microservices affect our deployment pipeline efficiency?"
-  };
+  // Memoize the questions object to prevent recreating it on each render
+  const executiveQuestions = useMemo(() => ({
+    "CEO": "How can Swift help our company accelerate our strategic digital transformation initiatives?",
+    "CFO": "What ROI metrics should we track to measure Swift's impact on our technology investments?",
+    "CPO": "How can Swift help prioritize our product roadmap to maximize market impact?",
+    "CMO": "How can we leverage Swift to gain deeper insights into customer behavior and preferences?",
+    "CIO": "How would Swift integrate with our existing enterprise systems and data architecture?",
+    "COO": "How can Swift streamline our operational processes and reduce technical bottlenecks?"
+  }), []);
+
+  // Memoize the handler to prevent recreating it on each render
+  const handleQuestionSelect = useCallback((question: string) => {
+    onQuestionSelect(question);
+  }, [onQuestionSelect]);
+
+  // Memoize the entries to prevent recreating them on each render
+  const entries = useMemo(() => Object.entries(executiveQuestions), [executiveQuestions]);
 
   return (
     <div className="w-full max-w-4xl mx-auto mb-4">
       <div className="flex flex-wrap gap-2 justify-center">
-        {Object.entries(executiveQuestions).map(([role, question]) => (
+        {entries.map(([role, question]) => (
           <button
             key={role}
-            onClick={() => onQuestionSelect(question)}
-            className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            onClick={() => handleQuestionSelect(question)}
+            className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors will-change-transform"
           >
             {role}
           </button>

@@ -1,9 +1,12 @@
 "use client"
 
-import { useState, FormEvent, useRef, useEffect } from 'react';
+import { useState, FormEvent, useRef, useEffect, useCallback, memo } from 'react';
 import { useChat } from '../../context/ChatContext';
 import { chatService } from '../../lib/services/chat-service';
 import { SuggestedPrompts } from './SuggestedPrompts';
+
+// Memoize SuggestedPrompts to prevent unnecessary re-renders
+const MemoizedSuggestedPrompts = memo(SuggestedPrompts);
 
 export function ChatInput() {
   const { addMessage, setIsLoading, selectedModel } = useChat();
@@ -15,11 +18,12 @@ export function ChatInput() {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`;
+      const newHeight = Math.min(textareaRef.current.scrollHeight, 150);
+      textareaRef.current.style.height = `${newHeight}px`;
     }
   }, [message]);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
     
     if (!message.trim() || isSubmitting) return;
@@ -63,18 +67,29 @@ export function ChatInput() {
         textareaRef.current.style.height = 'auto';
       }
     }
-  };
+  }, [message, isSubmitting, addMessage, setIsLoading, selectedModel]);
 
-  const handleSuggestedPrompt = (prompt: string) => {
+  const handleSuggestedPrompt = useCallback((prompt: string) => {
     setMessage(prompt);
     if (textareaRef.current) {
       textareaRef.current.focus();
     }
-  };
+  }, []);
+
+  const handleMessageChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+  }, []);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e as unknown as FormEvent);
+    }
+  }, [handleSubmit]);
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col">
-      <SuggestedPrompts onSelectPrompt={handleSuggestedPrompt} />
+      <MemoizedSuggestedPrompts onSelectPrompt={handleSuggestedPrompt} />
       
       <form 
         onSubmit={handleSubmit} 
@@ -86,20 +101,15 @@ export function ChatInput() {
             className="w-full p-3 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-white transition-all min-h-[44px] max-h-[150px] overflow-auto"
             placeholder="Ask a question..."
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit(e);
-              }
-            }}
+            onChange={handleMessageChange}
+            onKeyDown={handleKeyDown}
             rows={1}
           />
         </div>
         <button
           type="submit"
           disabled={isSubmitting || !message.trim()}
-          className="flex items-center justify-center w-10 h-10 bg-black text-white rounded-lg hover:bg-gray-800 dark:hover:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-600 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-600 disabled:cursor-not-allowed mb-0"
+          className="flex items-center justify-center w-10 h-10 bg-black text-white rounded-lg hover:bg-gray-800 dark:hover:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-600 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-600 disabled:cursor-not-allowed mb-0 will-change-transform"
         >
           {isSubmitting ? (
             <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 border-t-transparent rounded-full animate-spin" />
