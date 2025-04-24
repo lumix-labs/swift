@@ -14,27 +14,27 @@ npm install -g typescript ts-node concurrently
 
 # Install root dependencies and set up husky
 echo "Setting up root dependencies and husky hooks..."
-cd /workspace/swift
+cd /workspaces/swift
 npm install
 
 # Install web module dependencies
-if [ -d "/workspace/swift/web" ]; then
+if [ -d "/workspaces/swift/web" ]; then
   echo "Setting up web module..."
-  cd /workspace/swift/web
+  cd /workspaces/swift/web
   npm install
 fi
 
 # Install API server dependencies
-if [ -d "/workspace/swift/api-server" ]; then
+if [ -d "/workspaces/swift/api-server" ]; then
   echo "Setting up API server module..."
-  cd /workspace/swift/api-server
+  cd /workspaces/swift/api-server
   npm install
 fi
 
 # Install MCP server dependencies
-if [ -d "/workspace/swift/mcp-server" ]; then
+if [ -d "/workspaces/swift/mcp-server" ]; then
   echo "Setting up MCP server module..."
-  cd /workspace/swift/mcp-server
+  cd /workspaces/swift/mcp-server
   npm install
   
   # Execute setup script if it exists
@@ -55,9 +55,9 @@ if [ -d "/workspace/swift/mcp-server" ]; then
 fi
 
 # Initialize Terraform if the terraform directory exists
-if [ -d "/workspace/swift/terraform" ]; then
+if [ -d "/workspaces/swift/terraform" ]; then
   echo "Initializing Terraform..."
-  cd /workspace/swift/terraform
+  cd /workspaces/swift/terraform
   terraform init
 fi
 

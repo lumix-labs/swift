@@ -24,12 +24,16 @@
   "initializeCommand": "echo 'Container initialization starting...' && docker system prune -f",
   "onCreateCommand": "echo 'Container creation starting...'",
   "postCreateCommand": [
-    "bash .devcontainer/post_create.sh",
-    "chmod +x .devcontainer/husky-setup.sh && .devcontainer/husky-setup.sh"
+    ["bash", ".devcontainer/post_create.sh"],
+    [
+      "bash",
+      "-c",
+      "chmod +x .devcontainer/husky-setup.sh && .devcontainer/husky-setup.sh"
+    ]
   ],
   "postStartCommand": [
     "git config --global core.editor 'code --wait'",
-    "git config --global --add safe.directory /workspace/swift"
+    "git config --global --add safe.directory /workspaces/swift"
   ],
   "customizations": {
     "vscode": {
@@ -37,7 +41,7 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode", 
+        "esbenp.prettier-vscode",
         "github.vscode-github-actions",
         "redhat.vscode-yaml",
         "ms-azuretools.vscode-docker",
@@ -73,11 +77,8 @@
     }
   },
   "remoteUser": "vscode",
-  "runArgs": [
-    "--cap-add=SYS_PTRACE",
-    "--security-opt=seccomp=unconfined"
-  ],
+  "runArgs": ["--cap-add=SYS_PTRACE", "--security-opt=seccomp=unconfined"],
   "appPort": [
-    "6000:6000"   // Web
+    "6000:6000" // Web
   ]
 }
