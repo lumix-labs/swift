@@ -44,7 +44,7 @@ RUN mkdir -p /home/vscode/.cache/pip && \
     chown -R vscode:vscode /logs
 
 # Set workspace mount consistency
-VOLUME [ "/workspace" ]
+VOLUME [ "/workspaces" ]
 
 USER vscode
 

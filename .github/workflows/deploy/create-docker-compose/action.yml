@@ -26,48 +26,37 @@ runs:
         # Copy from template
         cp ${{ github.action_path }}/../templates/docker-compose.yml deploy/docker-compose.yml
 
-        # Replace dockerfile placeholders with secrets
-        sed -i 's|dockerfile: CONTAINER_IMAGE_WEB|dockerfile: ${{ inputs.container_image_web }}|g' deploy/docker-compose.yml
-        sed -i 's|dockerfile: CONTAINER_IMAGE_API|dockerfile: ${{ inputs.container_image_api }}|g' deploy/docker-compose.yml
+        echo "Registry URL: ${{ inputs.registry }}"
+        echo "Modules to deploy: ${{ inputs.modules_to_deploy }}"
+        
+        # Debug image values to check for type confusion
+        API_IMAGE="${{ inputs.container_image_api }}"
+        WEB_IMAGE="${{ inputs.container_image_web }}"
+        
+        echo "API image value: '$API_IMAGE'"
+        echo "Web image value: '$WEB_IMAGE'"
+        
+        # Check for boolean-like values which might indicate type confusion
+        if [[ "$API_IMAGE" == "true" || "$API_IMAGE" == "false" ]]; then
+          echo "Warning: API image value appears to be a boolean - this may indicate type confusion in the workflow"
+        fi
+        
+        if [[ "$WEB_IMAGE" == "true" || "$WEB_IMAGE" == "false" ]]; then
+          echo "Warning: Web image value appears to be a boolean - this may indicate type confusion in the workflow"
+        fi
+
+        # Replace dockerfile placeholders with image values
+        sed -i "s|image: CONTAINER_IMAGE_WEB|image: ${{ inputs.container_image_web }}|g" deploy/docker-compose.yml
+        sed -i "s|image: CONTAINER_IMAGE_API|image: ${{ inputs.container_image_api }}|g" deploy/docker-compose.yml
 
         # Map module names to service names in docker-compose.yml
         declare -A MODULE_MAP
         MODULE_MAP["api"]="api-server"
         MODULE_MAP["web"]="web"
 
-        # If specific modules were specified, modify docker-compose.yml to exclude others
-        if [ -n "${{ inputs.modules_to_deploy }}" ]; then
-          echo "Creating docker-compose.yml with modules: ${{ inputs.modules_to_deploy }}"
-          
-          IFS=',' read -ra MODULES <<< "${{ inputs.modules_to_deploy }}"
-          ALL_SERVICES=("api-server" "web")
-          SERVICES_TO_KEEP=()
-          
-          # Map workflow module names to docker-compose service names
-          for MODULE in "${MODULES[@]}"; do
-            if [[ -n "${MODULE_MAP[$MODULE]}" ]]; then
-              SERVICES_TO_KEEP+=("${MODULE_MAP[$MODULE]}")
-              echo "Including service ${MODULE_MAP[$MODULE]} for module $MODULE"
-            else
-              echo "Warning: Unknown module '$MODULE', no mapping defined"
-            fi
-          done
-          
-          # Find services to remove from docker-compose
-          for SERVICE in "${ALL_SERVICES[@]}"; do
-            if [[ ! " ${SERVICES_TO_KEEP[*]} " =~ " ${SERVICE} " ]]; then
-              echo "Removing service $SERVICE from docker-compose.yml"
-              # Using a more robust approach to remove services
-              awk -v service="^  ${SERVICE}:" '
-              BEGIN { skip=0; }
-              $0 ~ service { skip=1; }
-              skip && $0 ~ "^  [a-zA-Z0-9]" { skip=0; }
-              !skip { print $0; }
-              ' deploy/docker-compose.yml > deploy/temp.yml && mv deploy/temp.yml deploy/docker-compose.yml
-            fi
-          done
-        fi
-          
+        # Always deploy all modules (simplified approach per requirements)
+        echo "Creating docker-compose.yml for all modules"
+        
         # Display final docker-compose file for debugging
         echo "==== Final docker-compose.yml content ===="
         cat deploy/docker-compose.yml

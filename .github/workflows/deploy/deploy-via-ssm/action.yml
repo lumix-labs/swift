@@ -42,6 +42,7 @@ runs:
 
         echo "Using instance IP: $INSTANCE_IP"
         echo "Using instance ID: $INSTANCE_ID"
+        echo "Using registry: $REGISTRY"
         echo "Using container images:"
         echo "  API: $CONTAINER_IMAGE_API"
         echo "  Web: $CONTAINER_IMAGE_WEB"
@@ -59,6 +60,17 @@ runs:
               
             if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
               echo "Error: Could not find instance with IP $INSTANCE_IP"
+              echo "DEBUG - EC2 describe instances output:"
+              aws ec2 describe-instances \
+                --filters "Name=public-ip-address,Values=$INSTANCE_IP" \
+                --output json
+              
+              # List all instances for debugging
+              echo "DEBUG - All instances in region:"
+              aws ec2 describe-instances \
+                --query "Reservations[].Instances[].{Id:InstanceId,IP:PublicIpAddress,State:State.Name}" \
+                --output table
+              
               exit 1
             else
               echo "Found instance ID: $INSTANCE_ID"
@@ -82,24 +94,46 @@ runs:
           
         if [ "$CONNECTION_STATUS" != "Online" ]; then
           echo "Warning: Instance $INSTANCE_ID is not currently connected to SSM (status: $CONNECTION_STATUS)"
+          
+          # Check if instance exists but SSM agent might not be running
+          INSTANCE_EXISTS=$(aws ec2 describe-instances \
+            --instance-ids "$INSTANCE_ID" \
+            --query "Reservations[0].Instances[0].State.Name" \
+            --output text 2>/dev/null || echo "NotFound")
+            
+          if [ "$INSTANCE_EXISTS" == "NotFound" ]; then
+            echo "Error: Instance $INSTANCE_ID does not exist in region $AWS_REGION"
+            exit 1
+          else
+            echo "Instance exists with state: $INSTANCE_EXISTS"
+            echo "SSM agent may not be running or IAM role may not have SSM permissions"
+          fi
+          
           echo "Waiting for SSM connection to become available..."
           
-          # Wait for up to 2 minutes
-          for i in {1..12}; do
+          # Wait for up to 5 minutes (increased from 2 minutes)
+          for i in {1..30}; do
             sleep 10
             CONNECTION_STATUS=$(aws ssm describe-instance-information \
               --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
               --query "InstanceInformationList[0].PingStatus" \
               --output text)
               
+            echo "Connection status check $i/30: $CONNECTION_STATUS"
+            
             if [ "$CONNECTION_STATUS" == "Online" ]; then
               echo "Instance is now connected to SSM!"
               break
             fi
             
-            if [ $i -eq 12 ]; then
-              echo "Error: Instance failed to connect to SSM after 2 minutes"
+            if [ $i -eq 30 ]; then
+              echo "Error: Instance failed to connect to SSM after 5 minutes"
               echo "Please ensure the instance has an IAM role with SSM permissions and the SSM agent is running"
+              
+              # Check instance status in more detail
+              echo "DEBUG - Instance detailed status:"
+              aws ec2 describe-instance-status --instance-ids "$INSTANCE_ID"
+              
               exit 1
             fi
           done
@@ -108,6 +142,10 @@ runs:
         # Create config file from template
         CONFIG_TEMPLATE="$GITHUB_WORKSPACE/.github/workflows/deploy/templates/config.json.template"
         CONFIG_FILE="$(mktemp)"
+        
+        # Display template content for debugging
+        echo "DEBUG - Config template content:"
+        cat "$CONFIG_TEMPLATE"
         
         # Replace variables in the template using sed (more portable than envsubst)
         sed -e "s|\${REGISTRY}|$REGISTRY|g" \
@@ -118,7 +156,12 @@ runs:
             
         CONFIG_BASE64=$(base64 -w 0 "$CONFIG_FILE")
         
+        # Display final config for debugging (mask sensitive values)
+        echo "DEBUG - Generated config (sensitive values masked):"
+        cat "$CONFIG_FILE" | sed 's/\(password\|secret\|key\).*:/\1: [MASKED]/g'
+        
         # Send command to instance using SSM document with explicit environment variable setting
+        echo "Sending SSM command to instance $INSTANCE_ID..."
         CMD_ID=$(aws ssm send-command \
           --instance-ids "$INSTANCE_ID" \
           --document-name "AWS-RunShellScript" \
@@ -141,14 +184,15 @@ runs:
           ]" \
           --timeout-seconds 900 \
           --output text \
-          --query "Command.CommandId")
+          --query "Command.CommandId" || { echo "ERROR: Failed to send SSM command"; exit 1; })
 
         echo "SSM command ID: $CMD_ID"
 
         # Wait for command to complete (add a timeout to avoid waiting indefinitely)
+        echo "Waiting for command to complete (timeout: 15 minutes)..."
         timeout 15m aws ssm wait command-executed \
           --command-id "$CMD_ID" \
-          --instance-id "$INSTANCE_ID" || echo "Command timed out, continuing..."
+          --instance-id "$INSTANCE_ID" || { echo "Command execution timed out"; }
 
         # Get command result
         RESULT=$(aws ssm get-command-invocation \
@@ -160,6 +204,9 @@ runs:
         echo "Command status: $RESULT"
 
         if [ "$RESULT" != "Success" ]; then
+          echo "=========================="
+          echo "⚠️ DEPLOYMENT FAILED ⚠️"
+          echo "=========================="
           echo "Deployment failed with status: $RESULT"
           
           # Get and display both standard output and error for debugging
@@ -178,24 +225,55 @@ runs:
             --output text || echo "Could not retrieve error content"
           
           # Try to debug Docker issues specifically
-          echo "Sending follow-up command to check Docker status..."
-          aws ssm send-command \
+          echo "Attempting to diagnose deployment failure..."
+          DEBUG_CMD_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters commands="[
+              \"echo 'Deployment diagnostics:'\",
+              \"echo '======================'\",
               \"echo 'Registry value: $REGISTRY'\",
               \"echo 'API container: $CONTAINER_IMAGE_API'\",
               \"echo 'Web container: $CONTAINER_IMAGE_WEB'\",
+              \"echo '======================'\",
               \"echo 'Environment variables:'\",
-              \"env | grep AWS\",
+              \"env | grep -E 'AWS|DOCKER|CONTAINER'\",
+              \"echo '======================'\",
               \"echo 'Docker version:'\",
-              \"docker version || true\",
+              \"docker version || echo 'Docker not available'\",
+              \"echo '======================'\",
               \"echo 'Docker images:'\",
-              \"docker images || true\",
+              \"docker images || echo 'Cannot list Docker images'\",
+              \"echo '======================'\",
               \"echo 'Docker containers:'\",
-              \"docker ps -a || true\"
+              \"docker ps -a || echo 'Cannot list Docker containers'\",
+              \"echo '======================'\",
+              \"echo 'Docker-compose.yml content:'\",
+              \"cat /tmp/swift-deploy/docker-compose.yml || echo 'File not found'\",
+              \"echo '======================'\",
+              \"echo 'Docker logs (if available):'\",
+              \"for container in \\$(docker ps -aq 2>/dev/null); do echo \\\"Container: \\$container\\\"; docker logs \\$container --tail 50 2>&1 || echo 'No logs available'; echo '----------'; done\",
+              \"echo '======================'\",
+              \"echo 'Disk space:'\",
+              \"df -h\",
+              \"echo '======================'\",
+              \"echo 'System memory:'\",
+              \"free -m\"
             ]" \
-            --output text > /dev/null
+            --output text \
+            --query "Command.CommandId" || echo "Failed to send debug command")
+            
+          if [ "$DEBUG_CMD_ID" != "Failed to send debug command" ]; then
+            # Wait a few seconds for the debug command to execute
+            sleep 10
+            
+            echo "Diagnostic information:"
+            aws ssm get-command-invocation \
+              --command-id "$DEBUG_CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query "StandardOutputContent" \
+              --output text || echo "Could not retrieve diagnostic information"
+          fi
           
           # Continue with error exit status
           exit 1
@@ -208,4 +286,7 @@ runs:
           --query "StandardOutputContent" \
           --output text || echo "Could not retrieve output content"
 
+        echo "=========================="
+        echo "✅ DEPLOYMENT SUCCESSFUL ✅"
+        echo "=========================="
         echo "Deployment completed successfully"

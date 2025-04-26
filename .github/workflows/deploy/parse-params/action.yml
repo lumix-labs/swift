@@ -1,22 +1,13 @@
 name: "Parse Deployment Parameters"
-description: "Parses deployment parameters from either workflow_call or workflow_dispatch"
+description: "Parses deployment parameters from workflow_call"
 
 inputs:
   infrastructureParams:
     description: "JSON string containing infrastructure parameters"
-    required: false
+    required: true
   modulesToDeploy:
-    description: "Comma-separated list of modules to deploy from workflow_call"
-    required: false
-  instance_ip:
-    description: "EC2 Instance IP from workflow_dispatch"
-    required: false
-  modules_to_deploy:
-    description: "Comma-separated list of modules to deploy from workflow_dispatch"
-    required: false
-  aws_region:
-    description: "AWS Region"
-    required: false
+    description: "Comma-separated list of modules to deploy"
+    required: true
 
 outputs:
   instance_ip:
@@ -41,21 +32,15 @@ runs:
           chmod +x ${{ github.workspace }}/.github/scripts/parse-params.sh
         fi
 
-        if [ -n "${{ inputs.infrastructureParams }}" ]; then
-          # From workflow_call - use our parameter parser
-          echo "Processing params from workflow_call"
-          INSTANCE_IP=$(${{ github.workspace }}/.github/scripts/parse-params.sh '${{ inputs.infrastructureParams }}' "instance_ip")
-          INSTANCE_ID=$(${{ github.workspace }}/.github/scripts/parse-params.sh '${{ inputs.infrastructureParams }}' "instance_id")
-          MODULES_TO_DEPLOY="${{ inputs.modulesToDeploy }}"
-        else
-          # From workflow_dispatch
-          echo "Processing params from workflow_dispatch"
-          INSTANCE_IP="${{ inputs.instance_ip }}"
-          INSTANCE_ID=""
-          MODULES_TO_DEPLOY="${{ inputs.modules_to_deploy }}"
-        fi
+        # From workflow_call - use our parameter parser
+        echo "Processing params from workflow_call"
+        INSTANCE_IP=$(${{ github.workspace }}/.github/scripts/parse-params.sh '${{ inputs.infrastructureParams }}' "instance_ip")
+        INSTANCE_ID=$(${{ github.workspace }}/.github/scripts/parse-params.sh '${{ inputs.infrastructureParams }}' "instance_id")
+        MODULES_TO_DEPLOY="${{ inputs.modulesToDeploy }}"
 
         echo "Extracted instance_ip: $INSTANCE_IP"
+        echo "Extracted instance_id: $INSTANCE_ID"
+        echo "Modules to deploy: $MODULES_TO_DEPLOY"
 
         # Check if instance_ip is valid
         if [ -z "$INSTANCE_IP" ] || [ "$INSTANCE_IP" == "null" ]; then
@@ -70,12 +55,6 @@ runs:
           
           # Only attempt AWS lookup if not using fallback value
           if [[ "$INSTANCE_IP" != "fallback_ip_for_pipeline_continuity" && "$INSTANCE_IP" != "plan_only_mode" ]]; then
-            # Ensure AWS region is set
-            if [ -n "${{ inputs.aws_region }}" ]; then
-              export AWS_REGION="${{ inputs.aws_region }}"
-              echo "Setting AWS_REGION=$AWS_REGION for API calls"
-            fi
-            
             INSTANCE_ID=$(aws ec2 describe-instances \
               --filters "Name=public-ip-address,Values=$INSTANCE_IP" \
               --query "Reservations[0].Instances[0].InstanceId" \

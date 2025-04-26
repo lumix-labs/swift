@@ -1,27 +1,29 @@
 "use client";
 
 import { useTheme } from "../../context/ThemeContext";
+import { useEffect } from "react";
 
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
+
+  // On initial load, if theme is system, set it according to system preference
+  useEffect(() => {
+    if (theme === "system") {
+      setTheme(resolvedTheme);
+    }
+  }, [theme, setTheme, resolvedTheme]);
 
   const toggleTheme = () => {
-    if (theme === "dark") {
-      setTheme("light");
-    } else if (theme === "light") {
-      setTheme("system");
-    } else {
-      setTheme("dark");
-    }
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
   return (
     <button
       onClick={toggleTheme}
       className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none"
-      aria-label={`Current theme: ${theme}. Click to toggle theme.`}
+      aria-label={`Current theme: ${resolvedTheme}. Click to toggle theme.`}
     >
-      {theme === "dark" && (
+      {resolvedTheme === "dark" ? (
         <svg
           xmlns="http://www.w3.org/2000/svg"
           className="h-5 w-5"
@@ -30,8 +32,7 @@ export function ThemeToggle() {
         >
           <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
         </svg>
-      )}
-      {theme === "light" && (
+      ) : (
         <svg
           xmlns="http://www.w3.org/2000/svg"
           className="h-5 w-5"
@@ -45,20 +46,6 @@ export function ThemeToggle() {
           />
         </svg>
       )}
-      {theme === "system" && (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fillRule="evenodd"
-            d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z"
-            clipRule="evenodd"
-          />
-        </svg>
-      )}
-    </button>
+    </button >
   );
 }
