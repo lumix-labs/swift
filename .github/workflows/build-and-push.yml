@@ -20,8 +20,10 @@ jobs:
       api_changed: ${{ steps.filter.outputs.api }}
       web_changed: ${{ steps.filter.outputs.web }}
       terraform_changed: ${{ steps.filter.outputs.terraform }}
+      github_changed: ${{ steps.filter.outputs.github }}
       modules_to_deploy: ${{ steps.set-modules.outputs.modules_to_deploy }}
       should_deploy_infra: ${{ steps.check-deploy.outputs.should_deploy_infra }}
+      should_proceed_pipeline: ${{ steps.check-pipeline.outputs.should_proceed_pipeline }}
 
     steps:
       - name: Checkout code
@@ -40,6 +42,8 @@ jobs:
               - 'web/**'
             terraform:
               - 'terraform/**'
+            github:
+              - '.github/**'
 
       - name: Determine modules to deploy
         id: set-modules
@@ -49,6 +53,7 @@ jobs:
           echo "API changes: ${{ steps.filter.outputs.api }}"
           echo "Web changes: ${{ steps.filter.outputs.web }}"
           echo "Terraform changes: ${{ steps.filter.outputs.terraform }}"
+          echo "GitHub workflow changes: ${{ steps.filter.outputs.github }}"
 
           # Add API module if it has changes
           if [[ "${{ steps.filter.outputs.api }}" == "true" ]]; then
@@ -85,6 +90,18 @@ jobs:
             echo "No infrastructure changes detected"
           fi
 
+      - name: Check pipeline continuation
+        id: check-pipeline
+        run: |
+          # Check if we should proceed with the pipeline regardless of module builds
+          if [[ "${{ steps.filter.outputs.terraform }}" == "true" || "${{ steps.filter.outputs.github }}" == "true" ]]; then
+            echo "should_proceed_pipeline=true" >> $GITHUB_OUTPUT
+            echo "Infrastructure or workflow changes detected, will proceed with pipeline regardless of module builds"
+          else
+            echo "should_proceed_pipeline=false" >> $GITHUB_OUTPUT
+            echo "No infrastructure or workflow changes detected, pipeline continuation depends on module builds"
+          fi
+
   build-api:
     name: Build API Image
     needs: check-changes
@@ -117,7 +134,7 @@ jobs:
     name: Terraform Operations
     needs: [check-changes, build-api, build-web]
     if: |
-      needs.check-changes.outputs.should_deploy_infra == 'true' && 
+      (needs.check-changes.outputs.should_deploy_infra == 'true' || needs.check-changes.outputs.should_proceed_pipeline == 'true') && 
       (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
       (needs.build-web.result == 'success' || needs.build-web.result == 'skipped')
     uses: ./.github/workflows/terraform-workflow.yml
@@ -130,8 +147,12 @@ jobs:
   deploy:
     name: Deploy Application
     needs: [check-changes, build-api, build-web, terraform]
-    # Ensure deploy only runs if previous steps succeeded or were skipped
+    # Proceed with deployment if either:
+    # 1. At least one module was built successfully, or
+    # 2. Infrastructure/workflow changes were detected and we should proceed
     if: |
+      ((needs.build-api.result == 'success' || needs.build-web.result == 'success') || 
+       needs.check-changes.outputs.should_proceed_pipeline == 'true') &&
       (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
       (needs.build-web.result == 'success' || needs.build-web.result == 'skipped') &&
       (needs.terraform.result == 'success' || needs.terraform.result == 'skipped')
