@@ -120,10 +120,23 @@ jobs:
             echo "No infrastructure or workflow changes detected, pipeline continuation depends on module builds"
           fi
 
+  # Placeholder job to serve as a dependency for the pipeline-decision job
+  # This ensures terraform job doesn't fail due to missing dependencies
+  placeholder:
+    name: Placeholder Job
+    needs: [check-changes]
+    runs-on: ubuntu-latest
+    if: ${{ needs.check-changes.outputs.should_proceed_pipeline == 'true' && needs.check-changes.outputs.api_changed != 'true' && needs.check-changes.outputs.web_changed != 'true' }}
+    steps:
+      - name: Placeholder Step
+        run: |
+          echo "This job runs when we should proceed with the pipeline but no modules need to be built"
+          echo "It ensures the pipeline continues even when builds are skipped"
+
   build-api:
     name: Build API Image
     needs: check-changes
-    if: ${{ needs.check-changes.outputs.api_changed == true }}
+    if: needs.check-changes.outputs.api_changed == 'true'
     uses: ./.github/workflows/build-module.yml
     with:
       module: api
@@ -137,7 +150,7 @@ jobs:
   build-web:
     name: Build WEB Image
     needs: check-changes
-    if: ${{ needs.check-changes.outputs.web_changed == true }}
+    if: needs.check-changes.outputs.web_changed == 'true'
     uses: ./.github/workflows/build-module.yml
     with:
       module: web
@@ -150,7 +163,7 @@ jobs:
 
   pipeline-decision:
     name: Pipeline Decision Point
-    needs: [check-changes, build-api, build-web]
+    needs: [check-changes, build-api, build-web, placeholder]
     runs-on: ubuntu-latest
     if: always()
     outputs:
@@ -162,41 +175,79 @@ jobs:
           echo "Build results:"
           echo "API Build: ${{ needs.build-api.result }}"
           echo "Web Build: ${{ needs.build-web.result }}"
+          echo "Placeholder: ${{ needs.placeholder.result }}"
           echo "Infrastructure changes: ${{ needs.check-changes.outputs.should_deploy_infra }}"
           echo "GitHub workflow changes: ${{ needs.check-changes.outputs.github_changed }}"
           echo "Should proceed pipeline: ${{ needs.check-changes.outputs.should_proceed_pipeline }}"
           echo "Any module changed: ${{ needs.check-changes.outputs.any_module_changed }}"
           
-          CONTINUE_PIPELINE=false
+          # Start with continue_pipeline=false
+          continue_pipeline="false"
 
           # If any module build was successful, continue
           if [[ "${{ needs.build-api.result }}" == "success" || "${{ needs.build-web.result }}" == "success" ]]; then
-            CONTINUE_PIPELINE=true
+            continue_pipeline="true"
             echo "At least one module was built successfully, continuing pipeline"
+          fi
+
+          # If placeholder job ran successfully, it means we should proceed without module builds
+          if [[ "${{ needs.placeholder.result }}" == "success" ]]; then
+            continue_pipeline="true"
+            echo "Placeholder job successful - continuing pipeline without module builds"
           fi
 
           # If we should proceed pipeline due to infrastructure or workflow changes
           if [[ "${{ needs.check-changes.outputs.should_proceed_pipeline }}" == "true" ]]; then
-            # Ensure builds didn't fail
-            if [[ "${{ needs.build-api.result }}" != "failure" && "${{ needs.build-web.result }}" != "failure" ]]; then
-              CONTINUE_PIPELINE=true
+            # Only check for failures in builds that actually ran (not skipped)
+            should_continue=true
+            
+            # Check if api build ran and failed
+            if [[ "${{ needs.build-api.result }}" == "failure" ]]; then
+              should_continue=false
+              echo "API module build failure detected"
+            fi
+            
+            # Check if web build ran and failed
+            if [[ "${{ needs.build-web.result }}" == "failure" ]]; then
+              should_continue=false
+              echo "Web module build failure detected"
+            fi
+            
+            if [[ "$should_continue" == "true" ]]; then
+              continue_pipeline="true"
               echo "Infrastructure or workflow changes detected, continuing pipeline"
             else
               echo "Module build failure detected, cannot continue pipeline"
-              CONTINUE_PIPELINE=false
+              continue_pipeline="false"
             fi
           fi
 
-          echo "continue_pipeline=${CONTINUE_PIPELINE}" >> $GITHUB_OUTPUT
-          echo "Pipeline continuation decision: ${CONTINUE_PIPELINE}"
+          # Always write the value as a string
+          echo "continue_pipeline=${continue_pipeline}" >> $GITHUB_OUTPUT
+          echo "Pipeline continuation decision: ${continue_pipeline}"
           
           # Debug: Print the exact output value to ensure it's correctly set
           echo "Debug - GITHUB_OUTPUT value for continue_pipeline: $(cat $GITHUB_OUTPUT | grep continue_pipeline)"
 
+  # Using a direct intermediate job rather than a reusable workflow
+  terraform-setup:
+    name: Terraform Preparation
+    runs-on: ubuntu-latest
+    needs: [pipeline-decision]
+    if: ${{ needs.pipeline-decision.outputs.continue_pipeline == 'true' }}
+    outputs:
+      terraform_ready: ${{ steps.terraform-check.outputs.terraform_ready }}
+    steps:
+      - name: Verify pipeline decision
+        id: terraform-check
+        run: |
+          echo "Pipeline decision: ${{ needs.pipeline-decision.outputs.continue_pipeline }}"
+          echo "terraform_ready=true" >> $GITHUB_OUTPUT
+
   terraform:
     name: Terraform Operations
-    needs: [check-changes, pipeline-decision]
-    if: ${{ needs.pipeline-decision.outputs.continue_pipeline == true }}
+    needs: [terraform-setup, check-changes, pipeline-decision]
+    if: ${{ needs.terraform-setup.outputs.terraform_ready == 'true' }}
     uses: ./.github/workflows/terraform-workflow.yml
     with:
       action: plan-apply
@@ -207,7 +258,7 @@ jobs:
   deploy:
     name: Deploy Application
     needs: [check-changes, pipeline-decision, terraform]
-    if: ${{ needs.pipeline-decision.outputs.continue_pipeline == true }}
+    if: ${{ needs.pipeline-decision.outputs.continue_pipeline == 'true' }}
     uses: ./.github/workflows/deploy.yml
     with:
       infrastructureParams: ${{ needs.terraform.outputs.infrastructure_params || '{}' }}
