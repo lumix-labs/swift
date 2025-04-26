@@ -136,7 +136,7 @@ jobs:
   build-api:
     name: Build API Image
     needs: check-changes
-    if: needs.check-changes.outputs.api_changed == 'true'
+    if: ${{ needs.check-changes.outputs.api_changed == true }}
     uses: ./.github/workflows/build-module.yml
     with:
       module: api
@@ -150,7 +150,7 @@ jobs:
   build-web:
     name: Build WEB Image
     needs: check-changes
-    if: needs.check-changes.outputs.web_changed == 'true'
+    if: ${{ needs.check-changes.outputs.web_changed == true }}
     uses: ./.github/workflows/build-module.yml
     with:
       module: web
