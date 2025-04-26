@@ -6,6 +6,7 @@ on:
     paths:
       - "api/**"
       - "web/**"
+      - "mcp-server/**"
       - "terraform/**"
       - ".github/workflows/**"
   workflow_dispatch:
@@ -24,6 +25,7 @@ jobs:
       modules_to_deploy: ${{ steps.set-modules.outputs.modules_to_deploy }}
       should_deploy_infra: ${{ steps.check-deploy.outputs.should_deploy_infra }}
       should_proceed_pipeline: ${{ steps.check-pipeline.outputs.should_proceed_pipeline }}
+      any_module_changed: ${{ steps.check-module-changes.outputs.any_module_changed }}
 
     steps:
       - name: Checkout code
@@ -44,6 +46,17 @@ jobs:
               - 'terraform/**'
             github:
               - '.github/**'
+
+      - name: Check if any module changed
+        id: check-module-changes
+        run: |
+          if [[ "${{ steps.filter.outputs.api }}" == "true" || "${{ steps.filter.outputs.web }}" == "true" ]]; then
+            echo "any_module_changed=true" >> $GITHUB_OUTPUT
+            echo "At least one module has changes"
+          else
+            echo "any_module_changed=false" >> $GITHUB_OUTPUT
+            echo "No module has changes"
+          fi
 
       - name: Determine modules to deploy
         id: set-modules
@@ -67,10 +80,15 @@ jobs:
             echo "Adding Web module for deployment due to changes"
           fi
 
-          # Always include API if nothing else is selected
+          # Always include API if nothing else is selected and we're not proceeding due to infra changes
           if [ ${#MODULES[@]} -eq 0 ]; then
-            MODULES+=("api")
-            echo "No modules detected for changes, defaulting to API module"
+            # Only include API as default if no infrastructure changes
+            if [[ "${{ steps.filter.outputs.terraform }}" != "true" && "${{ steps.filter.outputs.github }}" != "true" ]]; then
+              MODULES+=("api")
+              echo "No modules detected for changes, defaulting to API module"
+            else
+              echo "Infrastructure changes only, not defaulting to API module"
+            fi
           fi
 
           # Join array with commas
@@ -130,13 +148,51 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
+  pipeline-decision:
+    name: Pipeline Decision Point
+    needs: [check-changes, build-api, build-web]
+    runs-on: ubuntu-latest
+    if: always()
+    outputs:
+      continue_pipeline: ${{ steps.decide.outputs.continue_pipeline }}
+    steps:
+      - name: Decide whether to continue pipeline
+        id: decide
+        run: |
+          echo "Build results:"
+          echo "API Build: ${{ needs.build-api.result }}"
+          echo "Web Build: ${{ needs.build-web.result }}"
+          echo "Infrastructure changes: ${{ needs.check-changes.outputs.should_deploy_infra }}"
+          echo "GitHub workflow changes: ${{ needs.check-changes.outputs.github_changed }}"
+          echo "Should proceed pipeline: ${{ needs.check-changes.outputs.should_proceed_pipeline }}"
+          echo "Any module changed: ${{ needs.check-changes.outputs.any_module_changed }}"
+          
+          CONTINUE_PIPELINE="false"
+
+          # If any module build was successful, continue
+          if [[ "${{ needs.build-api.result }}" == "success" || "${{ needs.build-web.result }}" == "success" ]]; then
+            CONTINUE_PIPELINE="true"
+            echo "At least one module was built successfully, continuing pipeline"
+          fi
+
+          # If we should proceed pipeline due to infrastructure or workflow changes
+          if [[ "${{ needs.check-changes.outputs.should_proceed_pipeline }}" == "true" ]]; then
+            # Ensure builds didn't fail
+            if [[ "${{ needs.build-api.result }}" != "failure" && "${{ needs.build-web.result }}" != "failure" ]]; then
+              CONTINUE_PIPELINE="true"
+              echo "Infrastructure or workflow changes detected, continuing pipeline"
+            else
+              echo "Module build failure detected, cannot continue pipeline"
+            fi
+          fi
+
+          echo "continue_pipeline=${CONTINUE_PIPELINE}" >> $GITHUB_OUTPUT
+          echo "Pipeline continuation decision: ${CONTINUE_PIPELINE}"
+
   terraform:
     name: Terraform Operations
-    needs: [check-changes, build-api, build-web]
-    if: |
-      (needs.check-changes.outputs.should_deploy_infra == 'true' || needs.check-changes.outputs.should_proceed_pipeline == 'true') && 
-      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
-      (needs.build-web.result == 'success' || needs.build-web.result == 'skipped')
+    needs: [check-changes, pipeline-decision]
+    if: needs.pipeline-decision.outputs.continue_pipeline == 'true'
     uses: ./.github/workflows/terraform-workflow.yml
     with:
       action: plan-apply
@@ -146,16 +202,8 @@ jobs:
 
   deploy:
     name: Deploy Application
-    needs: [check-changes, build-api, build-web, terraform]
-    # Proceed with deployment if either:
-    # 1. At least one module was built successfully, or
-    # 2. Infrastructure/workflow changes were detected and we should proceed
-    if: |
-      ((needs.build-api.result == 'success' || needs.build-web.result == 'success') || 
-       needs.check-changes.outputs.should_proceed_pipeline == 'true') &&
-      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
-      (needs.build-web.result == 'success' || needs.build-web.result == 'skipped') &&
-      (needs.terraform.result == 'success' || needs.terraform.result == 'skipped')
+    needs: [check-changes, pipeline-decision, terraform]
+    if: needs.pipeline-decision.outputs.continue_pipeline == 'true'
     uses: ./.github/workflows/deploy.yml
     with:
       infrastructureParams: ${{ needs.terraform.outputs.infrastructure_params || '{}' }}
