@@ -123,7 +123,7 @@ jobs:
   build-api:
     name: Build API Image
     needs: check-changes
-    if: needs.check-changes.outputs.api_changed == 'true'
+    if: ${{ needs.check-changes.outputs.api_changed == true }}
     uses: ./.github/workflows/build-module.yml
     with:
       module: api
@@ -137,7 +137,7 @@ jobs:
   build-web:
     name: Build WEB Image
     needs: check-changes
-    if: needs.check-changes.outputs.web_changed == 'true'
+    if: ${{ needs.check-changes.outputs.web_changed == true }}
     uses: ./.github/workflows/build-module.yml
     with:
       module: web
@@ -167,11 +167,11 @@ jobs:
           echo "Should proceed pipeline: ${{ needs.check-changes.outputs.should_proceed_pipeline }}"
           echo "Any module changed: ${{ needs.check-changes.outputs.any_module_changed }}"
           
-          CONTINUE_PIPELINE="false"
+          CONTINUE_PIPELINE=false
 
           # If any module build was successful, continue
           if [[ "${{ needs.build-api.result }}" == "success" || "${{ needs.build-web.result }}" == "success" ]]; then
-            CONTINUE_PIPELINE="true"
+            CONTINUE_PIPELINE=true
             echo "At least one module was built successfully, continuing pipeline"
           fi
 
@@ -179,20 +179,24 @@ jobs:
           if [[ "${{ needs.check-changes.outputs.should_proceed_pipeline }}" == "true" ]]; then
             # Ensure builds didn't fail
             if [[ "${{ needs.build-api.result }}" != "failure" && "${{ needs.build-web.result }}" != "failure" ]]; then
-              CONTINUE_PIPELINE="true"
+              CONTINUE_PIPELINE=true
               echo "Infrastructure or workflow changes detected, continuing pipeline"
             else
               echo "Module build failure detected, cannot continue pipeline"
+              CONTINUE_PIPELINE=false
             fi
           fi
 
           echo "continue_pipeline=${CONTINUE_PIPELINE}" >> $GITHUB_OUTPUT
           echo "Pipeline continuation decision: ${CONTINUE_PIPELINE}"
+          
+          # Debug: Print the exact output value to ensure it's correctly set
+          echo "Debug - GITHUB_OUTPUT value for continue_pipeline: $(cat $GITHUB_OUTPUT | grep continue_pipeline)"
 
   terraform:
     name: Terraform Operations
     needs: [check-changes, pipeline-decision]
-    if: needs.pipeline-decision.outputs.continue_pipeline == 'true'
+    if: ${{ needs.pipeline-decision.outputs.continue_pipeline == true }}
     uses: ./.github/workflows/terraform-workflow.yml
     with:
       action: plan-apply
@@ -203,7 +207,7 @@ jobs:
   deploy:
     name: Deploy Application
     needs: [check-changes, pipeline-decision, terraform]
-    if: needs.pipeline-decision.outputs.continue_pipeline == 'true'
+    if: ${{ needs.pipeline-decision.outputs.continue_pipeline == true }}
     uses: ./.github/workflows/deploy.yml
     with:
       infrastructureParams: ${{ needs.terraform.outputs.infrastructure_params || '{}' }}
