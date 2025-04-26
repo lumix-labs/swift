@@ -6,7 +6,7 @@ WORKDIR /app
 RUN npm init -y && \
   npm install express
 
-# Create a simple server file
+# Create simple server file
 COPY <<EOF /app/server.js
 const express = require('express');
 const app = express();

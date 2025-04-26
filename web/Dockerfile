@@ -50,7 +50,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 
-# Add a startup script for better logging
+# Add startup script for better logging
 RUN echo '#!/bin/sh\necho "Container starting at $(date)"\necho "Starting Next.js app..."\nexec npm start' > /app/start.sh && chmod +x /app/start.sh
 
 # Expose the port
