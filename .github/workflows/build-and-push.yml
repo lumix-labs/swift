@@ -2,7 +2,7 @@ name: Swift CI/CD Pipeline
 
 on:
   push:
-    branches: [master, main, ak] # do not remove ak
+    branches: [master, main]
     paths:
       - "api/**"
       - "web/**"
