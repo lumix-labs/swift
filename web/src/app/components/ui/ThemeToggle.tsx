@@ -5,7 +5,7 @@ import { useEffect } from "react";
 
 export function ThemeToggle() {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  
+
   // On initial load, if theme is system, set it according to system preference
   useEffect(() => {
     if (theme === "system") {
@@ -46,6 +46,6 @@ export function ThemeToggle() {
           />
         </svg>
       )}
-    </button>
+    </button >
   );
 }

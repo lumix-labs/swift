@@ -54,17 +54,17 @@ const MAX_SESSIONS = 5;
 // Create the context with default values
 const ChatContext = createContext<ChatContextType>({
   messages: [],
-  addMessage: () => {},
-  clearMessages: () => {},
+  addMessage: () => { },
+  clearMessages: () => { },
   isLoading: false,
-  setIsLoading: () => {},
+  setIsLoading: () => { },
   sessions: [],
   currentSessionId: null,
-  createNewSession: () => {},
-  switchSession: () => {},
-  deleteSession: () => {},
+  createNewSession: () => { },
+  switchSession: () => { },
+  deleteSession: () => { },
   selectedModel: 'gemini',
-  setSelectedModel: () => {},
+  setSelectedModel: () => { },
 });
 
 // Create a provider component
@@ -89,13 +89,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       updatedAt: new Date(),
       messages: []
     };
-    
+
     // Limit to MAX_SESSIONS by removing the oldest ones if needed
     setSessions(prev => {
       const newSessions = [newSession, ...prev];
       return newSessions.slice(0, MAX_SESSIONS);
     });
-    
+
     setCurrentSessionId(newSessionId);
     setMessages([]);
   }, [generateId]);
@@ -103,7 +103,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // Batched localStorage update
   const updateLocalStorage = useCallback((updatedSessions: ChatSession[], updatedCurrentSessionId: string | null) => {
     setStorageUpdating(true);
-    
+
     try {
       // Convert dates to strings for storage
       const sessionsToStore = updatedSessions.map(session => ({
@@ -115,9 +115,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           timestamp: msg.timestamp.toISOString()
         }))
       }));
-      
+
       localStorage.setItem('chatSessions', JSON.stringify(sessionsToStore));
-      
+
       if (updatedCurrentSessionId) {
         localStorage.setItem('currentSessionId', updatedCurrentSessionId);
       }
@@ -132,7 +132,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const savedSessions = localStorage.getItem('chatSessions');
-      
+
       if (savedSessions) {
         const parsedSessions = JSON.parse(savedSessions).map((session: SavedSession) => ({
           ...session,
@@ -143,11 +143,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             timestamp: new Date(msg.timestamp)
           }))
         }));
-        
+
         // Only keep MAX_SESSIONS
         const limitedSessions = parsedSessions.slice(0, MAX_SESSIONS);
         setSessions(limitedSessions);
-        
+
         // Load current session if exists
         const savedCurrentSessionId = localStorage.getItem('currentSessionId');
         if (savedCurrentSessionId && limitedSessions.some((s: ChatSession) => s.id === savedCurrentSessionId)) {
@@ -186,7 +186,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const timer = setTimeout(() => {
         updateLocalStorage(sessions, currentSessionId);
       }, 300); // 300ms debounce
-      
+
       return () => clearTimeout(timer);
     }
   }, [sessions, currentSessionId, updateLocalStorage, storageUpdating]);
@@ -211,7 +211,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const deleteSession = useCallback((sessionId: string) => {
     const updatedSessions = sessions.filter(s => s.id !== sessionId);
     setSessions(updatedSessions);
-    
+
     if (currentSessionId === sessionId) {
       if (updatedSessions.length > 0) {
         switchSession(updatedSessions[0].id);
@@ -228,9 +228,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       id: generateId(),
       timestamp: new Date(),
     };
-    
+
     setMessages(prevMessages => [...prevMessages, newMessage]);
-    
+
     // Update the current session with the new message
     if (currentSessionId) {
       setSessions(prev => prev.map(session => {
@@ -241,7 +241,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             messages: updatedMessages,
             updatedAt: new Date(),
             // Update title based on first user message if this is the first message
-            title: session.messages.length === 0 && message.role === 'user' 
+            title: session.messages.length === 0 && message.role === 'user'
               ? message.content.substring(0, 30) + (message.content.length > 30 ? '...' : '')
               : session.title
           };
@@ -254,7 +254,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // Clear all messages in the current session
   const clearMessages = useCallback(() => {
     setMessages([]);
-    
+
     // Update the current session to have no messages
     if (currentSessionId) {
       setSessions(prev => prev.map(session => {

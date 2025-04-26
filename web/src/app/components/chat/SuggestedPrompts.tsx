@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useCallback, useMemo } from 'react';
-import { ExecutiveQuestions } from '../ui/ExecutiveQuestions';
 
 interface SuggestedPromptsProps {
   onSelectPrompt: (prompt: string) => void;
@@ -60,8 +59,7 @@ export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
         </button>
       </div>
       
-      {/* Only render ExecutiveQuestions when expanded */}
-      {expanded && <ExecutiveQuestions onQuestionSelect={handleSelectPrompt} />}
+
     </div>
   );
 }

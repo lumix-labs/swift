@@ -1,7 +1,7 @@
 "use client"
 
-import { useRef, useEffect, useState, useMemo } from 'react';
-import { FixedSizeList as List } from 'react-window';
+import * as React from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { ChatMessage } from './ChatMessage';
 import { Message } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -10,49 +10,18 @@ interface ChatMessageListProps {
   messages: Message[];
 }
 
-const ITEM_HEIGHT = 150; // Approximate height for each message item
-
-// Row renderer for virtualized list
-const MessageRow = ({ index, style, data }: { index: number; style: React.CSSProperties; data: Message[] }) => {
-  const message = data[index];
-  return (
-    <div style={style}>
-      <div style={{ padding: '10px 0' }}>
-        <ChatMessage message={message} />
-      </div>
-    </div>
-  );
-};
-
 export function ChatMessageList({ messages }: ChatMessageListProps) {
-  // Using a generic React ref without specific typing
-  const listRef = useRef(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState(600); // Default height
-  const [containerWidth, setContainerWidth] = useState(800); // Default width
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { resolvedTheme } = useTheme();
-
-  // Create a ResizeObserver to update container dimensions
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const resizeObserver = new ResizeObserver(entries => {
-      if (entries[0]) {
-        setContainerHeight(entries[0].contentRect.height);
-        setContainerWidth(entries[0].contentRect.width);
-      }
-    });
-
-    resizeObserver.observe(containerRef.current);
-    return () => resizeObserver.disconnect();
-  }, []);
-
+  
   // Scroll to bottom when new messages are added
   useEffect(() => {
-    if (listRef.current && messages.length > 0) {
-      // Type assertion to access the scrollToItem method
-      (listRef.current as { scrollToItem: (index: number, align: string) => void })
-        .scrollToItem(messages.length - 1, "end");
+    if (scrollContainerRef.current && messages.length > 0) {
+      const scrollContainer = scrollContainerRef.current;
+      // Use requestAnimationFrame to ensure DOM has updated before scrolling
+      requestAnimationFrame(() => {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      });
     }
   }, [messages]);
 
@@ -95,29 +64,20 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
   ), []);
 
   return (
-    <div 
-      ref={containerRef} 
-      className="flex-1 p-4 overflow-hidden"
-      style={{ height: "100%", width: "100%" }}
-    >
+    <div className="flex-1 p-4 overflow-hidden h-full w-full">
       {messages.length === 0 ? (
         EmptyState
       ) : (
-        <div className="max-w-4xl mx-auto h-full">
-          {/* @ts-expect-error FixedSizeList has incompatible type definitions with React refs */}
-          <List
-            ref={listRef}
-            height={containerHeight}
-            width={containerWidth}
-            itemCount={messages.length}
-            itemSize={ITEM_HEIGHT}
-            itemData={messages}
-            overscanCount={5} // Overscan to pre-render items outside viewport
-            className={`scrollbar-${resolvedTheme}`}
-            style={{ overflowX: 'hidden', willChange: 'transform' }}
-          >
-            {MessageRow}
-          </List>
+        <div 
+          ref={scrollContainerRef}
+          className={`max-w-4xl mx-auto h-full overflow-y-auto scrollbar-${resolvedTheme}`}
+          style={{ overflowX: 'hidden' }}
+        >
+          {messages.map((message, index) => (
+            <div key={index} className="py-2">
+              <ChatMessage message={message} />
+            </div>
+          ))}
         </div>
       )}
     </div>

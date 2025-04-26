@@ -29,7 +29,7 @@
   ],
   "postStartCommand": [
     "git config --global core.editor 'code --wait'",
-    "git config --global --add safe.directory /workspace/swift"
+    "git config --global --add safe.directory /workspaces/swift"
   ],
   "customizations": {
     "vscode": {
@@ -37,7 +37,7 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode", 
+        "esbenp.prettier-vscode",
         "github.vscode-github-actions",
         "redhat.vscode-yaml",
         "ms-azuretools.vscode-docker",
@@ -78,6 +78,6 @@
     "--security-opt=seccomp=unconfined"
   ],
   "appPort": [
-    "6000:6000"   // Web
+    "6000:6000" // Web
   ]
 }

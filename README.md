@@ -4,13 +4,7 @@ Simple deployment of Swift app Docker container on a single EC2 instance.
 
 ## Local Setup
 
-1. **Create SSH Key Pair** (if you don't have one)
-   ```
-   aws ec2 create-key-pair --key-name swift-key --query 'KeyMaterial' --output text > swift-key.pem
-   chmod 400 swift-key.pem
-   ```
-
-2. **Configure Terraform**
+1. **Configure Terraform**
    ```
    cp terraform.tfvars.example terraform.tfvars
    ```
@@ -31,7 +25,7 @@ Simple deployment of Swift app Docker container on a single EC2 instance.
 
 5. **Access App**
    ```
-   echo "App available at: http://$(terraform output -raw instance_public_ip)"
+   echo "App available at: https://talk2swift.com"
    ```
 
 ## What Gets Deployed
@@ -41,9 +35,3 @@ Simple deployment of Swift app Docker container on a single EC2 instance.
 - Security group for web traffic
 - IAM role for ECR access
 - Elastic IP for static address
-
-## Connecting to EC2
-
-```
-ssh -i swift-key.pem ec2-user@$(terraform output -raw instance_public_ip)
-```

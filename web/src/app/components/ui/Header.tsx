@@ -55,8 +55,8 @@ export function Header() {
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between px-4 h-14 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black">
       <div className="flex items-center space-x-2">
-        <button 
-          onClick={() => setSidebarOpen(!sidebarOpen)} 
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
           className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none"
           aria-label="Toggle chat sidebar"
         >
@@ -64,7 +64,7 @@ export function Header() {
             <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
           </svg>
         </button>
-        
+
         <Link href="/" onClick={() => window.location.reload()}>
           <div className="flex items-center space-x-2 cursor-pointer">
             <Image src="/swift-logo.svg" alt="Swift Logo" width={32} height={32} />
@@ -72,11 +72,11 @@ export function Header() {
           </div>
         </Link>
       </div>
-      
+
       <div className="flex items-center space-x-4">
         <RepoConnector onConnect={handleConnectRepo} />
         <ModelSelector onSelectModel={handleSelectModel} />
-        
+
         <button
           onClick={handleNewChat}
           className="flex items-center space-x-1 px-3 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none"
@@ -87,43 +87,43 @@ export function Header() {
           </svg>
           <span className="text-sm font-medium">New Chat</span>
         </button>
-        
+
         <ThemeToggle />
       </div>
-      
+
       {/* Sidebar for Chat History and Repositories */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-20 flex">
           {/* Backdrop */}
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50" 
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50"
             onClick={() => setSidebarOpen(false)}
             aria-hidden="true"
           ></div>
-          
+
           {/* Sidebar */}
           <div className="relative flex flex-col w-64 max-w-xs bg-white dark:bg-gray-900 h-full overflow-y-auto">
             {/* Tab navigation */}
             <div className="flex border-b border-gray-200 dark:border-gray-800">
-              <button 
+              <button
                 className="flex-1 py-3 font-medium text-center border-b-2 border-black dark:border-white"
               >
                 Chat History
               </button>
-              <button 
+              <button
                 className="flex-1 py-3 font-medium text-center text-gray-500 dark:text-gray-400"
               >
                 Repositories
               </button>
             </div>
-            
+
             {/* Chat History Panel */}
             <div className="flex-1 p-2 overflow-y-auto">
               {sessions.length > 0 ? (
                 <div className="space-y-1">
                   {sessions.map((session) => (
-                    <div 
-                      key={session.id} 
+                    <div
+                      key={session.id}
                       className={`
                         flex justify-between items-center p-2 rounded-md cursor-pointer
                         ${currentSessionId === session.id ? 'bg-gray-100 dark:bg-gray-800' : ''}
@@ -135,7 +135,7 @@ export function Header() {
                         <p className="text-sm font-medium truncate">{session.title}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(session.updatedAt)}</p>
                       </div>
-                      
+
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -155,21 +155,21 @@ export function Header() {
                 <p className="text-sm text-gray-500 dark:text-gray-400 p-2">No previous chats</p>
               )}
             </div>
-            
+
             {/* Repositories Panel (hidden initially) */}
             <div className="hidden flex-1 p-2 overflow-y-auto">
               {connectedRepos.length > 0 ? (
                 <div className="space-y-1">
                   {connectedRepos.map((repo) => (
-                    <div 
-                      key={repo} 
+                    <div
+                      key={repo}
                       className="flex justify-between items-center p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{repo.split('/').pop()?.replace('.git', '')}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{repo}</p>
                       </div>
-                      
+
                       <button
                         onClick={() => handleDisconnectRepo(repo)}
                         className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-full"

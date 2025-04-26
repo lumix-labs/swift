@@ -8,6 +8,34 @@ import { ChatInput } from './ChatInput';
 import { useChat } from '../../context/ChatContext';
 import { useDebounce } from '../../hooks/useDebounce';
 
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+
+class ChatErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('ErrorBoundary caught error', error, info);
+    }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col h-screen items-center justify-center bg-white dark:bg-black text-black dark:text-white">
+          <h1 className="text-2xl font-bold mb-2">Something went wrong.</h1>
+          <p className="mb-4">Please refresh the page or try again later.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export function ChatLayout() {
   const { isLoading, messages } = useChat();
   const [mounted, setMounted] = useState(false);
@@ -19,7 +47,7 @@ export function ChatLayout() {
   }, []);
 
   // Memoize the loading indicator to prevent unnecessary re-renders
-  const loadingIndicator = useMemo(() => 
+  const loadingIndicator = useMemo(() =>
     debouncedLoading && (
       <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-100 dark:bg-gray-800 rounded-full px-4 py-2 flex items-center space-x-2">
         <div className="w-3 h-3 bg-black dark:bg-white rounded-full animate-pulse"></div>
@@ -52,20 +80,22 @@ export function ChatLayout() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white dark:bg-black text-black dark:text-white">
-      <Header />
-      
-      <main className="flex-1 flex flex-col overflow-hidden relative">
-        <ChatMessageList messages={messages} />
-        
-        {loadingIndicator}
-        
-        <div className="px-4 py-3 w-full border-t border-gray-200 dark:border-gray-800">
-          <ChatInput />
-        </div>
-      </main>
-      
-      <Footer />
-    </div>
+    <ChatErrorBoundary>
+      <div className="flex flex-col h-screen bg-white dark:bg-black text-black dark:text-white">
+        <Header />
+
+        <main className="flex-1 flex flex-col overflow-hidden relative">
+          <ChatMessageList messages={messages} />
+
+          {loadingIndicator}
+
+          <div className="px-4 py-3 w-full border-t border-gray-200 dark:border-gray-800">
+            <ChatInput />
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    </ChatErrorBoundary>
   );
 }

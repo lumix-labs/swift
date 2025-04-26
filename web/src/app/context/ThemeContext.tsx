@@ -1,9 +1,9 @@
 "use client"
-import { 
-  createContext, 
-  useContext, 
-  useState, 
-  useEffect, 
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
   ReactNode,
   useMemo,
   useCallback
@@ -20,7 +20,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: 'system',
-  setTheme: () => {},
+  setTheme: () => { },
   resolvedTheme: 'light',
 });
 
@@ -32,14 +32,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Function to update the resolved theme and document class
   const updateResolvedTheme = useCallback(() => {
     if (!isBrowser) return;
-    
-    const newResolvedTheme = 
-      theme === 'system' 
-        ? getSystemTheme() 
+
+    const newResolvedTheme =
+      theme === 'system'
+        ? getSystemTheme()
         : theme;
-    
+
     setResolvedTheme(newResolvedTheme);
-    
+
     // Update document class for CSS - use classList.replace for better performance
     if (document.documentElement.classList.contains('light') && newResolvedTheme === 'dark') {
       document.documentElement.classList.replace('light', 'dark');
@@ -55,10 +55,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Initialize theme from localStorage or system preference
   useEffect(() => {
     if (!isBrowser) return;
-    
+
     // Set mounted to true after first render
     setMounted(true);
-    
+
     try {
       const savedTheme = localStorage.getItem('theme') as Theme | null;
       if (savedTheme) {
@@ -72,16 +72,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Update resolvedTheme when theme changes
   useEffect(() => {
     if (!mounted) return;
-    
+
     updateResolvedTheme();
 
     // Listen for system theme changes only if using system theme
     if (theme === 'system') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      
+
       // Use the modern event listener pattern
       const handleChange = () => updateResolvedTheme();
-      
+
       try {
         // Modern browsers
         mediaQuery.addEventListener('change', handleChange);
@@ -98,7 +98,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Update localStorage when theme changes
   useEffect(() => {
     if (!isBrowser || !mounted) return;
-    
+
     try {
       localStorage.setItem('theme', theme);
     } catch (error) {
@@ -107,10 +107,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme, mounted]);
 
   // Memoize the context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({ 
-    theme, 
-    setTheme, 
-    resolvedTheme 
+  const contextValue = useMemo(() => ({
+    theme,
+    setTheme,
+    resolvedTheme
   }), [theme, resolvedTheme]);
 
   return (
