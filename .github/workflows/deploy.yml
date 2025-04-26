@@ -30,6 +30,9 @@ on:
       deployment_status:
         description: "Status of the deployment"
         value: ${{ jobs.deploy.outputs.status }}
+      deployment_debug_info:
+        description: "Debug information from deployment"
+        value: ${{ jobs.deploy.outputs.debug_info }}
 
 jobs:
   deploy:
@@ -39,6 +42,7 @@ jobs:
       contents: read
     outputs:
       status: ${{ steps.deployment-result.outputs.status }}
+      debug_info: ${{ steps.deployment-result.outputs.debug_info }}
 
     steps:
       - name: Checkout code
@@ -64,6 +68,37 @@ jobs:
         with:
           infrastructureParams: ${{ inputs.infrastructureParams }}
           modulesToDeploy: ${{ inputs.modulesToDeploy }}
+
+      # Explicitly type check parameters for better debugging
+      - name: Validate parameter types
+        id: validate-params
+        run: |
+          echo "Validating parameter types for debugging..."
+          
+          # Check instance_id
+          INSTANCE_ID="${{ steps.parse-params.outputs.instance_id }}"
+          echo "Instance ID: '$INSTANCE_ID' (Type: $(if [[ "$INSTANCE_ID" =~ ^[0-9]+$ ]]; then echo 'numeric'; elif [[ -z "$INSTANCE_ID" ]]; then echo 'empty string'; else echo 'string'; fi))"
+          
+          # Check modules_to_deploy
+          MODULES="${{ steps.parse-params.outputs.modules_to_deploy }}"
+          echo "Modules to deploy: '$MODULES' (Type: $(if [[ -z "$MODULES" ]]; then echo 'empty string'; else echo 'string'; fi))"
+          
+          # Validate comma-separated format
+          if [[ "$MODULES" == *","* ]]; then
+            echo "✓ Modules list contains commas as expected"
+          else
+            echo "⚠ Modules list doesn't contain commas - might be a single module or empty"
+          fi
+          
+          # Check if modules are in expected list
+          IFS=',' read -ra MODULE_ARRAY <<< "$MODULES"
+          for MODULE in "${MODULE_ARRAY[@]}"; do
+            if [[ "$MODULE" == "api" || "$MODULE" == "web" ]]; then
+              echo "✓ Valid module: $MODULE"
+            else
+              echo "⚠ Unknown module: '$MODULE'"
+            fi
+          done
 
       # === Create Deployment Files ===
       - name: Create docker-compose file
@@ -103,10 +138,43 @@ jobs:
       - name: Set deployment result
         id: deployment-result
         run: |
+          # Capture debug information
+          DEBUG_INFO="{}"
+          
           if [ "${{ steps.deploy-to-instance.outcome }}" == "success" ]; then
             echo "status=success" >> $GITHUB_OUTPUT
             echo "Deployment completed successfully"
+            
+            # Collect success info
+            DEBUG_INFO=$(cat << EOF
+            {
+              "status": "success",
+              "instance_id": "${{ steps.parse-params.outputs.instance_id }}",
+              "instance_ip": "${{ steps.parse-params.outputs.instance_ip }}",
+              "modules_deployed": "${{ steps.parse-params.outputs.modules_to_deploy }}",
+              "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            }
+            EOF
+            )
           else
             echo "status=failure" >> $GITHUB_OUTPUT
             echo "Deployment failed"
+            
+            # Collect failure info with more details
+            DEBUG_INFO=$(cat << EOF
+            {
+              "status": "failure",
+              "instance_id": "${{ steps.parse-params.outputs.instance_id }}",
+              "instance_ip": "${{ steps.parse-params.outputs.instance_ip }}",
+              "modules_deployed": "${{ steps.parse-params.outputs.modules_to_deploy }}",
+              "error_phase": "ssm_deployment",
+              "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+              "failure_details": "Check GitHub Actions logs for detailed error message"
+            }
+            EOF
+            )
           fi
+          
+          # Remove newlines and extra spaces for proper JSON
+          DEBUG_INFO=$(echo "$DEBUG_INFO" | tr -d '\n' | sed 's/  //g')
+          echo "debug_info=$DEBUG_INFO" >> $GITHUB_OUTPUT

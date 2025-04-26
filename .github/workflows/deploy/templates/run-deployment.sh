@@ -4,6 +4,27 @@ set -e
 # Deployment script for Swift application
 echo "Starting Swift deployment..."
 
+# Function to log with timestamp
+log_info() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: $1"
+}
+
+# Function to log errors with timestamp
+log_error() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1" >&2
+}
+
+# Function to log warnings with timestamp
+log_warn() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: $1" >&2
+}
+
+# Function to exit with error message
+fail() {
+  log_error "$1"
+  exit 1
+}
+
 # Parse command line arguments
 CONFIG_FILE=""
 while [[ $# -gt 0 ]]; do
@@ -13,7 +34,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     *)
-      echo "Unknown option: $1"
+      log_warn "Unknown option: $1"
       shift
       ;;
   esac
@@ -21,7 +42,7 @@ done
 
 # Read from config file if provided
 if [ -n "$CONFIG_FILE" ] && [ -f "$CONFIG_FILE" ]; then
-  echo "Reading configuration from $CONFIG_FILE"
+  log_info "Reading configuration from $CONFIG_FILE"
   # Use jq to parse JSON config if available, otherwise fallback to grep
   if command -v jq &> /dev/null; then
     AWS_ECR_REGISTRY=${AWS_ECR_REGISTRY:-$(jq -r '.registry // empty' "$CONFIG_FILE")}
@@ -38,100 +59,118 @@ if [ -n "$CONFIG_FILE" ] && [ -f "$CONFIG_FILE" ]; then
 fi
 
 # Debug information for troubleshooting
-echo "Environment variables:"
-env | grep AWS || true
-echo "CONTAINER_IMAGE_API: $CONTAINER_IMAGE_API"
-echo "CONTAINER_IMAGE_WEB: $CONTAINER_IMAGE_WEB"
+log_info "Environment variables:"
+env | grep -E 'AWS|CONTAINER' || true
+log_info "CONTAINER_IMAGE_API: $CONTAINER_IMAGE_API"
+log_info "CONTAINER_IMAGE_WEB: $CONTAINER_IMAGE_WEB"
 
 # Check for necessary environment variables
 if [ -z "$AWS_ECR_REGISTRY" ]; then
-  echo "Error: AWS_ECR_REGISTRY is required (via environment variable or config file)"
-  exit 1
+  fail "AWS_ECR_REGISTRY is required (via environment variable or config file)"
 fi
 
 if [ -z "$AWS_REGION" ]; then
-  echo "Error: AWS_REGION is required (via environment variable or config file)"
-  exit 1
+  fail "AWS_REGION is required (via environment variable or config file)"
 fi
 
-echo "Using ECR Registry: $AWS_ECR_REGISTRY"
-echo "Using AWS Region: $AWS_REGION"
+log_info "Using ECR Registry: $AWS_ECR_REGISTRY"
+log_info "Using AWS Region: $AWS_REGION"
 
 # Configure AWS CLI if needed
 aws configure set default.region $AWS_REGION
 
 # Check if docker-compose file exists
 if [ ! -f "docker-compose.yml" ]; then
-  echo "Error: docker-compose.yml not found"
-  exit 1
+  fail "docker-compose.yml not found"
+fi
+
+# Type check parameters to detect boolean vs string confusion
+log_info "Validating parameter types"
+if [[ "$CONTAINER_IMAGE_API" == "true" || "$CONTAINER_IMAGE_API" == "false" ]]; then
+  log_warn "CONTAINER_IMAGE_API appears to be a boolean value: '$CONTAINER_IMAGE_API'. This might indicate a type confusion in the workflow."
+fi
+
+if [[ "$CONTAINER_IMAGE_WEB" == "true" || "$CONTAINER_IMAGE_WEB" == "false" ]]; then
+  log_warn "CONTAINER_IMAGE_WEB appears to be a boolean value: '$CONTAINER_IMAGE_WEB'. This might indicate a type confusion in the workflow."
 fi
 
 # Check docker-compose.yml for image references and update if needed
-echo "Checking docker-compose.yml for correct image references..."
+log_info "Checking docker-compose.yml for correct image references..."
 if [ -n "$CONTAINER_IMAGE_API" ] || [ -n "$CONTAINER_IMAGE_WEB" ]; then
-  echo "Custom container images provided, ensuring they are in docker-compose.yml"
+  log_info "Custom container images provided, ensuring they are in docker-compose.yml"
   
   # Create a backup of the original file
   cp docker-compose.yml docker-compose.yml.bak
   
   if [ -n "$CONTAINER_IMAGE_API" ]; then
-    echo "Updating api-server image to: $CONTAINER_IMAGE_API"
+    log_info "Updating api-server image to: $CONTAINER_IMAGE_API"
     # Replace the placeholder with the actual image reference
     sed -i "s|image: CONTAINER_IMAGE_API|image: $CONTAINER_IMAGE_API|g" docker-compose.yml
   fi
   
   if [ -n "$CONTAINER_IMAGE_WEB" ]; then
-    echo "Updating web image to: $CONTAINER_IMAGE_WEB"
+    log_info "Updating web image to: $CONTAINER_IMAGE_WEB"
     # Replace the placeholder with the actual image reference
     sed -i "s|image: CONTAINER_IMAGE_WEB|image: $CONTAINER_IMAGE_WEB|g" docker-compose.yml
   fi
   
   # Display updated docker-compose file
-  echo "Updated docker-compose.yml:"
+  log_info "Updated docker-compose.yml:"
   cat docker-compose.yml
 fi
 
 # Ensure Docker is running
 if ! docker info > /dev/null 2>&1; then
-  echo "Starting Docker service..."
+  log_info "Starting Docker service..."
   sudo systemctl start docker || true
   sleep 5
   
   # Check again if Docker is running
   if ! docker info > /dev/null 2>&1; then
-    echo "Error: Failed to start Docker service"
-    exit 1
+    fail "Failed to start Docker service"
   fi
 fi
 
 # Login to ECR
-echo "Logging in to ECR registry..."
-aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ECR_REGISTRY
+log_info "Logging in to ECR registry..."
+if ! aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ECR_REGISTRY; then
+  log_error "Failed to login to ECR"
+  log_info "Checking ECR connectivity..."
+  aws ecr describe-repositories --region $AWS_REGION || log_error "Cannot access ECR repositories"
+  fail "ECR login failed. Check AWS credentials and permissions."
+fi
 
 # Pull latest images and deploy
-echo "Pulling Docker images and starting containers..."
-echo "Running docker-compose pull..."
-docker-compose pull || {
-  echo "Error pulling Docker images. Retrying with more debug info..."
+log_info "Pulling Docker images and starting containers..."
+log_info "Running docker-compose pull..."
+if ! docker-compose pull; then
+  log_error "Error pulling Docker images. Retrying with more debug info..."
   # Show detailed docker pull commands
   for service in $(docker-compose config --services); do
-    echo "Examining service: $service"
+    log_info "Examining service: $service"
     image=$(docker-compose config | grep -A 5 "$service:" | grep "image:" | awk '{print $2}' | tr -d '"')
-    echo "Service $service is using image: $image"
-    echo "Attempting direct pull: docker pull $image"
-    docker pull $image || echo "Failed to pull $image - check registry permissions and image name"
+    log_info "Service $service is using image: $image"
+    log_info "Attempting direct pull: docker pull $image"
+    docker pull $image || log_error "Failed to pull $image - check registry permissions and image name"
   done
-}
+  fail "Failed to pull all required Docker images"
+fi
 
 # Remove old containers and start new ones
-echo "Stopping any existing containers..."
+log_info "Stopping any existing containers..."
 docker-compose down || true
 
-echo "Starting new containers..."
-docker-compose up -d
+log_info "Starting new containers..."
+if ! docker-compose up -d; then
+  log_error "Failed to start containers"
+  log_info "Docker-compose diagnostic information:"
+  docker-compose config
+  docker-compose ps
+  fail "Docker-compose up failed"
+fi
 
 # Verify containers are running
-echo "Verifying container status..."
+log_info "Verifying container status..."
 docker-compose ps
 
 # Check actual container states
@@ -139,15 +178,31 @@ running_containers=$(docker-compose ps --services --filter "status=running" | wc
 expected_containers=$(docker-compose config --services | wc -l)
 
 if [ "$running_containers" -lt "$expected_containers" ]; then
-  echo "Warning: Not all containers are running. Check container logs for details:"
+  log_warn "Not all containers are running. Check container logs for details:"
   for service in $(docker-compose config --services); do
-    echo "--- Logs for $service ---"
+    log_info "--- Logs for $service ---"
     docker-compose logs $service --tail 20
   done
-  echo "Deployment completed with warnings"
+  
+  # Additional diagnostics for failed containers
+  log_info "Container health check details:"
+  for service in $(docker-compose config --services); do
+    container_id=$(docker-compose ps -q $service)
+    if [ -n "$container_id" ]; then
+      log_info "Container ID for $service: $container_id"
+      log_info "Container state:"
+      docker inspect --format='{{.State.Status}}' $container_id
+      log_info "Container health:"
+      docker inspect --format='{{.State.Health.Status}}' $container_id || log_info "No health check defined"
+    else
+      log_warn "Container for $service not found"
+    fi
+  done
+  
+  log_error "Deployment completed with warnings"
   # Return error status
   exit 1
 else
-  echo "All containers are running successfully!"
-  echo "Deployment completed successfully"
+  log_info "All containers are running successfully!"
+  log_info "Deployment completed successfully"
 fi
