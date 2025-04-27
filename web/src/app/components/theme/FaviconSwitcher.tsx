@@ -11,7 +11,7 @@ export function FaviconSwitcher() {
         rel="icon"
         href={resolvedTheme === 'dark' ? '/favicon-dark.svg' : '/favicon-light.svg'}
         type="image/svg+xml"
-        key="favicon"
+        key={`favicon-${resolvedTheme}`}
       />
     </Head>
   );
