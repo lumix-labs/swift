@@ -78,8 +78,8 @@ export function Header() {
 
       <div className="flex items-center space-x-2">
         {/* Book a Demo - Icon on small screens, text + icon on larger screens */}
-        <a 
-          href="https://calendly.com/karoriwal/swift" 
+        <a
+          href="https://calendly.com/karoriwal/swift"
           target="_blank"
           rel="noopener noreferrer"
           className="p-2 sm:px-3 sm:py-1.5 text-sm bg-black text-white dark:bg-white dark:text-black rounded-md font-medium 
@@ -91,7 +91,19 @@ export function Header() {
             <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
           </svg>
         </a>
-        
+        <a
+          href="https://docs.google.com/presentation/d/1i3VbI0HzMQcodzJs8n_66absswe0SxkKM0BaPPBFJHA/edit?usp=sharing"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-2 sm:px-3 sm:py-1.5 text-sm bg-gray-800 text-white dark:bg-gray-100 dark:text-black rounded-md font-medium hover:bg-gray-900 dark:hover:bg-gray-200 transition-colors flex items-center space-x-1"
+          aria-label="Investors Pitch Deck"
+        >
+          <span className="hidden sm:inline">Investors Pitch Deck</span>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m4 0h1v4h1M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </a>
+
         {/* Repository connector - icon only on small screens */}
         <div className="hidden sm:block">
           <RepoConnector onConnect={handleConnectRepo} />
@@ -110,7 +122,7 @@ export function Header() {
             <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V7.414a1 1 0 00-.293-.707l-3.414-3.414A1 1 0 0011.586 3H3zm9.5 2V5a.5.5 0 01.5.5v4a.5.5 0 01-.5.5h-4a.5.5 0 01-.5-.5v-4a.5.5 0 01.5-.5h3zm-3-1a.5.5 0 00-.5.5v4a.5.5 0 00.5.5h4a.5.5 0 00.5-.5v-4a.5.5 0 00-.5-.5h-4z" clipRule="evenodd" />
           </svg>
         </button>
-        
+
         {/* Model selector - icon only on small screens */}
         <div className="hidden sm:block">
           <ModelSelector onSelectModel={handleSelectModel} />

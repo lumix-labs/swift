@@ -70,19 +70,7 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
                 {item.description}
               </p>
               
-              {index === activeIndex && (
-                <div className="mb-6">
-                  <a 
-                    href="https://calendly.com/karoriwal/swift" 
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block px-6 py-3 bg-black text-white dark:bg-white dark:text-black rounded-md font-medium 
-                            hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
-                  >
-                    Book a Demo
-                  </a>
-                </div>
-              )}
+              
             </div>
           ))}
           
