@@ -28,12 +28,13 @@ export function Header() {
   <h1 className="font-semibold text-lg flex items-center">
     <span
       className={
-        `font-mono mr-1 select-none` +
+        `font-sans mr-1 select-none` +
         (resolvedTheme === 'dark' ? ' text-white' : ' text-black')
       }
+      style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
       aria-label="Swift Logo"
     >
-      {'{⚡}'}
+      {'{⚡️}'}
     </span>
     Swift
   </h1>
