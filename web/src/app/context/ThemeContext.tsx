@@ -25,8 +25,22 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('system');
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+  // Synchronously initialize theme from localStorage or system
+  let initialTheme: Theme = 'system';
+  if (typeof window !== 'undefined') {
+    try {
+      const savedTheme = localStorage.getItem('theme') as Theme | null;
+      if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
+        initialTheme = savedTheme;
+      }
+    } catch {}
+  }
+  const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(
+    initialTheme === 'system'
+      ? (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : initialTheme
+  );
   const [mounted, setMounted] = useState(false);
 
   // Function to update the resolved theme and document class

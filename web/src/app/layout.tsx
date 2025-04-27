@@ -50,8 +50,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased text-black dark:text-white bg-white dark:bg-black`}
       >
+        <FaviconSwitcher />
         <ClientThemeProvider>
-          <FaviconSwitcher />
           {children}
         </ClientThemeProvider>
       </body>
