@@ -5,8 +5,11 @@ import Link from 'next/link';
 import { useChat } from '../../context/ChatContext';
 import { ThemeToggle } from './ThemeToggle';
 
+import { useTheme } from '../../context/ThemeContext';
+
 export function Header() {
   const { createNewSession, setSelectedModel } = useChat();
+  const { resolvedTheme } = useTheme();
 
   const handleNewChat = () => {
     createNewSession();
@@ -22,7 +25,18 @@ export function Header() {
         <Link href="/" onClick={() => window.location.reload()}>
           <div className="flex items-center space-x-2 cursor-pointer">
             <div>
-  <h1 className="font-semibold text-lg flex items-center">{`⚡ Swift`}</h1>
+  <h1 className="font-semibold text-lg flex items-center">
+    <span
+      className={
+        `font-mono mr-1 select-none` +
+        (resolvedTheme === 'dark' ? ' text-white' : ' text-black')
+      }
+      aria-label="Swift Logo"
+    >
+      {'{⚡}'}
+    </span>
+    Swift
+  </h1>
   <p className="text-xs font-medium leading-tight -mt-1">by Lumix Labs</p>
 </div>
           </div>
