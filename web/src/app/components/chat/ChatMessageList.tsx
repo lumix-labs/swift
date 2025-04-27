@@ -15,7 +15,7 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
   const { resolvedTheme } = useTheme();
   const [activeIndex, setActiveIndex] = useState(0);
   
-  const carouselItems = [
+  const carouselItems = React.useMemo(() => [
     {
       title: "Analyze Your Codebase",
       description: "Uncover hidden bottlenecks, quantify technical debt, and unlock faster, safer deployments."
@@ -28,7 +28,7 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
       title: "Accelerate Development",
       description: "Identify technical vulnerabilities and optimize your engineering resources for maximum efficiency."
     }
-  ];
+  ], []);
   
   // Auto-rotate carousel every 4 seconds
   useEffect(() => {

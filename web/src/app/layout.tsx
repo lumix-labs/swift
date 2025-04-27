@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClientThemeProvider } from "./components/theme/ClientThemeProvider";
+import { FaviconSwitcher } from "./components/theme/FaviconSwitcher";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,11 +37,6 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
-  icons: {
-    icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' }
-    ],
-  }
 };
 
 export default function RootLayout({
@@ -50,14 +46,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth">
-      <head>
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      </head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased text-black dark:text-white bg-white dark:bg-black`}
       >
         <ClientThemeProvider>
+          <FaviconSwitcher />
           {children}
         </ClientThemeProvider>
       </body>
