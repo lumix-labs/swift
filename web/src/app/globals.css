@@ -54,6 +54,16 @@ body {
   animation-duration: 1.5s;
 }
 
+/* Custom animation for expanded pitch */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation-name: fadeIn;
+}
+
 /* Prevent layout shifts */
 html, body {
   height: 100%;

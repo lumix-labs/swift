@@ -68,24 +68,80 @@ export function Header() {
         <Link href="/" onClick={() => window.location.reload()}>
           <div className="flex items-center space-x-2 cursor-pointer">
             <Image src="/swift-logo.svg" alt="Swift Logo" width={32} height={32} />
-            <h1 className="font-semibold text-lg">Swift</h1>
+            <div>
+              <h1 className="font-semibold text-lg">Swift</h1>
+              <p className="text-xs font-medium leading-tight -mt-1">by Lumix Labs</p>
+            </div>
           </div>
         </Link>
       </div>
 
-      <div className="flex items-center space-x-4">
-        <RepoConnector onConnect={handleConnectRepo} />
-        <ModelSelector onSelectModel={handleSelectModel} />
+      <div className="flex items-center space-x-2">
+        {/* Book a Demo - Icon on small screens, text + icon on larger screens */}
+        <a 
+          href="https://calendly.com/karoriwal/swift" 
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-2 sm:px-3 sm:py-1.5 text-sm bg-black text-white dark:bg-white dark:text-black rounded-md font-medium 
+                   hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
+          aria-label="Book a Demo"
+        >
+          <span className="hidden sm:inline">Book a Demo</span>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:hidden" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+          </svg>
+        </a>
+        
+        {/* Repository connector - icon only on small screens */}
+        <div className="hidden sm:block">
+          <RepoConnector onConnect={handleConnectRepo} />
+        </div>
+        <button
+          onClick={() => {
+            const repoConnector = document.querySelector('[aria-label="Connect Repository"]');
+            if (repoConnector instanceof HTMLElement) {
+              repoConnector.click();
+            }
+          }}
+          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none sm:hidden"
+          aria-label="Connect Repository"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V7.414a1 1 0 00-.293-.707l-3.414-3.414A1 1 0 0011.586 3H3zm9.5 2V5a.5.5 0 01.5.5v4a.5.5 0 01-.5.5h-4a.5.5 0 01-.5-.5v-4a.5.5 0 01.5-.5h3zm-3-1a.5.5 0 00-.5.5v4a.5.5 0 00.5.5h4a.5.5 0 00.5-.5v-4a.5.5 0 00-.5-.5h-4z" clipRule="evenodd" />
+          </svg>
+        </button>
+        
+        {/* Model selector - icon only on small screens */}
+        <div className="hidden sm:block">
+          <ModelSelector onSelectModel={handleSelectModel} />
+        </div>
+        <button
+          onClick={() => {
+            const modelSelector = document.querySelector('[aria-label="Select Model"]');
+            if (modelSelector instanceof HTMLElement) {
+              modelSelector.click();
+            }
+          }}
+          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none sm:hidden"
+          aria-label="Select Model"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M3 12v3c0 1.657 3.134 3 7 3s7-1.343 7-3v-3c0 1.657-3.134 3-7 3s-7-1.343-7-3z" />
+            <path d="M3 7v3c0 1.657 3.134 3 7 3s7-1.343 7-3V7c0 1.657-3.134 3-7 3S3 8.657 3 7z" />
+            <path d="M17 5c0 1.657-3.134 3-7 3S3 6.657 3 5s3.134-3 7-3 7 1.343 7 3z" />
+          </svg>
+        </button>
 
+        {/* New chat button - icon only on small screens */}
         <button
           onClick={handleNewChat}
-          className="flex items-center space-x-1 px-3 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none"
+          className="p-2 sm:flex sm:items-center sm:space-x-1 sm:px-3 sm:py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none"
           aria-label="New Chat"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
           </svg>
-          <span className="text-sm font-medium">New Chat</span>
+          <span className="hidden sm:inline text-sm font-medium">New Chat</span>
         </button>
 
         <ThemeToggle />
