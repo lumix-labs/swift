@@ -9,7 +9,7 @@ import { SuggestedPrompts } from './SuggestedPrompts';
 const MemoizedSuggestedPrompts = memo(SuggestedPrompts);
 
 export function ChatInput() {
-  const { addMessage, setIsLoading, selectedModel } = useChat();
+  const { addMessage, setIsLoading, selectedModel, messages } = useChat();
   const [message, setMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [lastMessage, setLastMessage] = useState<string>('');
@@ -93,7 +93,9 @@ export function ChatInput() {
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col">
-      <MemoizedSuggestedPrompts onSelectPrompt={handleSuggestedPrompt} />
+      {messages.length === 0 && (
+        <MemoizedSuggestedPrompts onSelectPrompt={handleSuggestedPrompt} />
+      )}
 
       <form
         onSubmit={handleSubmit}
