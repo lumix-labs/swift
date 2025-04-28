@@ -1,15 +1,14 @@
-"use client"
+"use client";
 
-import { useState, FormEvent, useRef, useEffect, useCallback, memo } from 'react';
-import { useChat } from '../../context/ChatContext';
-import { chatService } from '../../lib/services/chat-service';
+import React, { useState, FormEvent, useRef, useEffect, useCallback, memo } from 'react';
+import { useChat } from '../../../context/ChatContext';
 import { SuggestedPrompts } from './SuggestedPrompts';
 
 // Memoize SuggestedPrompts to prevent unnecessary re-renders
 const MemoizedSuggestedPrompts = memo(SuggestedPrompts);
 
 export function ChatInput() {
-  const { addMessage, setIsLoading, selectedModel, messages } = useChat();
+  const { addMessage, setIsLoading, messages } = useChat();
   const [message, setMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [lastMessage, setLastMessage] = useState<string>('');
@@ -44,8 +43,9 @@ export function ChatInput() {
     });
 
     try {
-      // Get AI response based on selected model
-      const response = await chatService.sendMessage(userMessageContent, selectedModel);
+      // Simulate getting AI response
+      await new Promise(resolve => setTimeout(resolve, 700));
+      const response = `Echo: ${userMessageContent}`;
 
       // Add the AI response to the chat
       addMessage({
@@ -71,7 +71,7 @@ export function ChatInput() {
         textareaRef.current.style.height = 'auto';
       }
     }
-  }, [message, isSubmitting, addMessage, setIsLoading, selectedModel, lastMessage]);
+  }, [message, isSubmitting, addMessage, setIsLoading, lastMessage]);
 
   const handleSuggestedPrompt = useCallback((prompt: string) => {
     setMessage(prompt);

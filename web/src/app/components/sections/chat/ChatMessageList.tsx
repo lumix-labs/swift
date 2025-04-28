@@ -1,19 +1,15 @@
-"use client"
+"use client";
 
-import * as React from 'react';
-import { useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
+import { useChat } from '../../../context/ChatContext';
+import { useTheme } from '../../../context/ThemeContext';
 import { ChatMessage } from './ChatMessage';
-import { Message } from '../../context/ChatContext';
-import { useTheme } from '../../context/ThemeContext';
-import { HeroSection } from '../ui/HeroSection';
+import { HeroSection } from '../hero/HeroSection';
 
-interface ChatMessageListProps {
-  messages: Message[];
-}
-
-export function ChatMessageList({ messages }: ChatMessageListProps) {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+export function ChatMessageList() {
+  const { messages } = useChat();
   const { resolvedTheme } = useTheme();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom when new messages are added
   useEffect(() => {
@@ -25,7 +21,6 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
       });
     }
   }, [messages]);
-
 
   return (
     <div className="flex-1 p-4 overflow-hidden h-full w-full">

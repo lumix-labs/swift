@@ -1,27 +1,21 @@
-"use client"
-
-import { HeaderActionButton } from './HeaderActionButton';
-import Link from 'next/link';
-import { ModelsDropdown } from './ModelsDropdown';
-import { RepositoriesDropdown } from './RepositoriesDropdown';
-import { DropdownItem } from './interfaces';
-
-import React from "react";
-import { useChat } from '../../context/ChatContext';
-import { ThemeToggle } from './ThemeToggle';
-
-import { useTheme } from '../../context/ThemeContext';
+"use client";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { ThemeToggle } from "../theme/ThemeToggle";
+import { useChat } from "../../../context/ChatContext";
+import { useTheme } from "../../../context/ThemeContext";
+import { HeaderActionButton } from "./HeaderActionButton";
+import { ModelsDropdown } from "./ModelsDropdown";
+import { RepositoriesDropdown } from "./RepositoriesDropdown";
 
 export function Header() {
   const { createNewSession } = useChat();
   const { resolvedTheme } = useTheme();
-  const [showModels, setShowModels] = React.useState(false);
-  const [showRepos, setShowRepos] = React.useState(false);
-  const [selectedModelId, setSelectedModelId] = React.useState<string | undefined>();
-  const [selectedRepoId, setSelectedRepoId] = React.useState<string | undefined>();
+  const [showModels, setShowModels] = useState(false);
+  const [showRepos, setShowRepos] = useState(false);
 
   // Close dropdowns on ESC or click outside
-  React.useEffect(() => {
+  useEffect(() => {
     if (!showModels && !showRepos) return;
 
     function handleKeyDown(e: KeyboardEvent) {
@@ -30,29 +24,12 @@ export function Header() {
         setShowRepos(false);
       }
     }
-    
     document.addEventListener('keydown', handleKeyDown);
-    // We're using the CommonDropdown component's own click outside handling
-    
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showModels, showRepos]);
 
   const handleNewChat = () => {
     createNewSession();
-  };
-
-  const handleModelSelect = (model: DropdownItem) => {
-    setSelectedModelId(model.id);
-    // Add your model selection logic here
-    console.log('Selected model:', model);
-  };
-
-  const handleRepoSelect = (repo: DropdownItem) => {
-    setSelectedRepoId(repo.id);
-    // Add your repository selection logic here
-    console.log('Selected repository:', repo);
   };
 
   return (
@@ -112,15 +89,11 @@ export function Header() {
           show={showRepos}
           setShow={setShowRepos}
           resolvedTheme={resolvedTheme}
-          onSelect={handleRepoSelect}
-          selectedId={selectedRepoId}
         />
         <ModelsDropdown
           show={showModels}
           setShow={setShowModels}
           resolvedTheme={resolvedTheme}
-          onSelect={handleModelSelect}
-          selectedId={selectedModelId}
         />
         <HeaderActionButton
           href="#"

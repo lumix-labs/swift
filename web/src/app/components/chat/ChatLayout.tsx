@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect, useMemo } from 'react';
-import { Header } from '../ui/Header';
-import { Footer } from '../ui/Footer';
-import { ChatMessageList } from './ChatMessageList';
-import { ChatInput } from './ChatInput';
+import { Header } from '../sections/header/Header';
+import { Footer } from '../sections/footer/Footer';
+import { ChatMessageList } from '../sections/chat/ChatMessageList';
+import { ChatInput } from '../sections/chat/ChatInput';
 import { useChat } from '../../context/ChatContext';
 import { useDebounce } from '../../hooks/useDebounce';
 
@@ -37,7 +37,7 @@ class ChatErrorBoundary extends Component<{ children: ReactNode }, { hasError: b
 }
 
 export function ChatLayout() {
-  const { isLoading, messages } = useChat();
+  const { isLoading } = useChat();
   const [mounted, setMounted] = useState(false);
   const debouncedLoading = useDebounce(isLoading, 300); // Debounce loading state to prevent flickering
 
@@ -85,9 +85,7 @@ export function ChatLayout() {
         <Header />
 
         <main className="flex-1 flex flex-col overflow-hidden relative">
-
-          <ChatMessageList messages={messages} />
-
+          <ChatMessageList />
           {loadingIndicator}
 
           <div className="px-4 py-3 w-full border-t border-gray-200 dark:border-gray-800">

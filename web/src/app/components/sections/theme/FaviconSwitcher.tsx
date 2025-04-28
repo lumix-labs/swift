@@ -1,6 +1,5 @@
 "use client";
 
-
 export function FaviconSwitcher() {
   return (
     <head>
