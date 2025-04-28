@@ -1,13 +1,12 @@
 "use client"
 
 import { useState, useEffect, useMemo } from 'react';
-import { Header } from '../sections/header/Header';
-import { Footer } from '../sections/footer/Footer';
-import { ChatMessageList } from '../sections/chat/ChatMessageList';
-import { ChatInput } from '../sections/chat/ChatInput';
-import { useChat } from '../../context/ChatContext';
-import { useDebounce } from '../../hooks/useDebounce';
-
+import { Header } from '../header/Header';
+import { Footer } from '../footer/Footer';
+import { ChatMessageList } from './ChatMessageList';
+import { ChatInput } from './ChatInput';
+import { useChat } from '../../../context/ChatContext';
+import { useDebounce } from '../../../hooks/useDebounce';
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 class ChatErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {

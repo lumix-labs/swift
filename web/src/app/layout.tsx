@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ClientThemeProvider } from "./components/theme/ClientThemeProvider";
-import { FaviconSwitcher } from "./components/theme/FaviconSwitcher";
+import { ClientThemeProvider } from "./components/sections/theme/ClientThemeProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -50,7 +49,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased text-black dark:text-white bg-white dark:bg-black`}
       >
-        <FaviconSwitcher />
+        <link
+          rel="icon"
+          href="/favicon.svg"
+          type="image/svg+xml"
+          key="favicon"
+        />
         <ClientThemeProvider>
           {children}
         </ClientThemeProvider>

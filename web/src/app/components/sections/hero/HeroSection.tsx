@@ -6,19 +6,19 @@ export function HeroSection() {
   const carouselItems = useMemo(
     () => [
       {
-        title: "Analyze Your Codebase",
+        title: "From Tribal Knowledge to System Intelligence",
         description:
-          "Uncover hidden bottlenecks, quantify technical debt, and unlock faster, safer deployments.",
+          "For engineering leaders struggling with incomplete system visibility, Swift delivers strategic insights by analyzing your static codebase — not runtime noise. Unlike traditional monitoring tools, Swift uncovers product logic gaps, architectural drift, and deployment bottlenecks you can't see today. No IDEs, no code changes — just the clarity you need to lead confidently.",
       },
       {
-        title: "Enterprise Intelligence Hub",
+        title: "Transform Blind Spots Into Business Advantage",
         description:
-          "Swift transforms your technology assets into strategic business advantages. Make faster executive decisions with AI-powered insights.",
+          "For CTOs and Heads of Engineering frustrated with firefighting incidents and unpredictable systems, Swift acts as your executive intelligence layer — revealing where tech debt, flow gaps, and scaling risks are growing. Unlike Copilot or Datadog, Swift speaks in system-wide patterns, not micro-level code snippets. We help you move from reactive management to strategic modernization.",
       },
       {
-        title: "Accelerate Development",
+        title: "The Missing Map for Your Engineering Systems",
         description:
-          "Identify technical vulnerabilities and optimize your engineering resources for maximum efficiency.",
+          "For leaders scaling complex SaaS platforms, Swift maps out your codebase's evolution — highlighting bottlenecks, loopholes, and architectural drift before they cost you. Unlike legacy static analyzers, Swift contextualizes your code as living product flows, aligned to your business needs. Get the clarity to prioritize, invest, and scale — without blind bets.",
       },
     ],
     []
@@ -33,7 +33,7 @@ export function HeroSection() {
   }, [carouselItems.length]);
   return (
     <div className="flex items-center justify-center h-full">
-      <div className="text-center max-w-md mx-auto">
+      <div className="text-center max-w-2xl mx-auto">
         {/* Carousel */}
         <div className="mb-8 relative">
           {carouselItems.map((item, index) => (
@@ -45,14 +45,14 @@ export function HeroSection() {
                   : "opacity-0 absolute top-0 left-0 right-0"
               }`}
             >
-              <h2 className="text-2xl font-bold mb-2">{item.title}</h2>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
+              <h2 className="text-2xl font-bold mb-4">{item.title}</h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm md:text-base">
                 {item.description}
               </p>
             </div>
           ))}
           {/* Carousel indicators */}
-          <div className="flex justify-center mt-4 space-x-2">
+          <div className="flex justify-center mt-6 space-x-2">
             {carouselItems.map((_, index) => (
               <button
                 key={index}
