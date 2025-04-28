@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "../theme/ThemeToggle";
 import { useChat } from "../../../context/ChatContext";
@@ -13,20 +13,60 @@ export function Header() {
   const { resolvedTheme } = useTheme();
   const [showModels, setShowModels] = useState(false);
   const [showRepos, setShowRepos] = useState(false);
+  const modelsRef = useRef<HTMLDivElement>(null);
+  const reposRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdowns on ESC or click outside
+  // Handle click outside to close dropdowns
   useEffect(() => {
-    if (!showModels && !showRepos) return;
+    function handleClickOutside(event: MouseEvent) {
+      // Close models dropdown if click is outside
+      if (showModels && 
+          modelsRef.current && 
+          !modelsRef.current.contains(event.target as Node)) {
+        setShowModels(false);
+      }
+      
+      // Close repos dropdown if click is outside
+      if (showRepos && 
+          reposRef.current && 
+          !reposRef.current.contains(event.target as Node)) {
+        setShowRepos(false);
+      }
+    }
 
+    // Close dropdowns on ESC key
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         setShowModels(false);
         setShowRepos(false);
       }
     }
+
+    // Add event listeners
+    document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    
+    // Clean up
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    }
   }, [showModels, showRepos]);
+
+  // Toggle dropdowns - ensure only one is open at a time
+  const toggleModelsDropdown = () => {
+    setShowModels(!showModels);
+    if (!showModels) {
+      setShowRepos(false); // Close repos dropdown when opening models
+    }
+  };
+
+  const toggleReposDropdown = () => {
+    setShowRepos(!showRepos);
+    if (!showRepos) {
+      setShowModels(false); // Close models dropdown when opening repos
+    }
+  };
 
   const handleNewChat = () => {
     createNewSession();
@@ -85,16 +125,20 @@ export function Header() {
           className={`p-2 sm:px-3 sm:py-1.5 text-sm font-medium rounded-md transition-colors ${resolvedTheme === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
         />
         {/* Repositories Button */}
-        <RepositoriesDropdown
-          show={showRepos}
-          setShow={setShowRepos}
-          resolvedTheme={resolvedTheme}
-        />
-        <ModelsDropdown
-          show={showModels}
-          setShow={setShowModels}
-          resolvedTheme={resolvedTheme}
-        />
+        <div ref={reposRef}>
+          <RepositoriesDropdown
+            show={showRepos}
+            setShow={toggleReposDropdown}
+            resolvedTheme={resolvedTheme}
+          />
+        </div>
+        <div ref={modelsRef}>
+          <ModelsDropdown
+            show={showModels}
+            setShow={toggleModelsDropdown}
+            resolvedTheme={resolvedTheme}
+          />
+        </div>
         <HeaderActionButton
           href="#"
           label="New Chat"

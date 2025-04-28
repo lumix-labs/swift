@@ -10,11 +10,17 @@ export interface ModelsDropdownProps {
 export function ModelsDropdown({ show, setShow, resolvedTheme }: ModelsDropdownProps) {
   // Dummy model list for demonstration
   const models = ["gpt-4", "gpt-3.5", "custom-model"];
+  
+  // Toggle dropdown visibility
+  const handleToggle = () => {
+    setShow(show);
+  };
+
   return (
     <div className="relative">
       <button
         className={`p-2 sm:px-3 sm:py-1.5 text-sm font-medium rounded-md ${resolvedTheme === 'dark' ? 'bg-white text-black' : 'bg-black text-white'}`}
-        onClick={() => setShow(!show)}
+        onClick={handleToggle}
       >
         <span className="hidden sm:inline">Models</span>
         <span className="sm:hidden">
