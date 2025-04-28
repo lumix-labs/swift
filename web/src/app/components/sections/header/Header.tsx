@@ -82,7 +82,7 @@ export function Header() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m4 0h1v4h1M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           }
-          className={`p-2 sm:px-3 sm:py-1.5 text-sm font-medium rounded-md transition-colors ${resolvedTheme === 'dark' ? 'bg-gray-100 text-black hover:bg-gray-200' : 'bg-gray-800 text-white hover:bg-gray-900'}`}
+          className={`p-2 sm:px-3 sm:py-1.5 text-sm font-medium rounded-md transition-colors ${resolvedTheme === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
         />
         {/* Repositories Button */}
         <RepositoriesDropdown
