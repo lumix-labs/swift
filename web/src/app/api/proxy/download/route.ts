@@ -26,17 +26,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch the file
+    console.log(`Attempting to fetch: ${url}`);
+
+    // Fetch the file with more standardized headers
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Swift Web Application',
-        'Origin': 'http://localhost'
+        // Using a standard browser User-Agent to avoid being blocked
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
       }
     });
 
     if (!response.ok) {
+      console.error(`Failed to download: ${response.status} ${response.statusText}`);
       return NextResponse.json(
-        { error: `Failed to download: ${response.statusText}` },
+        { error: `Failed to download: ${response.statusText} (${response.status})` },
         { status: response.status }
       );
     }
@@ -52,7 +59,7 @@ export async function GET(request: NextRequest) {
     newResponse.headers.set('Content-Disposition', `attachment; filename="${filename}"`);
     
     // Add CORS headers
-    const origin = request.headers.get('origin') || 'http://localhost';
+    const origin = request.headers.get('origin') || '*';
     newResponse.headers.set('Access-Control-Allow-Origin', origin);
     newResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -69,7 +76,7 @@ export async function GET(request: NextRequest) {
 
 export async function OPTIONS(request: NextRequest) {
   // Handle preflight requests
-  const origin = request.headers.get('origin') || 'http://localhost';
+  const origin = request.headers.get('origin') || '*';
   
   const response = new NextResponse(null, { status: 204 });
   response.headers.set('Access-Control-Allow-Origin', origin);

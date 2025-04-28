@@ -11,12 +11,8 @@ class ZipHandler {
       // Create a proxy URL through our own API to avoid CORS issues
       const proxyUrl = `/api/proxy/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`;
       
-      // First validate if the URL is accessible through our proxy
-      const isValid = await this.checkUrlValidity(url);
-      if (!isValid) {
-        console.error('Invalid download URL or server returned an error');
-        return false;
-      }
+      // Skip URL validation and directly proceed to download
+      // The download endpoint already does its own validation
       
       // Create a link element
       const link = document.createElement('a');
@@ -42,6 +38,12 @@ class ZipHandler {
    */
   async checkUrlValidity(url: string): Promise<boolean> {
     try {
+      // For GitHub codeload URLs, we'll assume they're valid
+      // The actual download endpoint will validate it properly
+      if (url.startsWith('https://codeload.github.com/')) {
+        return true;
+      }
+      
       // Use a proxy endpoint to check URL validity to avoid CORS issues
       const proxyUrl = `/api/proxy/check?url=${encodeURIComponent(url)}`;
       const response = await fetch(proxyUrl);

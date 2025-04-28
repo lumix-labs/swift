@@ -75,18 +75,70 @@ class GithubApiService {
   }
 
   /**
+   * Get the default branch name for a repository
+   * @param owner Repository owner
+   * @param repo Repository name
+   * @returns Default branch name or null on error
+   */
+  async getDefaultBranch(owner: string, repo: string): Promise<string | null> {
+    try {
+      const response = await this.octokit.repos.get({
+        owner,
+        repo
+      });
+      
+      return response.data.default_branch;
+    } catch (error) {
+      console.error('Error fetching repository default branch:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get a download URL for the repository as ZIP
    * @param owner Repository owner
    * @param repo Repository name
-   * @param ref Branch or commit reference (default: main branch)
+   * @param ref Branch or commit reference (default: try to get actual default branch)
    * @returns URL to download the repository as ZIP or null on error
    */
   async getRepositoryZipUrl(owner: string, repo: string, ref: string = ''): Promise<string | null> {
     try {
+      let branchName = ref;
+      
+      // If no branch specified, try to get the default branch
+      if (!branchName) {
+        branchName = (await this.getDefaultBranch(owner, repo)) ?? "";
+        
+        // If still no branch, fall back to common defaults
+        if (!branchName) {
+          // Try common branch names in order
+          const commonBranches = ['main', 'master', 'develop', 'dev'];
+          for (const branch of commonBranches) {
+            try {
+              // Check if the branch exists
+              await this.octokit.repos.getBranch({
+                owner,
+                repo,
+                branch
+              });
+              branchName = branch;
+              break;
+            } catch {
+              // Branch doesn't exist, try next one
+              continue;
+            }
+          }
+          
+          // If still no branch found, use main as a last resort
+          if (!branchName) {
+            branchName = 'main';
+          }
+        }
+      }
+      
       // Use GitHub's codeload domain which properly handles repository downloads
-      // This is the actual domain GitHub uses for downloads in their UI
-      const refParam = ref || 'main'; // Use main as default branch if ref is not provided
-      const downloadUrl = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${refParam}`;
+      const downloadUrl = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${branchName}`;
+      console.log(`Generated download URL: ${downloadUrl}`);
       
       return downloadUrl;
     } catch (error) {
