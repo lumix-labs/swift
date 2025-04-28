@@ -1,5 +1,9 @@
-import { ClientChatWrapper } from './components/chat/ClientChatWrapper';
+import { ClientChatWrapper } from './components/sections/chat/ClientChatWrapper';
 
 export default function Home() {
-  return <ClientChatWrapper />;
+  return (
+    <div>
+      <ClientChatWrapper />
+    </div>
+  );
 }

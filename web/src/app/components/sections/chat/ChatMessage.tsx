@@ -1,5 +1,4 @@
-import { Message } from '../../context/ChatContext';
-import { formatTimestamp } from '../../lib/utils';
+import { Message } from '../../../context/ChatContext';
 
 interface ChatMessageProps {
   message: Message;
@@ -7,6 +6,12 @@ interface ChatMessageProps {
 
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
+  
+  // Simple timestamp formatter
+  const formatTimestamp = (timestamp?: Date) => {
+    if (!timestamp) return '';
+    return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
   
   return (
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>

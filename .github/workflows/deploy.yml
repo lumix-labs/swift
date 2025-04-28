@@ -139,42 +139,16 @@ jobs:
         id: deployment-result
         run: |
           # Capture debug information
-          DEBUG_INFO="{}"
-          
           if [ "${{ steps.deploy-to-instance.outcome }}" == "success" ]; then
             echo "status=success" >> $GITHUB_OUTPUT
             echo "Deployment completed successfully"
             
-            # Collect success info
-            DEBUG_INFO=$(cat << EOF
-            {
-              "status": "success",
-              "instance_id": "${{ steps.parse-params.outputs.instance_id }}",
-              "instance_ip": "${{ steps.parse-params.outputs.instance_ip }}",
-              "modules_deployed": "${{ steps.parse-params.outputs.modules_to_deploy }}",
-              "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-            }
-            EOF
-            )
+            # Create JSON without heredoc syntax
+            echo 'debug_info={"status":"success","instance_id":"${{ steps.parse-params.outputs.instance_id }}","instance_ip":"${{ steps.parse-params.outputs.instance_ip }}","modules_deployed":"${{ steps.parse-params.outputs.modules_to_deploy }}","timestamp":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"}'  >> $GITHUB_OUTPUT
           else
             echo "status=failure" >> $GITHUB_OUTPUT
             echo "Deployment failed"
             
-            # Collect failure info with more details
-            DEBUG_INFO=$(cat << EOF
-            {
-              "status": "failure",
-              "instance_id": "${{ steps.parse-params.outputs.instance_id }}",
-              "instance_ip": "${{ steps.parse-params.outputs.instance_ip }}",
-              "modules_deployed": "${{ steps.parse-params.outputs.modules_to_deploy }}",
-              "error_phase": "ssm_deployment",
-              "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-              "failure_details": "Check GitHub Actions logs for detailed error message"
-            }
-            EOF
-            )
+            # Create JSON without heredoc syntax
+            echo 'debug_info={"status":"failure","instance_id":"${{ steps.parse-params.outputs.instance_id }}","instance_ip":"${{ steps.parse-params.outputs.instance_ip }}","modules_deployed":"${{ steps.parse-params.outputs.modules_to_deploy }}","error_phase":"ssm_deployment","timestamp":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","failure_details":"Check GitHub Actions logs for detailed error message"}' >> $GITHUB_OUTPUT
           fi
-          
-          # Remove newlines and extra spaces for proper JSON
-          DEBUG_INFO=$(echo "$DEBUG_INFO" | tr -d '\n' | sed 's/  //g')
-          echo "debug_info=$DEBUG_INFO" >> $GITHUB_OUTPUT

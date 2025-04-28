@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   web:
     build:
@@ -8,7 +6,6 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./logs/web:/logs
       # Comment out this volume mount that's overriding the build
       # - ./web:/app
       - /app/node_modules

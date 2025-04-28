@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 
-interface SuggestedPromptsProps {
+export interface SuggestedPromptsProps {
   onSelectPrompt: (prompt: string) => void;
 }
 
@@ -58,8 +58,6 @@ export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
           {expanded ? "Show less" : "More options"}
         </button>
       </div>
-      
-
     </div>
   );
 }

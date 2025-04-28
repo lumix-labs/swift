@@ -1,6 +1,6 @@
 "use client";
 
-import { useTheme } from "../../context/ThemeContext";
+import { useTheme } from "../../../context/ThemeContext";
 import { useEffect } from "react";
 
 export function ThemeToggle() {
@@ -46,6 +46,6 @@ export function ThemeToggle() {
           />
         </svg>
       )}
-    </button >
+    </button>
   );
 }

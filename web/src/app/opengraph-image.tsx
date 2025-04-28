@@ -35,12 +35,7 @@ export default async function Image() {
             gap: 24
           }}
         >
-          <img 
-            src="https://swift.com/swift-logo.svg" 
-            alt="Swift Logo" 
-            width={120}
-            height={120}
-          />
+          <div style={{fontSize: 120, lineHeight: 1, userSelect: 'none'}} role="img" aria-label="Swift Logo">⚡</div>
           <div
             style={{
               fontSize: 72,

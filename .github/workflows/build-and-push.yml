@@ -74,27 +74,19 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-  check-builds:
-    name: Check Build Status
+  build-summary:
+    name: Summarize Build Results
     needs: [check-changes, build-api, build-web]
     runs-on: ubuntu-latest
     if: always()
-    outputs:
-      continue_pipeline: ${{ steps.check.outputs.continue_pipeline }}
     steps:
-      - name: Check build status
-        id: check
+      - name: Echo build results
         run: |
           echo "Build results:"
           
           # For build-api
           if [[ "${{ needs.check-changes.outputs.api_changed }}" == "true" ]]; then
             echo "API Build: ${{ needs.build-api.result }}"
-            if [[ "${{ needs.build-api.result }}" == "failure" ]]; then
-              echo "API build failed, stopping pipeline"
-              echo "continue_pipeline=false" >> $GITHUB_OUTPUT
-              exit 0
-            fi
           else
             echo "API Build: skipped (no changes)"
           fi
@@ -102,23 +94,16 @@ jobs:
           # For build-web
           if [[ "${{ needs.check-changes.outputs.web_changed }}" == "true" ]]; then
             echo "Web Build: ${{ needs.build-web.result }}"
-            if [[ "${{ needs.build-web.result }}" == "failure" ]]; then
-              echo "Web build failed, stopping pipeline"
-              echo "continue_pipeline=false" >> $GITHUB_OUTPUT
-              exit 0
-            fi
           else
             echo "Web Build: skipped (no changes)"
           fi
           
-          # If we reach here, all executed builds were successful
           echo "All builds succeeded, continuing pipeline"
-          echo "continue_pipeline=true" >> $GITHUB_OUTPUT
 
   terraform:
     name: Terraform Operations
-    needs: [check-builds]
-    if: ${{ needs.check-builds.outputs.continue_pipeline == 'true' }}
+    needs: [build-summary]
+    if: always()
     uses: ./.github/workflows/terraform-workflow.yml
     with:
       action: plan-apply
@@ -129,6 +114,7 @@ jobs:
   deploy:
     name: Deploy Application
     needs: [terraform]
+    if: always() && needs.terraform.result != 'cancelled'
     uses: ./.github/workflows/deploy.yml
     with:
       infrastructureParams: ${{ needs.terraform.outputs.infrastructure_params || '{}' }}
@@ -144,6 +130,7 @@ jobs:
   verify-deployment:
     name: Verify Deployment Status
     needs: [deploy]
+    if: always() && needs.deploy.result != 'cancelled'
     runs-on: ubuntu-latest
     steps:
       - name: Check deployment status

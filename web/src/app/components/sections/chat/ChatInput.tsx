@@ -1,15 +1,14 @@
-"use client"
+"use client";
 
-import { useState, FormEvent, useRef, useEffect, useCallback, memo } from 'react';
-import { useChat } from '../../context/ChatContext';
-import { chatService } from '../../lib/services/chat-service';
+import React, { useState, FormEvent, useRef, useEffect, useCallback, memo } from 'react';
+import { useChat } from '../../../context/ChatContext';
 import { SuggestedPrompts } from './SuggestedPrompts';
 
 // Memoize SuggestedPrompts to prevent unnecessary re-renders
 const MemoizedSuggestedPrompts = memo(SuggestedPrompts);
 
 export function ChatInput() {
-  const { addMessage, setIsLoading, selectedModel } = useChat();
+  const { addMessage, setIsLoading, messages } = useChat();
   const [message, setMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [lastMessage, setLastMessage] = useState<string>('');
@@ -44,8 +43,9 @@ export function ChatInput() {
     });
 
     try {
-      // Get AI response based on selected model
-      const response = await chatService.sendMessage(userMessageContent, selectedModel);
+      // Simulate getting AI response
+      await new Promise(resolve => setTimeout(resolve, 700));
+      const response = `Echo: ${userMessageContent}`;
 
       // Add the AI response to the chat
       addMessage({
@@ -71,7 +71,7 @@ export function ChatInput() {
         textareaRef.current.style.height = 'auto';
       }
     }
-  }, [message, isSubmitting, addMessage, setIsLoading, selectedModel, lastMessage]);
+  }, [message, isSubmitting, addMessage, setIsLoading, lastMessage]);
 
   const handleSuggestedPrompt = useCallback((prompt: string) => {
     setMessage(prompt);
@@ -91,18 +91,21 @@ export function ChatInput() {
     }
   }, [handleSubmit]);
 
+  // Only show suggestions if there are no messages
+  const showSuggestions = (messages?.length ?? 0) === 0;
+
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col">
-      <MemoizedSuggestedPrompts onSelectPrompt={handleSuggestedPrompt} />
+      {showSuggestions && <MemoizedSuggestedPrompts onSelectPrompt={handleSuggestedPrompt} />}
 
       <form
         onSubmit={handleSubmit}
-        className="flex items-end gap-2 w-full"
+        className="flex items-center gap-1 w-full"
       >
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
-            className="w-full p-3 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-0 transition-all min-h-[44px] max-h-[150px] overflow-auto"
+            className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-0 transition-all min-h-[44px] max-h-[150px] overflow-auto align-middle"
             placeholder="Ask a question..."
             aria-label="Chat input"
             value={message}
@@ -116,7 +119,7 @@ export function ChatInput() {
           type="submit"
           aria-label="Send message"
           disabled={isSubmitting || !message.trim()}
-          className="flex items-center justify-center w-10 h-10 bg-black text-white rounded-lg hover:bg-gray-800 dark:hover:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-600 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-600 disabled:cursor-not-allowed align-middle"
+          className="flex items-center justify-center w-11 h-11 bg-gray-900 text-white rounded-lg border border-gray-300 dark:border-gray-700 shadow-sm hover:bg-gray-800 dark:hover:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-600 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-600 disabled:cursor-not-allowed align-middle transition-colors"
         >
           {isSubmitting ? (
             <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 border-t-transparent rounded-full animate-spin" />
