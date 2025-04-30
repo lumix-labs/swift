@@ -1,28 +1,37 @@
 {
-    "name": "swift-mcp-server",
-    "version": "1.0.0",
-    "description": "Swift MCP Server",
-    "main": "build/index.js",
-    "type": "module",
-    "scripts": {
-      "build": "tsc",
-      "start": "node build/index.js",
-      "setup": "node setup.js",
-      "setup-repos": "node setup-repos.js",
-      "dev": "tsc -w",
-      "lint": "eslint \"src/**/*.{ts,tsx}\"",
-      "format": "prettier --write \"src/**/*.{ts,tsx}\""
-    },
-    "dependencies": {
-      "@modelcontextprotocol/sdk": "^1.0.0",
-      "zod": "^3.22.4"
-    },
-    "devDependencies": {
-      "@types/node": "^20.9.0",
-      "typescript": "^5.2.2",
-      "eslint": "^8.56.0",
-      "@eslint/js": "^8.56.0",
-      "typescript-eslint": "^7.0.0",
-      "prettier": "^3.1.0"
-    }
+  "name": "swift-mcp-server",
+  "version": "1.0.0",
+  "description": "Swift MCP Server",
+  "main": "build/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js",
+    "setup": "node setup.js",
+    "setup-repos": "node setup-repos.js",
+    "dev": "tsc -w",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\""
+  },
+  "dependencies": {
+    "@babel/parser": "^7.22.5",
+    "@babel/traverse": "^7.22.5",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@typescript-eslint/parser": "^5.59.11",
+    "@typescript-eslint/typescript-estree": "^5.59.11",
+    "glob": "^10.3.10",
+    "recast": "^0.23.2",
+    "ts-morph": "^19.0.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^8.56.0",
+    "@types/babel__traverse": "^7.20.7",
+    "@types/glob": "^8.1.0",
+    "@types/node": "^20.9.0",
+    "eslint": "^8.56.0",
+    "prettier": "^3.1.0",
+    "typescript": "^5.2.2",
+    "typescript-eslint": "^7.0.0"
   }
+}
