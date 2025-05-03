@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Component, ErrorInfo, ReactNode } from 'react';
 import { Header } from '../header/Header';
 import { Footer } from '../footer/Footer';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInput } from './ChatInput';
 import { useChat } from '../../../context/ChatContext';
 import { useDebounce } from '../../../hooks/useDebounce';
-import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 class ChatErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
@@ -36,7 +35,7 @@ class ChatErrorBoundary extends Component<{ children: ReactNode }, { hasError: b
 }
 
 export function ChatLayout() {
-  const { isLoading } = useChat();
+  const { isLoading, messages } = useChat();
   const [mounted, setMounted] = useState(false);
   const debouncedLoading = useDebounce(isLoading, 300); // Debounce loading state to prevent flickering
 
@@ -44,6 +43,9 @@ export function ChatLayout() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Determine if we're in an active chat session
+  const inActiveChat = messages.length > 0;
 
   // Memoize the loading indicator to prevent unnecessary re-renders
   const loadingIndicator = useMemo(() =>

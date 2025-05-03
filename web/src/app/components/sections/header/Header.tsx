@@ -9,14 +9,16 @@ import { ModelsDropdown } from "./ModelsDropdown";
 import { RepositoriesDropdown } from "./RepositoriesDropdown";
 
 export function Header() {
-  const { createNewSession } = useChat();
+  const { createNewSession, selectedModelId, selectedRepositoryId } = useChat();
   const { resolvedTheme } = useTheme();
   const [showModels, setShowModels] = useState(false);
   const [showRepos, setShowRepos] = useState(false);
 
   // Close dropdowns on ESC or click outside
   useEffect(() => {
-    if (!showModels && !showRepos) return;
+    if (!showModels && !showRepos) {
+      return;
+    }
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
@@ -31,6 +33,19 @@ export function Header() {
   const handleNewChat = () => {
     createNewSession();
   };
+
+  // Close the other dropdown when one is opened
+  useEffect(() => {
+    if (showModels) {
+      setShowRepos(false);
+    }
+  }, [showModels]);
+
+  useEffect(() => {
+    if (showRepos) {
+      setShowModels(false);
+    }
+  }, [showRepos]);
 
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between px-4 h-14 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black">

@@ -34,8 +34,10 @@ class ChatService {
                         let errorMsg = `API error: ${response.status}`;
                         try {
                               const errData = await response.json();
-                              if (errData && errData.error) errorMsg = errData.error;
-                        } catch {}
+                              if (errData && errData.error) {
+                                    errorMsg = errData.error;
+                              }
+                        } catch { }
                         throw new Error(errorMsg);
                   }
 

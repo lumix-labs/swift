@@ -1,7 +1,7 @@
 "use client";
 
-import { useTheme } from "../../../context/ThemeContext";
 import { useEffect } from "react";
+import { useTheme } from "../../../context/ThemeContext";
 
 export function ThemeToggle() {
   const { theme, setTheme, resolvedTheme } = useTheme();

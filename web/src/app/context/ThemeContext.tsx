@@ -33,7 +33,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
         initialTheme = savedTheme;
       }
-    } catch {}
+    } catch { }
   }
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(
@@ -45,7 +45,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Function to update the resolved theme and document class
   const updateResolvedTheme = useCallback(() => {
-    if (!isBrowser) return;
+    if (!isBrowser) {
+      return;
+    }
 
     const newResolvedTheme =
       theme === 'system'
@@ -68,7 +70,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Initialize theme from localStorage or system preference
   useEffect(() => {
-    if (!isBrowser) return;
+    if (!isBrowser) {
+      return;
+    }
 
     // Set mounted to true after first render
     setMounted(true);
@@ -85,7 +89,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Update resolvedTheme when theme changes
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     updateResolvedTheme();
 
@@ -111,7 +117,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Update localStorage when theme changes
   useEffect(() => {
-    if (!isBrowser || !mounted) return;
+    if (!isBrowser || !mounted) {
+      return;
+    }
 
     try {
       localStorage.setItem('theme', theme);

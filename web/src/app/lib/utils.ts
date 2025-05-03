@@ -8,21 +8,23 @@
  * @returns A formatted string (e.g., "Today at 14:30")
  */
 export const formatTimestamp = (timestamp?: number | Date): string => {
-  if (!timestamp) return 'Just now';
-  
+  if (!timestamp) {
+    return 'Just now';
+  }
+
   const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
-  
-  const timeString = date.toLocaleTimeString([], { 
-    hour: '2-digit', 
+
+  const timeString = date.toLocaleTimeString([], {
+    hour: '2-digit',
     minute: '2-digit'
   });
-  
+
   if (isToday) {
     return `Today at ${timeString}`;
   }
-  
+
   return `${date.toLocaleDateString()} at ${timeString}`;
 };
 
@@ -36,6 +38,8 @@ export const isBrowser = typeof window !== 'undefined';
  * @returns 'dark' if the system prefers dark mode, 'light' otherwise
  */
 export const getSystemTheme = (): 'light' | 'dark' => {
-  if (!isBrowser) return 'light';
+  if (!isBrowser) {
+    return 'light';
+  }
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 };

@@ -1,5 +1,6 @@
 "use client"
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useMemo } from 'react';
+import { LLMModel, Repository } from '../lib/types/entities';
 
 // Define message types
 export interface Message {
@@ -16,6 +17,8 @@ export interface ChatSession {
   createdAt: Date;
   updatedAt: Date;
   messages: Message[];
+  modelId?: string;
+  repositoryId?: string;
 }
 
 // Define saved session interface for localStorage
@@ -30,6 +33,8 @@ interface SavedSession {
     content: string;
     timestamp: string;
   }>;
+  modelId?: string;
+  repositoryId?: string;
 }
 
 // Define the context type
@@ -44,8 +49,10 @@ interface ChatContextType {
   createNewSession: () => void;
   switchSession: (sessionId: string) => void;
   deleteSession: (sessionId: string) => void;
-  selectedModel: string;
-  setSelectedModel: (modelId: string) => void;
+  selectedModelId: string | null;
+  setSelectedModelId: (modelId: string | null) => void;
+  selectedRepositoryId: string | null;
+  setSelectedRepositoryId: (repoId: string | null) => void;
 }
 
 // Maximum number of sessions to keep in storage
@@ -63,8 +70,10 @@ const ChatContext = createContext<ChatContextType>({
   createNewSession: () => { },
   switchSession: () => { },
   deleteSession: () => { },
-  selectedModel: 'gemini',
-  setSelectedModel: () => { },
+  selectedModelId: null,
+  setSelectedModelId: () => { },
+  selectedRepositoryId: null,
+  setSelectedRepositoryId: () => { },
 });
 
 // Create a provider component
@@ -73,7 +82,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState('gemini');
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
+  const [selectedRepositoryId, setSelectedRepositoryId] = useState<string | null>(null);
   const [storageUpdating, setStorageUpdating] = useState(false);
 
   // Generate a unique ID
@@ -87,7 +97,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       title: `Chat ${new Date().toLocaleString()}`,
       createdAt: new Date(),
       updatedAt: new Date(),
-      messages: []
+      messages: [],
+      modelId: selectedModelId || undefined,
+      repositoryId: selectedRepositoryId || undefined
     };
 
     // Limit to MAX_SESSIONS by removing the oldest ones if needed
@@ -98,7 +110,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     setCurrentSessionId(newSessionId);
     setMessages([]);
-  }, [generateId]);
+  }, [generateId, selectedModelId, selectedRepositoryId]);
 
   // Batched localStorage update
   const updateLocalStorage = useCallback((updatedSessions: ChatSession[], updatedCurrentSessionId: string | null) => {
@@ -155,11 +167,23 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           const currentSession = limitedSessions.find((s: ChatSession) => s.id === savedCurrentSessionId);
           if (currentSession) {
             setMessages(currentSession.messages);
+            if (currentSession.modelId) {
+              setSelectedModelId(currentSession.modelId);
+            }
+            if (currentSession.repositoryId) {
+              setSelectedRepositoryId(currentSession.repositoryId);
+            }
           }
         } else if (limitedSessions.length > 0) {
           // Default to most recent session
           setCurrentSessionId(limitedSessions[0].id);
           setMessages(limitedSessions[0].messages);
+          if (limitedSessions[0].modelId) {
+            setSelectedModelId(limitedSessions[0].modelId);
+          }
+          if (limitedSessions[0].repositoryId) {
+            setSelectedRepositoryId(limitedSessions[0].repositoryId);
+          }
         } else {
           // Create a new session if none exist
           createNewSession();
@@ -169,10 +193,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         createNewSession();
       }
 
-      // Load selected model if exists
-      const savedModel = localStorage.getItem('selectedModel');
-      if (savedModel) {
-        setSelectedModel(savedModel);
+      // Load selected model and repository if exists
+      const savedModelId = localStorage.getItem('selectedModelId');
+      if (savedModelId) {
+        setSelectedModelId(savedModelId);
+      }
+      
+      const savedRepositoryId = localStorage.getItem('selectedRepositoryId');
+      if (savedRepositoryId) {
+        setSelectedRepositoryId(savedRepositoryId);
       }
     } catch (error) {
       console.error('Error loading from localStorage:', error);
@@ -191,12 +220,50 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }, [sessions, currentSessionId, updateLocalStorage, storageUpdating]);
 
-  // Save selected model whenever it changes
+  // Save selected model and repository whenever they change
   useEffect(() => {
-    if (selectedModel) {
-      localStorage.setItem('selectedModel', selectedModel);
+    if (selectedModelId !== null) {
+      localStorage.setItem('selectedModelId', selectedModelId);
+      
+      // Update current session with selected model
+      if (currentSessionId) {
+        setSessions(prev => prev.map(session => {
+          if (session.id === currentSessionId) {
+            return {
+              ...session,
+              modelId: selectedModelId,
+              updatedAt: new Date()
+            };
+          }
+          return session;
+        }));
+      }
+    } else {
+      localStorage.removeItem('selectedModelId');
     }
-  }, [selectedModel]);
+  }, [selectedModelId, currentSessionId]);
+
+  useEffect(() => {
+    if (selectedRepositoryId !== null) {
+      localStorage.setItem('selectedRepositoryId', selectedRepositoryId);
+      
+      // Update current session with selected repository
+      if (currentSessionId) {
+        setSessions(prev => prev.map(session => {
+          if (session.id === currentSessionId) {
+            return {
+              ...session,
+              repositoryId: selectedRepositoryId,
+              updatedAt: new Date()
+            };
+          }
+          return session;
+        }));
+      }
+    } else {
+      localStorage.removeItem('selectedRepositoryId');
+    }
+  }, [selectedRepositoryId, currentSessionId]);
 
   // Switch to a different session
   const switchSession = useCallback((sessionId: string) => {
@@ -204,6 +271,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (session) {
       setCurrentSessionId(sessionId);
       setMessages(session.messages);
+      
+      // Update selected model and repository based on session
+      if (session.modelId) {
+        setSelectedModelId(session.modelId);
+      }
+      if (session.repositoryId) {
+        setSelectedRepositoryId(session.repositoryId);
+      }
     }
   }, [sessions]);
 
@@ -282,8 +357,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     createNewSession,
     switchSession,
     deleteSession,
-    selectedModel,
-    setSelectedModel,
+    selectedModelId,
+    setSelectedModelId,
+    selectedRepositoryId,
+    setSelectedRepositoryId,
   }), [
     messages,
     addMessage,
@@ -294,7 +371,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     createNewSession,
     switchSession,
     deleteSession,
-    selectedModel,
+    selectedModelId,
+    setSelectedModelId,
+    selectedRepositoryId,
+    setSelectedRepositoryId,
   ]);
 
   return (

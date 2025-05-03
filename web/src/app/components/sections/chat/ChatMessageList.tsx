@@ -5,9 +5,10 @@ import { useChat } from '../../../context/ChatContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { ChatMessage } from './ChatMessage';
 import { HeroSection } from '../hero/HeroSection';
+import { SuggestedPrompts } from './SuggestedPrompts';
 
 export function ChatMessageList() {
-  const { messages } = useChat();
+  const { messages, addMessage } = useChat();
   const { resolvedTheme } = useTheme();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -22,10 +23,25 @@ export function ChatMessageList() {
     }
   }, [messages]);
 
+  // Handle selecting a suggested prompt
+  const handleSelectPrompt = (prompt: string) => {
+    addMessage({
+      role: 'user' as const,
+      content: prompt
+    });
+  };
+
   return (
     <div className="flex-1 p-4 overflow-hidden h-full w-full">
       {messages.length === 0 ? (
-        <HeroSection />
+        <div className="h-full flex flex-col">
+          <div className="flex-1">
+            <HeroSection />
+          </div>
+          <div className="mt-auto">
+            <SuggestedPrompts onSelectPrompt={handleSelectPrompt} />
+          </div>
+        </div>
       ) : (
         <div 
           ref={scrollContainerRef}
