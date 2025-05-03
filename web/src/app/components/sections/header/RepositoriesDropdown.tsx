@@ -32,12 +32,12 @@ export function RepositoriesDropdown({ show, setShow, resolvedTheme }: Repositor
     const existingRepo = repositories.find(repo => {
       // Check for URL exact match or repo name match
       const urlMatch = repo.url.toLowerCase() === repoUrl.toLowerCase();
-      
+
       // Extract repo name from URL for comparison
       const match = repoUrl.match(/github\.com\/[\w-]+\/([\w.-]+)\/?$/);
       const newRepoName = match ? match[1].toLowerCase() : '';
       const nameMatch = repo.name.toLowerCase() === newRepoName;
-      
+
       return urlMatch || nameMatch;
     });
 
@@ -85,7 +85,7 @@ export function RepositoriesDropdown({ show, setShow, resolvedTheme }: Repositor
 
   // Get the currently selected repository for display
   const selectedRepo = repositories.find(repo => repo.id === selectedRepositoryId);
-  const buttonText = selectedRepo ? `Repo: ${selectedRepo.name}` : "Repositories";
+  const buttonText = "Repositories";
 
   return (
     <div className="relative">
@@ -107,16 +107,15 @@ export function RepositoriesDropdown({ show, setShow, resolvedTheme }: Repositor
         <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-md shadow-lg z-10">
           {repositories.length > 0 ? (
             repositories.map((repo) => (
-              <div 
-                key={repo.id} 
-                className={`p-2 border-b border-gray-200 dark:border-gray-700 last:border-0 ${
-                  repo.id === selectedRepositoryId ? 'bg-gray-100 dark:bg-gray-800' : ''
-                }`}
+              <div
+                key={repo.id}
+                className={`p-2 border-b border-gray-200 dark:border-gray-700 last:border-0 ${repo.id === selectedRepositoryId ? 'bg-gray-100 dark:bg-gray-800' : ''
+                  }`}
               >
                 <div className="flex flex-col space-y-2">
                   <div className="flex justify-between items-center">
-                    <div 
-                      className="flex-1 cursor-pointer" 
+                    <div
+                      className="flex-1 cursor-pointer"
                       onClick={() => handleRepoSelect(repo.id)}
                     >
                       <div className="font-medium">{repo.name}</div>
@@ -135,7 +134,7 @@ export function RepositoriesDropdown({ show, setShow, resolvedTheme }: Repositor
                       </svg>
                     </button>
                   </div>
-                  
+
                   {/* Download Button */}
                   <DownloadButton repository={repo} />
                 </div>

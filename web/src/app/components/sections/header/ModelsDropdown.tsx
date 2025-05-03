@@ -15,7 +15,7 @@ export function ModelsDropdown({ show, setShow, resolvedTheme }: ModelsDropdownP
   const { selectedModelId, setSelectedModelId } = useChat();
   const [models, setModels] = useState<LLMModel[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
-  
+
   // Load models on component mount
   useEffect(() => {
     setModels(getModels());
@@ -31,17 +31,17 @@ export function ModelsDropdown({ show, setShow, resolvedTheme }: ModelsDropdownP
     // Check if model with the same name already exists
     const modelName = provider === 'gemini' ? 'Gemini Pro' : 'Claude';
     const newModelName = `${modelName} ${new Date().toLocaleDateString()}`;
-    
-    const existingModel = models.find(model => 
+
+    const existingModel = models.find(model =>
       model.name.toLowerCase() === newModelName.toLowerCase()
     );
-    
+
     if (existingModel) {
       // Model with same name already exists
       alert(`A model named "${existingModel.name}" already exists.`);
       return;
     }
-    
+
     const newModel = addModel(provider, apiKey);
     setModels([...models, newModel]);
     // Automatically select the newly added model
@@ -80,7 +80,7 @@ export function ModelsDropdown({ show, setShow, resolvedTheme }: ModelsDropdownP
 
   // Get the currently selected model for display
   const selectedModel = models.find(model => model.id === selectedModelId);
-  const buttonText = selectedModel ? `Model: ${selectedModel.name}` : "Models";
+  const buttonText = "Models";
 
   return (
     <div className="relative">
@@ -102,15 +102,14 @@ export function ModelsDropdown({ show, setShow, resolvedTheme }: ModelsDropdownP
         <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-md shadow-lg z-10">
           {models.length > 0 ? (
             models.map((model) => (
-              <div 
-                key={model.id} 
-                className={`p-2 border-b border-gray-200 dark:border-gray-700 last:border-0 ${
-                  model.id === selectedModelId ? 'bg-gray-100 dark:bg-gray-800' : ''
-                }`}
+              <div
+                key={model.id}
+                className={`p-2 border-b border-gray-200 dark:border-gray-700 last:border-0 ${model.id === selectedModelId ? 'bg-gray-100 dark:bg-gray-800' : ''
+                  }`}
               >
                 <div className="flex justify-between items-center">
-                  <div 
-                    className="flex-1 cursor-pointer" 
+                  <div
+                    className="flex-1 cursor-pointer"
                     onClick={() => handleModelSelect(model.id)}
                   >
                     <div className="font-medium">{model.name}</div>
