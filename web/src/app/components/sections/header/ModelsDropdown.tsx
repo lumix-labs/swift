@@ -33,7 +33,7 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
         setShow(false);
       }
     },
-    [handleAddClick, setShow],
+    [handleAddClick, setShow]
   );
 
   // Handle model selection - wrap in useCallback to prevent recreation
@@ -43,7 +43,7 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
         setShow(false);
       }
     },
-    [handleModelSelect, setShow],
+    [handleModelSelect, setShow]
   );
 
   // Memoized models list to prevent unnecessary re-renders
@@ -56,14 +56,20 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
               className="w-4 h-4 border-2 border-gray-500 dark:border-gray-400 
                           border-t-transparent rounded-full animate-spin"
             ></div>
-            <span className="text-gray-500 dark:text-gray-400 text-sm">Updating models...</span>
+            <span className="text-gray-500 dark:text-gray-400 text-sm">
+              Updating models...
+            </span>
           </div>
         </div>
       );
     }
 
     if (models.length === 0) {
-      return <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">No models added yet</div>;
+      return (
+        <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+          No models added yet
+        </div>
+      );
     }
 
     return models.map((model) => {
@@ -77,10 +83,14 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
           }`}
         >
           <div className="flex justify-between items-center">
-            <div className="flex-1 cursor-pointer" onClick={() => onModelSelect(model.id)}>
+            <div
+              className="flex-1 cursor-pointer"
+              onClick={() => onModelSelect(model.id)}
+            >
               <div className="font-medium">{model.name}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">
-                {model.provider.charAt(0).toUpperCase() + model.provider.slice(1)}
+                {model.provider.charAt(0).toUpperCase() +
+                  model.provider.slice(1)}
               </div>
             </div>
             <button
@@ -99,27 +109,46 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
         </div>
       );
     });
-  }, [models, selectedModelId, isUpdating, isActionInProgress, onModelSelect, handleModelRemove]);
+  }, [
+    models,
+    selectedModelId,
+    isUpdating,
+    isActionInProgress,
+    onModelSelect,
+    handleModelRemove,
+  ]);
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         className={`p-2 sm:px-3 sm:py-1.5 text-sm font-medium rounded-md ${
-          resolvedTheme === "dark" ? "bg-white text-black" : "bg-black text-white"
+          resolvedTheme === "dark"
+            ? "bg-white text-black"
+            : "bg-black text-white"
         }`}
         onClick={toggleDropdown}
         disabled={isActionInProgress}
       >
         <span className="hidden sm:inline">Models</span>
         <span className="sm:hidden">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
             <path
               d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 
                     01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"
@@ -167,7 +196,11 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
         </div>
       )}
 
-      <AddModelModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} onSave={handleModelSave} />
+      <AddModelModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSave={handleModelSave}
+      />
     </div>
   );
 }
