@@ -36,6 +36,20 @@ if [ -f "$ROOT_DIR/.husky/detect-secrets.sh" ]; then
   fi
 fi
 
+# Fix long lines (>120 characters) 
+# if [ -f "$ROOT_DIR/.husky/fix-long-lines.sh" ]; then
+#   echo -e "${BLUE}🧹 Fixing lines longer than 120 characters...${NC}"
+#   chmod +x "$ROOT_DIR/.husky/fix-long-lines.sh"
+#   "$ROOT_DIR/.husky/fix-long-lines.sh"
+#   LONG_LINES_EXIT_CODE=$?
+#   if [ $LONG_LINES_EXIT_CODE -ne 0 ]; then
+#     echo -e "${YELLOW}⚠️ Some long lines could not be automatically fixed.${NC}"
+#     echo "Please review and fix them manually."
+#   else
+#     echo -e "${GREEN}✅ Long lines fixed successfully.${NC}"
+#   fi
+# fi
+
 # Fix known ESLint errors
 if [ -f "$ROOT_DIR/.husky/fix-eslint-errors.sh" ]; then
   echo -e "${BLUE}🛠️ Applying automated ESLint fixes...${NC}"

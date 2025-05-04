@@ -11,7 +11,7 @@ export function useRepositoriesDropdown() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isActionInProgress, setIsActionInProgress] = useState(false);
-  
+
   // Set UI update lock to prevent component re-rendering during actions
   const lockUIUpdates = useCallback(() => {
     setIsActionInProgress(true);
@@ -27,132 +27,149 @@ export function useRepositoriesDropdown() {
     return true; // Return true to indicate dropdown should close
   }, []);
 
-  const handleRepositorySave = useCallback((repoUrl: string) => {
-    if (isActionInProgress) {
-      return;
-    }
+  const handleRepositorySave = useCallback(
+    (repoUrl: string) => {
+      if (isActionInProgress) {
+        return;
+      }
 
-    // Lock UI updates to prevent flickering
-    lockUIUpdates();
-    
-    // Set updating flag to prevent UI flickering
-    setIsUpdating(true);
-    
-    try {
-      // Extract name from URL and add repository
-      const name = repoUrl.split('/').pop() || 'Repository';
-      const newRepo = addRepository(name);
-      
-      // Automatically select the newly added repository
-      setSelectedRepositoryId(newRepo.id);
-      
+      // Lock UI updates to prevent flickering
+      lockUIUpdates();
+
+      // Set updating flag to prevent UI flickering
+      setIsUpdating(true);
+
+      try {
+        // Extract name from URL and add repository
+        const name = repoUrl.split("/").pop() || "Repository";
+        const newRepo = addRepository(name);
+
+        // Automatically select the newly added repository
+        setSelectedRepositoryId(newRepo.id);
+
+        // Add a notification message after a short delay to ensure proper sequencing
+        setTimeout(() => {
+          addMessage({
+            role: "assistant",
+            content: `Repository "${newRepo.name}" has been added. It will be downloaded and indexed when you send your first message.`,
+          });
+
+          // Use a timer to delay the UI update to prevent flickering
+          updateRepositories();
+
+          // Reset updating flag after state is updated
+          setTimeout(() => {
+            setIsUpdating(false);
+          }, 500);
+        }, 500);
+      } catch (error) {
+        console.error("Error adding repository:", error);
+
+        // Add an error message if there was a problem
+        addMessage({
+          role: "assistant",
+          content: `Error adding repository: ${error instanceof Error ? error.message : "Unknown error"}`,
+        });
+
+        setIsUpdating(false);
+      }
+    },
+    [setSelectedRepositoryId, updateRepositories, addMessage, isActionInProgress, lockUIUpdates],
+  );
+
+  const handleRepositoryRemove = useCallback(
+    (id: string) => {
+      if (isActionInProgress) {
+        return;
+      }
+
+      // Lock UI updates to prevent flickering
+      lockUIUpdates();
+
+      // Set updating flag to prevent UI flickering
+      setIsUpdating(true);
+
+      try {
+        // Get repository name before removal
+        const repo = repositories.find((r) => r.id === id);
+        const repoName = repo?.name || "Repository";
+
+        removeRepository(id);
+
+        // If the removed repository was selected, clear the selection
+        if (id === selectedRepositoryId) {
+          setSelectedRepositoryId(null);
+
+          // Add a notification message after a short delay to ensure proper sequencing
+          setTimeout(() => {
+            addMessage({
+              role: "assistant",
+              content: `Repository "${repoName}" has been removed. Please select another repository or continue chatting without one.`,
+            });
+          }, 300);
+        } else {
+          // Add a notification message after a short delay to ensure proper sequencing
+          setTimeout(() => {
+            addMessage({
+              role: "assistant",
+              content: `Repository "${repoName}" has been removed.`,
+            });
+          }, 300);
+        }
+
+        // Use a timer to delay the UI update to prevent flickering
+        setTimeout(() => {
+          // Trigger event to update repositories list with debouncing
+          updateRepositories();
+
+          // Reset updating flag after state is updated
+          setTimeout(() => {
+            setIsUpdating(false);
+          }, 500);
+        }, 500);
+      } catch (error) {
+        console.error("Error removing repository:", error);
+        setIsUpdating(false);
+      }
+    },
+    [
+      selectedRepositoryId,
+      setSelectedRepositoryId,
+      updateRepositories,
+      repositories,
+      addMessage,
+      isActionInProgress,
+      lockUIUpdates,
+    ],
+  );
+
+  const handleRepositorySelect = useCallback(
+    (id: string) => {
+      if (isActionInProgress) {
+        return;
+      }
+
+      // Lock UI updates to prevent flickering
+      lockUIUpdates();
+
+      // Get repository name for notification
+      const repo = repositories.find((r) => r.id === id);
+      const repoName = repo?.name || "Repository";
+
+      setSelectedRepositoryId(id);
+
       // Add a notification message after a short delay to ensure proper sequencing
       setTimeout(() => {
         addMessage({
-          role: 'assistant',
-          content: `Repository "${newRepo.name}" has been added. It will be downloaded and indexed when you send your first message.`
+          role: "assistant",
+          content: `Repository "${repoName}" has been selected. You can now ask questions about this repository.`,
         });
-      
-        // Use a timer to delay the UI update to prevent flickering
-        updateRepositories();
-        
-        // Reset updating flag after state is updated
-        setTimeout(() => {
-          setIsUpdating(false);
-        }, 500);
-      }, 500);
-    } catch (error) {
-      console.error('Error adding repository:', error);
-      
-      // Add an error message if there was a problem
-      addMessage({
-        role: 'assistant',
-        content: `Error adding repository: ${error instanceof Error ? error.message : 'Unknown error'}`
-      });
-      
-      setIsUpdating(false);
-    }
-  }, [setSelectedRepositoryId, updateRepositories, addMessage, isActionInProgress, lockUIUpdates]);
+      }, 300);
 
-  const handleRepositoryRemove = useCallback((id: string) => {
-    if (isActionInProgress) {
-      return;
-    }
-
-    // Lock UI updates to prevent flickering
-    lockUIUpdates();
-    
-    // Set updating flag to prevent UI flickering
-    setIsUpdating(true);
-    
-    try {
-      // Get repository name before removal
-      const repo = repositories.find(r => r.id === id);
-      const repoName = repo?.name || 'Repository';
-      
-      removeRepository(id);
-      
-      // If the removed repository was selected, clear the selection
-      if (id === selectedRepositoryId) {
-        setSelectedRepositoryId(null);
-        
-        // Add a notification message after a short delay to ensure proper sequencing
-        setTimeout(() => {
-          addMessage({
-            role: 'assistant',
-            content: `Repository "${repoName}" has been removed. Please select another repository or continue chatting without one.`
-          });
-        }, 300);
-      } else {
-        // Add a notification message after a short delay to ensure proper sequencing
-        setTimeout(() => {
-          addMessage({
-            role: 'assistant',
-            content: `Repository "${repoName}" has been removed.`
-          });
-        }, 300);
-      }
-      
-      // Use a timer to delay the UI update to prevent flickering
-      setTimeout(() => {
-        // Trigger event to update repositories list with debouncing
-        updateRepositories();
-        
-        // Reset updating flag after state is updated
-        setTimeout(() => {
-          setIsUpdating(false);
-        }, 500);
-      }, 500);
-    } catch (error) {
-      console.error('Error removing repository:', error);
-      setIsUpdating(false);
-    }
-  }, [selectedRepositoryId, setSelectedRepositoryId, updateRepositories, repositories, addMessage, isActionInProgress, lockUIUpdates]);
-
-  const handleRepositorySelect = useCallback((id: string) => {
-    if (isActionInProgress) {
-      return;
-    }
-
-    // Lock UI updates to prevent flickering
-    lockUIUpdates();
-    
-    // Get repository name for notification
-    const repo = repositories.find(r => r.id === id);
-    const repoName = repo?.name || 'Repository';
-    
-    setSelectedRepositoryId(id);
-    
-    // Add a notification message after a short delay to ensure proper sequencing
-    setTimeout(() => {
-      addMessage({
-        role: 'assistant',
-        content: `Repository "${repoName}" has been selected. You can now ask questions about this repository.`
-      });
-    }, 300);
-    
-    return true; // Return true to indicate dropdown should close
-  }, [setSelectedRepositoryId, repositories, addMessage, isActionInProgress, lockUIUpdates]);
+      return true; // Return true to indicate dropdown should close
+    },
+    [setSelectedRepositoryId, repositories, addMessage, isActionInProgress, lockUIUpdates],
+  );
 
   const handleClearRepository = useCallback(() => {
     if (isActionInProgress || !selectedRepositoryId) {
@@ -161,21 +178,21 @@ export function useRepositoriesDropdown() {
 
     // Lock UI updates to prevent flickering
     lockUIUpdates();
-    
+
     // Get repository name for notification
-    const repo = repositories.find(r => r.id === selectedRepositoryId);
-    const repoName = repo?.name || 'Repository';
-    
+    const repo = repositories.find((r) => r.id === selectedRepositoryId);
+    const repoName = repo?.name || "Repository";
+
     setSelectedRepositoryId(null);
-    
+
     // Add a notification message after a short delay to ensure proper sequencing
     setTimeout(() => {
       addMessage({
-        role: 'assistant',
-        content: `Repository "${repoName}" has been deselected. You are now in general conversation mode.`
+        role: "assistant",
+        content: `Repository "${repoName}" has been deselected. You are now in general conversation mode.`,
       });
     }, 300);
-    
+
     return true; // Return true to indicate dropdown should close
   }, [selectedRepositoryId, setSelectedRepositoryId, repositories, addMessage, isActionInProgress, lockUIUpdates]);
 
@@ -190,6 +207,6 @@ export function useRepositoriesDropdown() {
     handleRepositorySave,
     handleRepositoryRemove,
     handleRepositorySelect,
-    handleClearRepository
+    handleClearRepository,
   };
 }

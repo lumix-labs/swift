@@ -7,14 +7,14 @@ import { logInfo } from '../../../utils/logFormatter.js';
 
 /**
  * Scan a directory recursively for files
- * 
+ *
  * @param dir - Directory to scan
  * @param excludePaths - Paths to exclude (e.g., node_modules)
  * @param fileExtensions - File extensions to include (optional)
  * @returns Array of file paths
  */
 export async function scanDirectory(
-  dir: string, 
+  dir: string,
   excludePaths: string[] = [],
   fileExtensions?: string[]
 ): Promise<string[]> {
@@ -25,9 +25,9 @@ export async function scanDirectory(
 
     for (const entry of entries) {
       const entryPath = path.join(dir, entry.name);
-      
+
       // Skip excluded paths
-      if (excludePaths.some(exclude => entryPath.includes(exclude))) {
+      if (excludePaths.some((exclude) => entryPath.includes(exclude))) {
         continue;
       }
 
@@ -37,7 +37,7 @@ export async function scanDirectory(
         files.push(...subDirFiles);
       } else if (entry.isFile()) {
         // Check file extension if specified
-        if (!fileExtensions || fileExtensions.some(ext => entry.name.endsWith(ext))) {
+        if (!fileExtensions || fileExtensions.some((ext) => entry.name.endsWith(ext))) {
           files.push(entryPath);
         }
       }
@@ -51,7 +51,7 @@ export async function scanDirectory(
 
 /**
  * Read file content
- * 
+ *
  * @param filePath - Path to the file
  * @returns File content as string
  */
@@ -66,7 +66,7 @@ export async function readFileContent(filePath: string): Promise<string> {
 
 /**
  * Get lines from a file
- * 
+ *
  * @param filePath - Path to the file
  * @returns Array of lines
  */

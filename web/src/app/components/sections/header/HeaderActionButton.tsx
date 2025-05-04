@@ -28,7 +28,7 @@ export function HeaderActionButton({
       href={href}
       onClick={onClick}
       className={className}
-      aria-label={typeof ariaLabel === 'string' ? ariaLabel : (typeof label === 'string' ? label : '')}
+      aria-label={typeof ariaLabel === "string" ? ariaLabel : typeof label === "string" ? label : ""}
       target={target}
       rel={rel}
     >

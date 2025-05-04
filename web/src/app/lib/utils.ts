@@ -11,7 +11,7 @@
  */
 export const formatTimestamp = (timestamp?: number | Date): string => {
   if (!timestamp) {
-    return 'Just now';
+    return "Just now";
   }
 
   const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
@@ -19,8 +19,8 @@ export const formatTimestamp = (timestamp?: number | Date): string => {
   const isToday = date.toDateString() === now.toDateString();
 
   const timeString = date.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit'
+    hour: "2-digit",
+    minute: "2-digit",
   });
 
   if (isToday) {
@@ -33,22 +33,22 @@ export const formatTimestamp = (timestamp?: number | Date): string => {
 /**
  * Detects if the code is running in a browser environment
  */
-export const isBrowser = typeof window !== 'undefined';
+export const isBrowser = typeof window !== "undefined";
 
 /**
  * Gets the system theme preference (light or dark)
  * @returns 'dark' if the system prefers dark mode, 'light' otherwise
  */
-export const getSystemTheme = (): 'light' | 'dark' => {
+export const getSystemTheme = (): "light" | "dark" => {
   if (!isBrowser) {
-    return 'light';
+    return "light";
   }
-  
-  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
+
+  if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    return "dark";
   }
-  
-  return 'light';
+
+  return "light";
 };
 
 /**
@@ -65,7 +65,7 @@ export function safeJsonParse<T>(jsonString: string | null, fallback: T): T {
   try {
     return JSON.parse(jsonString) as T;
   } catch (error) {
-    console.error('Error parsing JSON:', error);
+    console.error("Error parsing JSON:", error);
     return fallback;
   }
 }
@@ -79,8 +79,8 @@ export function safeJsonStringify(value: unknown): string {
   try {
     return JSON.stringify(value);
   } catch (error) {
-    console.error('Error stringifying JSON:', error);
-    return '';
+    console.error("Error stringifying JSON:", error);
+    return "";
   }
 }
 
@@ -92,7 +92,7 @@ export function safeJsonStringify(value: unknown): string {
  */
 export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
-  wait: number
+  wait: number,
 ): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null;
 
@@ -117,7 +117,7 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
  */
 export function throttle<T extends (...args: unknown[]) => unknown>(
   func: T,
-  limit: number
+  limit: number,
 ): (...args: Parameters<T>) => void {
   let inThrottle = false;
 
@@ -141,7 +141,7 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
 export function formatGithubUrl(url: string): string {
   try {
     // Remove trailing slash if present
-    url = url.replace(/\/$/, '');
+    url = url.replace(/\/$/, "");
 
     // Parse URL to extract username and repo name
     const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/i);
@@ -155,7 +155,7 @@ export function formatGithubUrl(url: string): string {
     // Return standardized format
     return `https://github.com/${username}/${repoName}`;
   } catch (error) {
-    console.error('Error formatting GitHub URL:', error);
+    console.error("Error formatting GitHub URL:", error);
     return url;
   }
 }
@@ -168,10 +168,10 @@ export function formatGithubUrl(url: string): string {
 export function extractRepoName(url: string): string {
   try {
     const match = url.match(/github\.com\/[^\/]+\/([^\/]+)/i);
-    return match ? match[1] : 'Repository';
+    return match ? match[1] : "Repository";
   } catch (error) {
-    console.error('Error extracting repo name:', error);
-    return 'Repository';
+    console.error("Error extracting repo name:", error);
+    return "Repository";
   }
 }
 
@@ -207,7 +207,6 @@ export function createProfiler(name: string) {
     end: () => {
       const end = performance.now();
       console.warn(`${name} - Total: ${(end - start).toFixed(2)}ms`);
-    }
+    },
   };
 }
-

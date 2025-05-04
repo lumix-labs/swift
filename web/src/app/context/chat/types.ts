@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
 // Define message types
 export interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   timestamp: Date;
 }
@@ -27,7 +27,7 @@ export interface SavedSession {
   updatedAt: string;
   messages: Array<{
     id: string;
-    role: 'user' | 'assistant';
+    role: "user" | "assistant";
     content: string;
     timestamp: string;
   }>;
@@ -38,7 +38,7 @@ export interface SavedSession {
 // Define the context type
 export interface ChatContextType {
   messages: Message[];
-  addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
+  addMessage: (message: Omit<Message, "id" | "timestamp">) => void;
   clearMessages: () => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;

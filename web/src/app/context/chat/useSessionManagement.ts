@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { useState, useCallback, useEffect } from 'react';
-import { ChatSession, Message, MAX_SESSIONS } from './types';
-import { saveSessions, loadSessions } from './storage-service';
+import { useState, useCallback, useEffect } from "react";
+import { ChatSession, Message, MAX_SESSIONS } from "./types";
+import { saveSessions, loadSessions } from "./storage-service";
 
 export function useSessionManagement() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -25,11 +25,11 @@ export function useSessionManagement() {
       updatedAt: new Date(),
       messages: [],
       modelId: selectedModelId || undefined,
-      repositoryId: selectedRepositoryId || undefined
+      repositoryId: selectedRepositoryId || undefined,
     };
 
     // Limit to MAX_SESSIONS by removing the oldest ones if needed
-    setSessions(prev => {
+    setSessions((prev) => {
       const newSessions = [newSession, ...prev];
       return newSessions.slice(0, MAX_SESSIONS);
     });
@@ -41,7 +41,7 @@ export function useSessionManagement() {
   // Batched localStorage update
   const updateLocalStorage = useCallback((updatedSessions: ChatSession[], updatedCurrentSessionId: string | null) => {
     setStorageUpdating(true);
-    
+
     try {
       saveSessions(updatedSessions, updatedCurrentSessionId);
     } finally {
@@ -52,11 +52,11 @@ export function useSessionManagement() {
   // Load sessions from localStorage on initial render
   useEffect(() => {
     try {
-      const { 
-        sessions: loadedSessions, 
+      const {
+        sessions: loadedSessions,
         currentSessionId: loadedSessionId,
         selectedModelId: loadedModelId,
-        selectedRepositoryId: loadedRepositoryId
+        selectedRepositoryId: loadedRepositoryId,
       } = loadSessions();
 
       // Only keep MAX_SESSIONS
@@ -64,9 +64,9 @@ export function useSessionManagement() {
       setSessions(limitedSessions);
 
       // Load current session if exists
-      if (loadedSessionId && limitedSessions.some(s => s.id === loadedSessionId)) {
+      if (loadedSessionId && limitedSessions.some((s) => s.id === loadedSessionId)) {
         setCurrentSessionId(loadedSessionId);
-        const currentSession = limitedSessions.find(s => s.id === loadedSessionId);
+        const currentSession = limitedSessions.find((s) => s.id === loadedSessionId);
         if (currentSession) {
           setMessages(currentSession.messages);
           if (currentSession.modelId) {
@@ -95,12 +95,12 @@ export function useSessionManagement() {
       if (loadedModelId) {
         setSelectedModelId(loadedModelId);
       }
-      
+
       if (loadedRepositoryId) {
         setSelectedRepositoryId(loadedRepositoryId);
       }
     } catch (error) {
-      console.error('Error loading from localStorage:', error);
+      console.error("Error loading from localStorage:", error);
       createNewSession(); // Fallback to new session on error
     }
   }, [createNewSession]);
@@ -117,35 +117,41 @@ export function useSessionManagement() {
   }, [sessions, currentSessionId, updateLocalStorage, storageUpdating]);
 
   // Switch to a different session
-  const switchSession = useCallback((sessionId: string) => {
-    const session = sessions.find(s => s.id === sessionId);
-    if (session) {
-      setCurrentSessionId(sessionId);
-      setMessages(session.messages);
-      
-      // Update selected model and repository based on session
-      if (session.modelId) {
-        setSelectedModelId(session.modelId);
+  const switchSession = useCallback(
+    (sessionId: string) => {
+      const session = sessions.find((s) => s.id === sessionId);
+      if (session) {
+        setCurrentSessionId(sessionId);
+        setMessages(session.messages);
+
+        // Update selected model and repository based on session
+        if (session.modelId) {
+          setSelectedModelId(session.modelId);
+        }
+        if (session.repositoryId) {
+          setSelectedRepositoryId(session.repositoryId);
+        }
       }
-      if (session.repositoryId) {
-        setSelectedRepositoryId(session.repositoryId);
-      }
-    }
-  }, [sessions]);
+    },
+    [sessions],
+  );
 
   // Delete a session
-  const deleteSession = useCallback((sessionId: string) => {
-    const updatedSessions = sessions.filter(s => s.id !== sessionId);
-    setSessions(updatedSessions);
+  const deleteSession = useCallback(
+    (sessionId: string) => {
+      const updatedSessions = sessions.filter((s) => s.id !== sessionId);
+      setSessions(updatedSessions);
 
-    if (currentSessionId === sessionId) {
-      if (updatedSessions.length > 0) {
-        switchSession(updatedSessions[0].id);
-      } else {
-        createNewSession();
+      if (currentSessionId === sessionId) {
+        if (updatedSessions.length > 0) {
+          switchSession(updatedSessions[0].id);
+        } else {
+          createNewSession();
+        }
       }
-    }
-  }, [sessions, currentSessionId, switchSession, createNewSession]);
+    },
+    [sessions, currentSessionId, switchSession, createNewSession],
+  );
 
   return {
     sessions,
@@ -160,6 +166,6 @@ export function useSessionManagement() {
     switchSession,
     deleteSession,
     generateId,
-    setSessions
+    setSessions,
   };
 }

@@ -1,167 +1,289 @@
 /**
- * Code Quality Metrics Analyzer
- * 
- * This module analyzes code quality metrics including:
- * - Function/method complexity (cyclomatic complexity)
- * - Long functions/methods
- * - Code duplication
- * - Comment analysis and code-to-comment ratios
+ * Code Quality Analyzer
+ *
+ * This module provides code quality analysis functionality, including:
+ * - Complexity analysis
+ * - Function length analysis
+ * - Code duplication detection
+ * - Comment ratio calculations
  */
 
-import { analyzeCodeComplexity } from './complexityAnalyzer.js';
+import * as fs from 'fs';
+import * as path from 'path';
 import { analyzeFunctionLength } from './functionAnalyzer.js';
-import { analyzeCodeDuplication } from './duplicationAnalyzer.js'; 
-import { analyzeComments } from './commentAnalyzer.js';
-import { scanDirectory } from '../../utils/fileUtils.js';
-import { validateRepositoryPath } from '../../utils/pathUtils.js';
+import { analyzeCodeDuplication } from './duplicationAnalyzer.js';
+import { logInfo, logError } from '../../../../utils/logFormatter.js';
 
 /**
- * Interface for function length metrics
+ * Interface for code quality analysis results
  */
-export interface LongFunction {
-  file: string;
-  line: number;
-  name: string;
-  length: number;
+export interface CodeQualityResult {
+  overallScore: number;
+  complexity?: Record<string, unknown>;
+  longFunctions?: { file: string; function: string; lineCount: number }[];
+  duplications?: { sourceFile: string; targetFile: string; lineCount: number; similarity: number }[];
+  commentRatios?: Record<string, { codeLines: number; commentLines: number; ratio: number }>;
 }
 
 /**
- * Interface for code duplication metrics
- */
-export interface CodeDuplication {
-  files: string[];
-  content: string;
-  lineCount: number;
-}
-
-/**
- * Interface for comment ratio metrics
- */
-export interface CommentRatio {
-  file: string;
-  codeLines: number;
-  commentLines: number;
-  ratio: number;
-  commentedOutCode: boolean;
-}
-
-/**
- * Interface for code quality metrics results
- */
-export interface CodeQualityMetrics {
-  complexity: Record<string, number>; // filepath -> complexity
-  longFunctions: LongFunction[];
-  duplications: CodeDuplication[];
-  commentRatios: Record<string, CommentRatio>; // filepath -> comment ratio
-  excessiveComments: string[]; // files with excessive comments
-  overallScore: number; // 0-100
-}
-
-/**
- * Analyze code quality metrics in a repository
- * 
+ * Analyze code quality for a repository
+ *
  * @param repositoryPath - Path to the repository
  * @param excludePaths - Paths to exclude from analysis
- * @returns Code quality metrics results
+ * @returns Code quality analysis results
  */
 export async function analyzeCodeQuality(
   repositoryPath: string,
-  excludePaths: string[] = ['node_modules', 'dist', '.git', 'build']
-): Promise<CodeQualityMetrics> {
-  // Validate the repository path
-  validateRepositoryPath(repositoryPath);
-  
-  // Scan relevant code files (focus on .ts, .js, .tsx, .jsx)
-  const codeFileExtensions = ['.ts', '.js', '.tsx', '.jsx'];
-  const files = (await scanDirectory(repositoryPath, excludePaths))
-    .filter(file => codeFileExtensions.some(ext => file.endsWith(ext)));
-  
-  // Calculate complexity metrics
-  const complexity = await analyzeCodeComplexity(files);
-  
-  // Find long functions
-  const longFunctions = await analyzeFunctionLength(files);
-  
-  // Detect code duplication
-  const duplications = await analyzeCodeDuplication(files);
-  
-  // Analyze comments and calculate ratio
-  const commentAnalysis = await analyzeComments(files);
-  const { commentRatios, excessiveComments } = commentAnalysis;
-  
-  // Calculate overall score (0-100) based on metrics
-  const overallScore = calculateOverallScore(
-    complexity,
-    longFunctions,
-    duplications,
-    commentRatios
-  );
-  
-  return {
-    complexity,
-    longFunctions,
-    duplications,
-    commentRatios,
-    excessiveComments,
-    overallScore
-  };
+  excludePaths: string[] = []
+): Promise<CodeQualityResult> {
+  try {
+    // Map file extensions to language-specific analyzers
+    const fileExtensions = new Map<string, boolean>([
+      ['.js', true],
+      ['.ts', true],
+      ['.jsx', true],
+      ['.tsx', true],
+      ['.py', true],
+      ['.java', true],
+      ['.kt', true],
+      ['.swift', true],
+      ['.go', true],
+      ['.rs', true],
+      ['.cpp', true],
+      ['.cc', true],
+      ['.c', true],
+      ['.h', true],
+      ['.hpp', true],
+      ['.cs', true],
+      ['.php', true],
+      ['.rb', true],
+    ]);
+
+    // Collect all code files
+    const files = await collectCodeFiles(repositoryPath, fileExtensions, excludePaths);
+
+    // Load file contents
+    const filesContent = new Map<string, string>();
+
+    for (const filePath of files) {
+      try {
+        const content = await fs.promises.readFile(filePath, 'utf8');
+        filesContent.set(filePath, content);
+      } catch (error) {
+        logError(`Error reading file: ${filePath}`, 'repo-analyzer', '1.0.0', error as Error);
+      }
+    }
+
+    logInfo(`Analyzing code quality for ${filesContent.size} files`, 'repo-analyzer', '1.0.0');
+
+    // Analyze function length
+    const longFunctions: { file: string; function: string; lineCount: number }[] = [];
+
+    for (const [filePath, content] of filesContent.entries()) {
+      try {
+        const longFunctionsInFile = analyzeFunctionLength(content, filePath);
+        longFunctions.push(...longFunctionsInFile);
+      } catch (error) {
+        logError(`Error analyzing function length in file: ${filePath}`, 'repo-analyzer', '1.0.0', error as Error);
+      }
+    }
+
+    // Analyze code duplication
+    let duplications: { sourceFile: string; targetFile: string; lineCount: number; similarity: number }[] = [];
+
+    try {
+      duplications = analyzeCodeDuplication(filesContent);
+    } catch (error) {
+      logError('Error analyzing code duplication', 'repo-analyzer', '1.0.0', error as Error);
+    }
+
+    // Calculate comment ratios
+    const commentRatios: Record<string, { codeLines: number; commentLines: number; ratio: number }> = {};
+
+    for (const [filePath, content] of filesContent.entries()) {
+      try {
+        const { codeLines, commentLines, ratio } = calculateCommentRatio(content);
+        commentRatios[filePath] = { codeLines, commentLines, ratio };
+      } catch (error) {
+        logError(`Error calculating comment ratio in file: ${filePath}`, 'repo-analyzer', '1.0.0', error as Error);
+      }
+    }
+
+    // Calculate overall score
+    let overallScore = 100;
+
+    // Deduct points for long functions
+    overallScore -= Math.min(20, longFunctions.length * 2);
+
+    // Deduct points for duplications
+    overallScore -= Math.min(20, duplications.length * 5);
+
+    // Adjust for low comment ratio
+    const avgCommentRatio =
+      Object.values(commentRatios).reduce((sum, { ratio }) => sum + ratio, 0) /
+      Math.max(1, Object.values(commentRatios).length);
+
+    if (avgCommentRatio < 0.1) {
+      overallScore -= 10;
+    }
+
+    // Ensure score is within range
+    overallScore = Math.max(0, Math.min(100, overallScore));
+
+    return {
+      overallScore,
+      longFunctions: longFunctions.length > 0 ? longFunctions : undefined,
+      duplications: duplications.length > 0 ? duplications : undefined,
+      commentRatios,
+    };
+  } catch (error) {
+    logError('Error analyzing code quality', 'repo-analyzer', '1.0.0', error as Error);
+
+    // Return minimal result
+    return {
+      overallScore: 0,
+    };
+  }
 }
 
 /**
- * Calculate overall code quality score based on all metrics
- * 
- * @param complexity - Complexity metrics
- * @param longFunctions - Long functions metrics
- * @param duplications - Code duplication metrics
- * @param commentRatios - Comment ratio metrics
- * @returns Overall score (0-100)
+ * Collect code files from a repository
+ *
+ * @param dir - Directory to scan
+ * @param fileExtensions - Map of file extensions to include
+ * @param excludePaths - Paths to exclude from scan
+ * @returns Array of file paths
  */
-function calculateOverallScore(
-  complexity: Record<string, number>,
-  longFunctions: LongFunction[],
-  duplications: CodeDuplication[],
-  commentRatios: Record<string, CommentRatio>
-): number {
-  // Calculate complexity score (lower is better)
-  const complexityValues = Object.values(complexity);
-  const avgComplexity = complexityValues.length > 0
-    ? complexityValues.reduce((sum, value) => sum + value, 0) / complexityValues.length
-    : 0;
-  // Score decreases as complexity increases (ideal < 10)
-  const complexityScore = Math.max(0, 100 - (avgComplexity - 5) * 5);
-  
-  // Calculate long functions score (fewer is better)
-  const longFunctionsRatio = Object.keys(complexity).length > 0
-    ? longFunctions.length / Object.keys(complexity).length
-    : 0;
-  // Score decreases as percentage of long functions increases
-  const longFunctionsScore = Math.max(0, 100 - longFunctionsRatio * 500);
-  
-  // Calculate duplication score (lower is better)
-  const totalDuplicatedLines = duplications.reduce((sum, dup) => sum + dup.lineCount, 0);
-  const totalLinesOfCode = Object.values(commentRatios).reduce((sum, ratio) => sum + ratio.codeLines, 0);
-  const duplicationRatio = totalLinesOfCode > 0 ? totalDuplicatedLines / totalLinesOfCode : 0;
-  // Score decreases as duplication increases
-  const duplicationScore = Math.max(0, 100 - duplicationRatio * 500);
-  
-  // Calculate comment ratio score (balanced is better)
-  let commentScoreSum = 0;
-  const files = Object.keys(commentRatios);
-  for (const file of files) {
-    const ratio = commentRatios[file].ratio;
-    // Ideal ratio is around 0.2 (20% comments)
-    // Score reduces if too few or too many comments
-    const fileCommentScore = 100 - Math.min(100, Math.abs(ratio - 0.2) * 200);
-    commentScoreSum += fileCommentScore;
+async function collectCodeFiles(
+  dir: string,
+  fileExtensions: Map<string, boolean>,
+  excludePaths: string[] = []
+): Promise<string[]> {
+  const files: string[] = [];
+
+  // Standard directories to exclude
+  const standardExcludes = [
+    'node_modules',
+    '.git',
+    'dist',
+    'build',
+    'coverage',
+    'lib',
+    'bin',
+    'vendor',
+    'bower_components',
+  ];
+
+  // Add standard excludes if not already present
+  for (const exclude of standardExcludes) {
+    if (!excludePaths.includes(exclude)) {
+      excludePaths.push(exclude);
+    }
   }
-  const commentScore = files.length > 0 ? commentScoreSum / files.length : 100;
-  
-  // Calculate weighted average for overall score
-  // Complexity and duplication are more critical than other metrics
-  return Math.round(
-    (complexityScore * 0.4) +
-    (longFunctionsScore * 0.2) +
-    (duplicationScore * 0.3) +
-    (commentScore * 0.1)
-  );
+
+  async function scanDir(currentDir: string): Promise<void> {
+    const entries = await fs.promises.readdir(currentDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const entryPath = path.join(currentDir, entry.name);
+
+      // Skip excluded paths
+      if (excludePaths.some((exclude) => entryPath.includes(exclude))) {
+        continue;
+      }
+
+      if (entry.isDirectory()) {
+        await scanDir(entryPath);
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name);
+
+        if (fileExtensions.has(ext)) {
+          files.push(entryPath);
+        }
+      }
+    }
+  }
+
+  await scanDir(dir);
+  return files;
+}
+
+/**
+ * Calculate comment ratio for source code
+ *
+ * @param content - Source code content
+ * @returns Comment ratio metrics
+ */
+function calculateCommentRatio(content: string): {
+  codeLines: number;
+  commentLines: number;
+  ratio: number;
+} {
+  const lines = content.split('\n');
+  let codeLines = 0;
+  let commentLines = 0;
+  let inMultilineComment = false;
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+
+    // Skip empty lines
+    if (trimmedLine === '') {
+      continue;
+    }
+
+    // Check for multiline comment
+    if (inMultilineComment) {
+      commentLines++;
+
+      if (trimmedLine.includes('*/')) {
+        inMultilineComment = false;
+
+        // Check if there's code after the closing comment
+        const codePart = trimmedLine.split('*/')[1]?.trim();
+
+        if (codePart && codePart !== '' && !codePart.startsWith('//')) {
+          codeLines++;
+        }
+      }
+
+      continue;
+    }
+
+    // Check for single-line comment
+    if (trimmedLine.startsWith('//')) {
+      commentLines++;
+      continue;
+    }
+
+    // Check for multi-line comment start
+    if (trimmedLine.startsWith('/*')) {
+      commentLines++;
+
+      if (!trimmedLine.includes('*/')) {
+        inMultilineComment = true;
+      }
+
+      continue;
+    }
+
+    // Check for code line with trailing comment
+    if (trimmedLine.includes('//')) {
+      codeLines++;
+      commentLines++;
+      continue;
+    }
+
+    // Regular code line
+    codeLines++;
+  }
+
+  const total = codeLines + commentLines;
+  const ratio = total > 0 ? commentLines / total : 0;
+
+  return {
+    codeLines,
+    commentLines,
+    ratio,
+  };
 }

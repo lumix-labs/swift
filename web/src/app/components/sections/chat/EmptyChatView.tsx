@@ -1,8 +1,8 @@
 "use client";
 
-import React from 'react';
-import { HeroSection } from '../hero/HeroSection';
-import { SuggestedPrompts } from './SuggestedPrompts';
+import React from "react";
+import { HeroSection } from "../hero/HeroSection";
+import { SuggestedPrompts } from "./SuggestedPrompts";
 
 interface EmptyChatViewProps {
   onSelectPrompt: (prompt: string) => void;

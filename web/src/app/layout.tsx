@@ -17,11 +17,13 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Swift — Talk to your codebase",
-  description: "Swift is an AI tool that helps developers understand, navigate, and modify their codebase through natural language.",
-  metadataBase: new URL('https://swift.com'),
+  description:
+    "Swift is an AI tool that helps developers understand, navigate, and modify their codebase through natural language.",
+  metadataBase: new URL("https://swift.com"),
   openGraph: {
     title: "Swift — Talk to your codebase",
-    description: "Swift is an AI tool that helps developers understand, navigate, and modify their codebase through natural language.",
+    description:
+      "Swift is an AI tool that helps developers understand, navigate, and modify their codebase through natural language.",
     type: "website",
     url: "https://swift.com",
     images: [{ url: "/swift-og.png", width: 1200, height: 630, alt: "Swift" }],
@@ -29,7 +31,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Swift — Talk to your codebase",
-    description: "Swift is an AI tool that helps developers understand, navigate, and modify their codebase through natural language.",
+    description:
+      "Swift is an AI tool that helps developers understand, navigate, and modify their codebase through natural language.",
     images: ["/swift-og.png"],
   },
   robots: {
@@ -49,15 +52,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased text-black dark:text-white bg-white dark:bg-black`}
       >
-        <link
-          rel="icon"
-          href="/favicon.svg"
-          type="image/svg+xml"
-          key="favicon"
-        />
-        <ClientThemeProvider>
-          {children}
-        </ClientThemeProvider>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" key="favicon" />
+        <ClientThemeProvider>{children}</ClientThemeProvider>
       </body>
     </html>
   );

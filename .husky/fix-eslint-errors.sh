@@ -2,34 +2,70 @@
 
 ROOT_DIR=$(git rev-parse --show-toplevel)
 
-# This script can be customized to fix common ESLint errors in your codebase
-# Examples below are placeholders - update based on your actual code patterns
+# Color definitions for output
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
 # Fix common issues in API
 if [ -d "$ROOT_DIR/api/src" ]; then
-  echo "Fixing common issues in API..."
-  # Example fixes:
-  # - Unused variable fixes
-  # - Import fixes
-  # - etc.
+  echo -e "${BLUE}Fixing common issues in API...${NC}"
+  
+  # Run ESLint with auto-fix
+  if [ -f "$ROOT_DIR/api/package.json" ]; then
+    echo -e "${YELLOW}Running ESLint auto-fix for API...${NC}"
+    cd "$ROOT_DIR/api" && npx eslint --fix 'src/**/*.{js,ts}'
+  fi
+  
+  # Run Prettier to fix formatting including line length
+  if [ -f "$ROOT_DIR/api/package.json" ]; then
+    echo -e "${YELLOW}Running Prettier for API to fix formatting and line length...${NC}"
+    cd "$ROOT_DIR/api" && npx prettier --write --print-width 120 'src/**/*.{js,ts,json}'
+  fi
 fi
 
 # Fix common issues in Web
 if [ -d "$ROOT_DIR/web/src" ]; then
-  echo "Fixing common issues in Web..."
-  # Example fixes:
-  # - React hooks dependencies
-  # - Unused imports
-  # - etc.
+  echo -e "${BLUE}Fixing common issues in Web...${NC}"
+  
+  # Run ESLint with auto-fix
+  if [ -f "$ROOT_DIR/web/package.json" ]; then
+    echo -e "${YELLOW}Running ESLint auto-fix for Web...${NC}"
+    cd "$ROOT_DIR/web" && npx eslint --fix 'src/**/*.{js,ts,jsx,tsx}'
+  fi
+  
+  # Run Prettier to fix formatting including line length
+  if [ -f "$ROOT_DIR/web/package.json" ]; then
+    echo -e "${YELLOW}Running Prettier for Web to fix formatting and line length...${NC}"
+    cd "$ROOT_DIR/web" && npx prettier --write --print-width 120 'src/**/*.{js,ts,jsx,tsx,json}'
+  fi
+  
+  # Fix React hook dependencies issues
+  if [ -f "$ROOT_DIR/web/package.json" ]; then
+    echo -e "${YELLOW}Checking React hook dependencies in Web...${NC}"
+    cd "$ROOT_DIR/web" && npx eslint --fix 'src/**/*.{jsx,tsx}' --rule 'react-hooks/exhaustive-deps: error'
+  fi
 fi
 
 # Fix common issues in MCP-Server
 if [ -d "$ROOT_DIR/mcp-server/src" ]; then
-  echo "Fixing common issues in MCP-Server..."
-  # Example fixes:
-  # - Type issues
-  # - Unused variables
-  # - etc.
+  echo -e "${BLUE}Fixing common issues in MCP-Server...${NC}"
+  
+  # Run ESLint with auto-fix
+  if [ -f "$ROOT_DIR/mcp-server/package.json" ]; then
+    echo -e "${YELLOW}Running ESLint auto-fix for MCP-Server...${NC}"
+    cd "$ROOT_DIR/mcp-server" && npx eslint --fix 'src/**/*.{js,ts}'
+  fi
+  
+  # Run Prettier to fix formatting including line length
+  if [ -f "$ROOT_DIR/mcp-server/package.json" ]; then
+    echo -e "${YELLOW}Running Prettier for MCP-Server to fix formatting and line length...${NC}"
+    cd "$ROOT_DIR/mcp-server" && npx prettier --write --print-width 120 'src/**/*.{js,ts,json}'
+  fi
 fi
 
-echo "ESLint errors fixed!"
+# Re-add all changed files back to staging
+git diff --name-only | xargs git add
+
+echo -e "${GREEN}ESLint errors fixed!${NC}"

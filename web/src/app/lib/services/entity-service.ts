@@ -1,17 +1,17 @@
 "use client";
 
-import { Repository, LLMModel, LLMProvider } from '../types/entities';
+import { Repository, LLMModel, LLMProvider } from "../types/entities";
 
 // Local storage keys
-const REPOSITORIES_KEY = 'swift_repositories';
-const MODELS_KEY = 'swift_models';
+const REPOSITORIES_KEY = "swift_repositories";
+const MODELS_KEY = "swift_models";
 
 // Generate a unique ID
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
 // Repository related functions
 export const getRepositories = (): Repository[] => {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return [];
   }
 
@@ -19,7 +19,7 @@ export const getRepositories = (): Repository[] => {
     const storedRepos = localStorage.getItem(REPOSITORIES_KEY);
     return storedRepos ? JSON.parse(storedRepos) : [];
   } catch (error) {
-    console.error('Error loading repositories:', error);
+    console.error("Error loading repositories:", error);
     return [];
   }
 };
@@ -27,21 +27,21 @@ export const getRepositories = (): Repository[] => {
 export const addRepository = (url: string): Repository => {
   // Extract organization and repo name from URL
   const match = url.match(/github\.com\/([\w-]+)\/([\w.-]+)\/?$/);
-  const orgName = match ? match[1] : '';
-  const repoName = match ? match[2] : '';
+  const orgName = match ? match[1] : "";
+  const repoName = match ? match[2] : "";
   const fullName = orgName && repoName ? `${orgName}/${repoName}` : `Repository ${new Date().toISOString()}`;
 
   const newRepo: Repository = {
     id: generateId(),
     name: fullName,
-    url
+    url,
   };
 
   try {
     const repos = getRepositories();
     localStorage.setItem(REPOSITORIES_KEY, JSON.stringify([...repos, newRepo]));
   } catch (error) {
-    console.error('Error saving repository:', error);
+    console.error("Error saving repository:", error);
   }
 
   return newRepo;
@@ -50,16 +50,16 @@ export const addRepository = (url: string): Repository => {
 export const removeRepository = (id: string): void => {
   try {
     const repos = getRepositories();
-    const updatedRepos = repos.filter(repo => repo.id !== id);
+    const updatedRepos = repos.filter((repo) => repo.id !== id);
     localStorage.setItem(REPOSITORIES_KEY, JSON.stringify(updatedRepos));
   } catch (error) {
-    console.error('Error removing repository:', error);
+    console.error("Error removing repository:", error);
   }
 };
 
 // Model related functions
 export const getModels = (): LLMModel[] => {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return [];
   }
 
@@ -67,29 +67,27 @@ export const getModels = (): LLMModel[] => {
     const storedModels = localStorage.getItem(MODELS_KEY);
     return storedModels ? JSON.parse(storedModels) : [];
   } catch (error) {
-    console.error('Error loading models:', error);
+    console.error("Error loading models:", error);
     return [];
   }
 };
 
 export const addModel = (provider: LLMProvider, apiKey: string): LLMModel => {
   // Generate model name based on provider without the date part
-  const modelName = provider === 'gemini'
-    ? 'Gemini 1.5 Flash'
-    : 'Claude 3 Haiku';
+  const modelName = provider === "gemini" ? "Gemini 1.5 Flash" : "Claude 3 Haiku";
 
   const newModel: LLMModel = {
     id: generateId(),
     name: modelName,
     provider,
-    apiKey
+    apiKey,
   };
 
   try {
     const models = getModels();
     localStorage.setItem(MODELS_KEY, JSON.stringify([...models, newModel]));
   } catch (error) {
-    console.error('Error saving model:', error);
+    console.error("Error saving model:", error);
   }
 
   return newModel;
@@ -98,9 +96,9 @@ export const addModel = (provider: LLMProvider, apiKey: string): LLMModel => {
 export const removeModel = (id: string): void => {
   try {
     const models = getModels();
-    const updatedModels = models.filter(model => model.id !== id);
+    const updatedModels = models.filter((model) => model.id !== id);
     localStorage.setItem(MODELS_KEY, JSON.stringify(updatedModels));
   } catch (error) {
-    console.error('Error removing model:', error);
+    console.error("Error removing model:", error);
   }
 };

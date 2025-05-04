@@ -1,15 +1,9 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { LLMModel, Repository } from '../../lib/types/entities';
-import { 
-  getModels, 
-  getRepositories 
-} from '../../lib/services/entity-service';
-import { 
-  getDownloadedRepository, 
-  isRepositoryDownloaded 
-} from '../../lib/services/repo-download-service';
+import { useEffect, useState } from "react";
+import { LLMModel, Repository } from "../../lib/types/entities";
+import { getModels, getRepositories } from "../../lib/services/entity-service";
+import { getDownloadedRepository, isRepositoryDownloaded } from "../../lib/services/repo-download-service";
 
 interface DownloadedRepository extends Repository {
   localPath?: string;
@@ -18,10 +12,7 @@ interface DownloadedRepository extends Repository {
   size?: number;
 }
 
-export function useEntitySelection(
-  selectedModelId: string | null,
-  selectedRepositoryId: string | null
-) {
+export function useEntitySelection(selectedModelId: string | null, selectedRepositoryId: string | null) {
   const [currentModel, setCurrentModel] = useState<LLMModel | null>(null);
   const [currentRepo, setCurrentRepo] = useState<Repository | null>(null);
   const [downloadedRepo, setDownloadedRepo] = useState<DownloadedRepository | null>(null);
@@ -31,7 +22,7 @@ export function useEntitySelection(
   useEffect(() => {
     if (selectedModelId) {
       const models = getModels();
-      const model = models.find(m => m.id === selectedModelId) || null;
+      const model = models.find((m) => m.id === selectedModelId) || null;
       setCurrentModel(model);
     } else {
       setCurrentModel(null);
@@ -42,9 +33,9 @@ export function useEntitySelection(
   useEffect(() => {
     if (selectedRepositoryId) {
       const repos = getRepositories();
-      const repo = repos.find(r => r.id === selectedRepositoryId) || null;
+      const repo = repos.find((r) => r.id === selectedRepositoryId) || null;
       setCurrentRepo(repo);
-      
+
       // Check if repository is downloaded
       if (repo && isRepositoryDownloaded(repo.id)) {
         const downloaded = getDownloadedRepository(repo.id) as DownloadedRepository | null;
@@ -67,6 +58,6 @@ export function useEntitySelection(
     downloadedRepo,
     repositoryReady,
     setRepositoryReady,
-    setDownloadedRepo
+    setDownloadedRepo,
   };
 }

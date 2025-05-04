@@ -1,6 +1,6 @@
 /**
  * Security Analyzers Index
- * 
+ *
  * This module exports all security analyzers
  */
 

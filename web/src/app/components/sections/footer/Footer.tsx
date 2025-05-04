@@ -9,18 +9,12 @@ export function Footer() {
           {/* Terms and Copyright */}
           <div className="flex flex-col sm:flex-row justify-between items-center text-sm text-gray-600 dark:text-gray-400">
             <p>
-              By messaging Swift, you agree to our{' '}
-              <a
-                href="#"
-                className="underline hover:text-black dark:hover:text-white transition-colors"
-              >
+              By messaging Swift, you agree to our{" "}
+              <a href="#" className="underline hover:text-black dark:hover:text-white transition-colors">
                 Terms
-              </a>{' '}
-              and have read our{' '}
-              <a
-                href="#"
-                className="underline hover:text-black dark:hover:text-white transition-colors"
-              >
+              </a>{" "}
+              and have read our{" "}
+              <a href="#" className="underline hover:text-black dark:hover:text-white transition-colors">
                 Privacy Policy
               </a>
             </p>

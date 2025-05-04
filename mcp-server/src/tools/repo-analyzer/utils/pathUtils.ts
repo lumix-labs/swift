@@ -12,7 +12,7 @@ const CONTEXT_MODULE = 'repo-analyzer';
 
 /**
  * Validates a repository path and ensures it exists
- * 
+ *
  * @param repositoryPath - Path to validate
  * @throws Error if the path does not exist or is not a directory
  */
@@ -21,24 +21,25 @@ export function validateRepositoryPath(repositoryPath: string): void {
   if (!fs.existsSync(repositoryPath)) {
     throw new Error(`Repository path does not exist: ${repositoryPath}`);
   }
-  
+
   // Check if path is a directory
   if (!fs.statSync(repositoryPath).isDirectory()) {
     throw new Error(`Repository path is not a directory: ${repositoryPath}`);
   }
-  
+
   // Optional: Check if it's actually a git repository
   const gitPath = path.join(repositoryPath, '.git');
   if (!fs.existsSync(gitPath)) {
-    logWarning(`Path does not appear to be a git repository (no .git directory): ${repositoryPath}`, 
-      SERVICE_NAME, 
-      SERVICE_VERSION, 
+    logWarning(
+      `Path does not appear to be a git repository (no .git directory): ${repositoryPath}`,
+      SERVICE_NAME,
+      SERVICE_VERSION,
       {
         context: {
           module: CONTEXT_MODULE,
           function: 'validateRepositoryPath',
-          repositoryPath
-        }
+          repositoryPath,
+        },
       }
     );
   }
@@ -46,7 +47,7 @@ export function validateRepositoryPath(repositoryPath: string): void {
 
 /**
  * Resolves a relative path within a repository
- * 
+ *
  * @param repositoryPath - Base repository path
  * @param relativePath - Relative path within the repository
  * @returns Absolute path
@@ -57,7 +58,7 @@ export function resolveRepositoryPath(repositoryPath: string, relativePath: stri
 
 /**
  * Gets the relative path from repository root
- * 
+ *
  * @param repositoryPath - Repository root path
  * @param absolutePath - Absolute file path
  * @returns Relative path from repository root

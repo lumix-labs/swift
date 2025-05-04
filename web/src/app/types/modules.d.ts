@@ -1,4 +1,4 @@
-declare module 'marked' {
+declare module "marked" {
   export function marked(src: string, options?: Record<string, unknown>): string;
   export class Renderer {
     code: (code: string, language: string, isEscaped: boolean) => string;
@@ -11,7 +11,7 @@ declare module 'marked' {
     paragraph: (text: string) => string;
     table: (header: string, body: string) => string;
     tablerow: (content: string) => string;
-    tablecell: (content: string, flags: {header: boolean, align: string}) => string;
+    tablecell: (content: string, flags: { header: boolean; align: string }) => string;
     strong: (text: string) => string;
     em: (text: string) => string;
     codespan: (text: string) => string;
@@ -24,7 +24,7 @@ declare module 'marked' {
   export const parser: Record<string, unknown>;
 }
 
-declare module 'dompurify' {
+declare module "dompurify" {
   interface DOMPurifyOptions {
     ALLOWED_TAGS?: string[];
     ALLOWED_ATTR?: string[];

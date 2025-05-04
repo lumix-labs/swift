@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Modal } from './Modal';
-import { LLMProvider } from '../../../lib/types/entities';
+import React, { useState } from "react";
+import { Modal } from "./Modal";
+import { LLMProvider } from "../../../lib/types/entities";
 
 interface AddRepositoryModalProps {
   isOpen: boolean;
@@ -17,13 +17,13 @@ interface AddModelModalProps {
 }
 
 export function AddRepositoryModal({ isOpen, onClose, onSave }: AddRepositoryModalProps) {
-  const [repoUrl, setRepoUrl] = useState('');
+  const [repoUrl, setRepoUrl] = useState("");
   const [isValid, setIsValid] = useState(false);
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
     setRepoUrl(url);
-    
+
     // Simple GitHub URL validation
     const isValidUrl = /^https:\/\/github\.com\/[\w-]+\/[\w.-]+\/?$/.test(url);
     setIsValid(isValidUrl);
@@ -33,7 +33,7 @@ export function AddRepositoryModal({ isOpen, onClose, onSave }: AddRepositoryMod
     e.preventDefault();
     if (isValid) {
       onSave(repoUrl);
-      setRepoUrl('');
+      setRepoUrl("");
       onClose();
     }
   };
@@ -55,9 +55,7 @@ export function AddRepositoryModal({ isOpen, onClose, onSave }: AddRepositoryMod
             autoFocus
           />
           {repoUrl && !isValid && (
-            <p className="mt-1 text-sm text-red-500">
-              Please enter a valid GitHub repository URL
-            </p>
+            <p className="mt-1 text-sm text-red-500">Please enter a valid GitHub repository URL</p>
           )}
         </div>
         <div className="flex justify-end space-x-2">
@@ -82,18 +80,18 @@ export function AddRepositoryModal({ isOpen, onClose, onSave }: AddRepositoryMod
 }
 
 export function AddModelModal({ isOpen, onClose, onSave }: AddModelModalProps) {
-  const [provider, setProvider] = useState<LLMProvider>('gemini');
-  const [apiKey, setApiKey] = useState('');
+  const [provider, setProvider] = useState<LLMProvider>("gemini");
+  const [apiKey, setApiKey] = useState("");
   const [isValid, setIsValid] = useState(false);
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const key = e.target.value;
     setApiKey(key);
-    
+
     // Simple validation based on provider
-    if (provider === 'gemini') {
+    if (provider === "gemini") {
       setIsValid(/^AIza[0-9A-Za-z-_]{35}$/.test(key));
-    } else if (provider === 'anthropic') {
+    } else if (provider === "anthropic") {
       setIsValid(/^sk-ant-api[0-9A-Za-z]{24,}$/.test(key));
     }
   };
@@ -101,14 +99,14 @@ export function AddModelModal({ isOpen, onClose, onSave }: AddModelModalProps) {
   const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setProvider(e.target.value as LLMProvider);
     setIsValid(false); // Reset validation when provider changes
-    setApiKey(''); // Clear API key when provider changes
+    setApiKey(""); // Clear API key when provider changes
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isValid) {
       onSave(provider, apiKey);
-      setApiKey('');
+      setApiKey("");
       onClose();
     }
   };
@@ -139,12 +137,12 @@ export function AddModelModal({ isOpen, onClose, onSave }: AddModelModalProps) {
             id="apiKey"
             value={apiKey}
             onChange={handleApiKeyChange}
-            placeholder={provider === 'gemini' ? 'AIza...' : 'sk-ant-api...'}
+            placeholder={provider === "gemini" ? "AIza..." : "sk-ant-api..."}
             className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           />
           {apiKey && !isValid && (
             <p className="mt-1 text-sm text-red-500">
-              Please enter a valid {provider === 'gemini' ? 'Gemini' : 'Anthropic'} API key
+              Please enter a valid {provider === "gemini" ? "Gemini" : "Anthropic"} API key
             </p>
           )}
         </div>

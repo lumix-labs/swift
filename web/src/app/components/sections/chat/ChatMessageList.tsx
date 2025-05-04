@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useRef, useEffect } from 'react';
-import { useChat } from '../../../context/ChatContext';
-import { useTheme } from '../../../context/ThemeContext';
-import { ChatMessage } from './ChatMessage';
-import { EmptyChatView } from './EmptyChatView';
+import React, { useRef, useEffect } from "react";
+import { useChat } from "../../../context/ChatContext";
+import { useTheme } from "../../../context/ThemeContext";
+import { ChatMessage } from "./ChatMessage";
+import { EmptyChatView } from "./EmptyChatView";
 
 export function ChatMessageList() {
   const { messages, addMessage } = useChat();
@@ -25,8 +25,8 @@ export function ChatMessageList() {
   // Handle selecting a suggested prompt
   const handleSelectPrompt = (prompt: string) => {
     addMessage({
-      role: 'user' as const,
-      content: prompt
+      role: "user" as const,
+      content: prompt,
     });
   };
 
@@ -35,10 +35,10 @@ export function ChatMessageList() {
       {messages.length === 0 ? (
         <EmptyChatView onSelectPrompt={handleSelectPrompt} />
       ) : (
-        <div 
+        <div
           ref={scrollContainerRef}
           className={`max-w-4xl mx-auto h-full overflow-y-auto scrollbar-${resolvedTheme}`}
-          style={{ overflowX: 'hidden' }}
+          style={{ overflowX: "hidden" }}
         >
           {messages.map((message, index) => (
             <div key={index} className="py-2">

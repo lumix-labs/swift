@@ -8,22 +8,25 @@ export function useDropdown() {
 
   const toggleDropdown = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setShow(prev => !prev);
+    setShow((prev) => !prev);
   }, []);
 
-  const handleClickOutside = useCallback((e: MouseEvent) => {
-    if (show && dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-      setShow(false);
-    }
-  }, [show]);
+  const handleClickOutside = useCallback(
+    (e: MouseEvent) => {
+      if (show && dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShow(false);
+      }
+    },
+    [show],
+  );
 
   // Set up click outside listener
   useEffect(() => {
     if (show) {
-      document.addEventListener('click', handleClickOutside);
+      document.addEventListener("click", handleClickOutside);
     }
     return () => {
-      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener("click", handleClickOutside);
     };
   }, [show, handleClickOutside]);
 
@@ -31,6 +34,6 @@ export function useDropdown() {
     show,
     setShow,
     dropdownRef,
-    toggleDropdown
+    toggleDropdown,
   };
 }

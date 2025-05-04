@@ -12,30 +12,27 @@ const CONTEXT_MODULE = 'repo-analyzer';
 
 /**
  * Checks if a path should be excluded from analysis
- * 
+ *
  * @param filePath - The file path to check
  * @param excludePaths - List of paths to exclude
  * @returns True if the path should be excluded, false otherwise
  */
 export function shouldExcludePath(filePath: string, excludePaths: string[]): boolean {
-  return excludePaths.some(excludePath => 
-    filePath.includes(`/${excludePath}/`) || filePath.endsWith(`/${excludePath}`)
+  return excludePaths.some(
+    (excludePath) => filePath.includes(`/${excludePath}/`) || filePath.endsWith(`/${excludePath}`)
   );
 }
 
 /**
  * Recursively scan a directory and collect all file paths
- * 
+ *
  * @param directoryPath - The directory to scan
  * @param excludePaths - Paths to exclude from scanning
  * @returns Array of file paths
  */
-export async function scanDirectory(
-  directoryPath: string, 
-  excludePaths: string[] = []
-): Promise<string[]> {
+export async function scanDirectory(directoryPath: string, excludePaths: string[] = []): Promise<string[]> {
   const files: string[] = [];
-  
+
   // Ensure the directory exists
   if (!fs.existsSync(directoryPath)) {
     throw new Error(`Directory not found: ${directoryPath}`);
@@ -43,16 +40,16 @@ export async function scanDirectory(
 
   // Get all entries in the directory
   const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
-  
+
   // Process each entry
   for (const entry of entries) {
     const entryPath = path.join(directoryPath, entry.name);
-    
+
     // Skip excluded paths
     if (shouldExcludePath(entryPath, excludePaths)) {
       continue;
     }
-    
+
     if (entry.isDirectory()) {
       // Recursively scan subdirectories
       const subDirectoryFiles = await scanDirectory(entryPath, excludePaths);
@@ -62,13 +59,13 @@ export async function scanDirectory(
       files.push(entryPath);
     }
   }
-  
+
   return files;
 }
 
 /**
  * Count the number of lines in a file
- * 
+ *
  * @param filePath - Path to the file
  * @returns Number of lines in the file
  */
@@ -83,8 +80,8 @@ export function countLinesInFile(filePath: string): number {
       context: {
         module: CONTEXT_MODULE,
         function: 'countLinesInFile',
-        filePath
-      }
+        filePath,
+      },
     });
     return 0;
   }
@@ -92,7 +89,7 @@ export function countLinesInFile(filePath: string): number {
 
 /**
  * Get file extension from path
- * 
+ *
  * @param filePath - Path to the file
  * @returns The file extension (without the dot)
  */

@@ -5,10 +5,10 @@ import { logInfo } from '../../utils/logFormatter.js';
 
 /**
  * Analytics Storage Tools
- * 
+ *
  * Provides methods to store and retrieve analytics data from tools
  * like repository analyzer and security analyzer in a standardized format.
- * 
+ *
  * Migrated to use BaseTool architecture for standardized registration
  * and analytics collection.
  */
@@ -20,15 +20,15 @@ export function registerAnalyticsStorageTool(server: McpServer) {
   const TOOL_NAME = 'analytics-storage';
   const SERVICE_NAME = 'swift-mcp-service';
   const SERVICE_VERSION = '1.0.0';
-  
+
   // Create and register the store-analytics tool
   const storeAnalyticsTool = new StoreAnalyticsTool();
   storeAnalyticsTool.register(server);
-  
+
   // Create and register the get-analytics tool
   const getAnalyticsTool = new GetAnalyticsTool();
   getAnalyticsTool.register(server);
-  
+
   logInfo(`${TOOL_NAME} tools registered successfully`, SERVICE_NAME, SERVICE_VERSION);
 }
 

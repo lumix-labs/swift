@@ -3,6 +3,7 @@ import { logInfo, logError } from '../../../utils/logFormatter.js';
 
 /**
  * Interface for repository analyzer results
+ * Adding index signature to make it satisfy Record<string, unknown>
  */
 export interface RepoAnalyzerResults {
   repositoryPath: string;
@@ -34,6 +35,7 @@ export interface RepoAnalyzerResults {
       lineCount: number;
       similarity: number;
     }>;
+    commentRatios?: Record<string, { codeLines: number }>; // Added missing property
   };
   dependencies?: {
     dependencies?: Array<{
@@ -51,29 +53,31 @@ export interface RepoAnalyzerResults {
     }>;
     isolatedFiles?: Array<string>;
   };
+  // Add index signature to make this type compatible with Record<string, unknown>
+  [key: string]: unknown;
 }
 
 /**
  * Integration with Repository Analyzer tool
- * 
+ *
  * Extracts and stores analytics data from repository analyzer results
- * 
+ *
  * @param analyzerResults - Results from the repo-analyzer tool
  * @returns Result of storage operation or null if failed
  */
 export async function storeRepoAnalyzerResults(analyzerResults: RepoAnalyzerResults): Promise<StorageResult | null> {
   const SERVICE_NAME = 'swift-mcp-service';
   const SERVICE_VERSION = '1.0.0';
-  
+
   try {
     if (!analyzerResults || !analyzerResults.repositoryPath) {
       throw new Error('Invalid analyzer results: missing repository path');
     }
-    
+
     // Extract repository information
     const repoPath = analyzerResults.repositoryPath;
     const repoName = repoPath.split('/').pop() || 'unknown';
-    
+
     // Create analytics collector
     const collector = new AnalyticsCollector(
       'repo-analyzer',
@@ -83,13 +87,13 @@ export async function storeRepoAnalyzerResults(analyzerResults: RepoAnalyzerResu
         // branch and commitHash would be populated in a real implementation
       }
     );
-    
+
     // Extract summary data
     const summaryData: Record<string, unknown> = {
       repositoryPath: repoPath,
       excludePaths: analyzerResults.excludePaths || [],
     };
-    
+
     // Include language metrics if available
     if (analyzerResults.languages) {
       summaryData.languages = {
@@ -99,7 +103,7 @@ export async function storeRepoAnalyzerResults(analyzerResults: RepoAnalyzerResu
         primaryLanguage: analyzerResults.languages.distribution[0]?.language || 'unknown',
       };
     }
-    
+
     // Include code quality metrics if available
     if (analyzerResults.codeQuality) {
       summaryData.codeQuality = {
@@ -109,7 +113,7 @@ export async function storeRepoAnalyzerResults(analyzerResults: RepoAnalyzerResu
         duplicationPercentage: calculateDuplicationPercentage(analyzerResults.codeQuality),
       };
     }
-    
+
     // Include dependency metrics if available
     if (analyzerResults.dependencies) {
       summaryData.dependencies = {
@@ -118,7 +122,7 @@ export async function storeRepoAnalyzerResults(analyzerResults: RepoAnalyzerResu
         external: analyzerResults.dependencies.externalDependencies?.size || 0,
       };
     }
-    
+
     // Include impact analysis if available
     if (analyzerResults.impact) {
       summaryData.impact = {
@@ -126,29 +130,30 @@ export async function storeRepoAnalyzerResults(analyzerResults: RepoAnalyzerResu
         isolatedFiles: analyzerResults.impact.isolatedFiles?.length || 0,
       };
     }
-    
+
     // Store the analytics data
-    const result = await collector.store(summaryData, analyzerResults);
-    
+    const result = await collector.store(summaryData, analyzerResults as Record<string, unknown>);
+
     logInfo(`Stored repo analyzer results for: ${repoName}`, SERVICE_NAME, SERVICE_VERSION, {
       context: {
         repositoryPath: repoPath,
         snapshotId: result.snapshotId,
-      }
+      },
     });
-    
+
     return result;
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    
+
     logError(`Error storing repo analyzer results`, SERVICE_NAME, SERVICE_VERSION, err);
-    
+
     return null;
   }
 }
 
 /**
  * Interface for security analyzer results
+ * Adding index signature to make it satisfy Record<string, unknown>
  */
 export interface SecurityAnalyzerResults {
   repositoryPath: string;
@@ -175,29 +180,33 @@ export interface SecurityAnalyzerResults {
     }>;
   };
   securityScore?: number;
+  // Add index signature to make this type compatible with Record<string, unknown>
+  [key: string]: unknown;
 }
 
 /**
  * Integration with Security Analyzer tool
- * 
+ *
  * Extracts and stores analytics data from security analyzer results
- * 
+ *
  * @param analyzerResults - Results from the security-analyzer tool
  * @returns Result of storage operation or null if failed
  */
-export async function storeSecurityAnalyzerResults(analyzerResults: SecurityAnalyzerResults): Promise<StorageResult | null> {
+export async function storeSecurityAnalyzerResults(
+  analyzerResults: SecurityAnalyzerResults
+): Promise<StorageResult | null> {
   const SERVICE_NAME = 'swift-mcp-service';
   const SERVICE_VERSION = '1.0.0';
-  
+
   try {
     if (!analyzerResults || !analyzerResults.repositoryPath) {
       throw new Error('Invalid analyzer results: missing repository path');
     }
-    
+
     // Extract repository information
     const repoPath = analyzerResults.repositoryPath;
     const repoName = repoPath.split('/').pop() || 'unknown';
-    
+
     // Create analytics collector
     const collector = new AnalyticsCollector(
       'security-analyzer',
@@ -207,13 +216,13 @@ export async function storeSecurityAnalyzerResults(analyzerResults: SecurityAnal
         // branch and commitHash would be populated in a real implementation
       }
     );
-    
+
     // Extract summary data
     const summaryData: Record<string, unknown> = {
       repositoryPath: repoPath,
       excludePaths: analyzerResults.excludePaths || [],
     };
-    
+
     // Include vulnerability metrics if available
     if (analyzerResults.vulnerabilities) {
       summaryData.vulnerabilities = {
@@ -224,7 +233,7 @@ export async function storeSecurityAnalyzerResults(analyzerResults: SecurityAnal
         low: countVulnerabilitiesBySeverity(analyzerResults.vulnerabilities, 'low'),
       };
     }
-    
+
     // Include dependency security metrics if available
     if (analyzerResults.dependencies) {
       summaryData.dependencyVulnerabilities = {
@@ -235,35 +244,35 @@ export async function storeSecurityAnalyzerResults(analyzerResults: SecurityAnal
         low: countDependencyVulnerabilitiesBySeverity(analyzerResults.dependencies, 'low'),
       };
     }
-    
+
     // Include overall security score if available
     if (analyzerResults.securityScore) {
       summaryData.securityScore = analyzerResults.securityScore;
     }
-    
+
     // Store the analytics data
-    const result = await collector.store(summaryData, analyzerResults);
-    
+    const result = await collector.store(summaryData, analyzerResults as Record<string, unknown>);
+
     logInfo(`Stored security analyzer results for: ${repoName}`, SERVICE_NAME, SERVICE_VERSION, {
       context: {
         repositoryPath: repoPath,
         snapshotId: result.snapshotId,
-      }
+      },
     });
-    
+
     return result;
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    
+
     logError(`Error storing security analyzer results`, SERVICE_NAME, SERVICE_VERSION, err);
-    
+
     return null;
   }
 }
 
 /**
  * Calculate code duplication percentage from code quality results
- * 
+ *
  * @param codeQuality - Code quality analysis results
  * @returns Duplication percentage or 0 if not available
  */
@@ -271,19 +280,17 @@ function calculateDuplicationPercentage(codeQuality: RepoAnalyzerResults['codeQu
   if (!codeQuality?.duplications || !codeQuality.duplications.length) {
     return 0;
   }
-  
-  const totalDuplicatedLines = codeQuality.duplications.reduce(
-    (sum: number, dup) => sum + (dup.lineCount || 0), 
-    0
-  );
-  
-  const totalLinesOfCode = Object.values(codeQuality.commentRatios || {})
-    .reduce((sum: number, ratio) => sum + ((ratio as {codeLines?: number}).codeLines || 0), 0);
-  
+
+  const totalDuplicatedLines = codeQuality.duplications.reduce((sum: number, dup) => sum + (dup.lineCount || 0), 0);
+
+  // Fixed comment ratios access
+  const commentRatios = codeQuality.commentRatios || {};
+  const totalLinesOfCode = Object.values(commentRatios).reduce((sum: number, ratio) => sum + (ratio.codeLines || 0), 0);
+
   if (!totalLinesOfCode) {
     return 0;
   }
-  
+
   return parseFloat(((totalDuplicatedLines / totalLinesOfCode) * 100).toFixed(1));
 }
 
@@ -301,21 +308,18 @@ interface VulnerabilityIssue {
 
 /**
  * Count vulnerabilities by severity from vulnerabilities results
- * 
+ *
  * @param vulnerabilities - Vulnerability analysis results
  * @param severity - Severity level to count
  * @returns Count of vulnerabilities at the specified severity
  */
-function countVulnerabilitiesBySeverity(
-  vulnerabilities: { issues?: VulnerabilityIssue[] }, 
-  severity: string
-): number {
+function countVulnerabilitiesBySeverity(vulnerabilities: { issues?: VulnerabilityIssue[] }, severity: string): number {
   if (!vulnerabilities.issues) {
     return 0;
   }
-  
-  return vulnerabilities.issues.filter((issue) => 
-    issue.severity && issue.severity.toLowerCase() === severity.toLowerCase()
+
+  return vulnerabilities.issues.filter(
+    (issue) => issue.severity && issue.severity.toLowerCase() === severity.toLowerCase()
   ).length;
 }
 
@@ -333,20 +337,20 @@ interface DependencyVulnerability {
 
 /**
  * Count dependency vulnerabilities by severity from dependencies results
- * 
+ *
  * @param dependencies - Dependency analysis results
  * @param severity - Severity level to count
  * @returns Count of vulnerabilities at the specified severity
  */
 function countDependencyVulnerabilitiesBySeverity(
-  dependencies: { vulnerabilities?: DependencyVulnerability[] }, 
+  dependencies: { vulnerabilities?: DependencyVulnerability[] },
   severity: string
 ): number {
   if (!dependencies.vulnerabilities) {
     return 0;
   }
-  
-  return dependencies.vulnerabilities.filter((vuln) => 
-    vuln.severity && vuln.severity.toLowerCase() === severity.toLowerCase()
+
+  return dependencies.vulnerabilities.filter(
+    (vuln) => vuln.severity && vuln.severity.toLowerCase() === severity.toLowerCase()
   ).length;
 }

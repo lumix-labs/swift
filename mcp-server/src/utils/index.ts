@@ -1,6 +1,6 @@
 /**
  * Utils Index
- * 
+ *
  * Exports all utility functions and types from the utils directory
  */
 

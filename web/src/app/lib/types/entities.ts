@@ -7,8 +7,8 @@ export interface Repository {
 export interface LLMModel {
   id: string;
   name: string;
-  provider: 'gemini' | 'anthropic';
+  provider: "gemini" | "anthropic";
   apiKey: string;
 }
 
-export type LLMProvider = 'gemini' | 'anthropic';
+export type LLMProvider = "gemini" | "anthropic";

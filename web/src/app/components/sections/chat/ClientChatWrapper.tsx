@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { ChatProvider } from '../../../context/ChatContext';
-import { ChatLayout } from './ChatLayout';
+import { ChatProvider } from "../../../context/ChatContext";
+import { ChatLayout } from "./ChatLayout";
 
 export function ClientChatWrapper() {
   return (
