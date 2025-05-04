@@ -1,419 +1,64 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
-import { useChat } from "../../../context/ChatContext";
-import { useEntitySelection } from "../../../hooks/chat/useEntitySelection";
-import { useMessageSubmission } from "../../../hooks/chat/useMessageSubmission";
+import React, { useRef } from "react";
+import { MessageInput } from "./MessageInput";
+import { InputControls } from "./InputControls";
+import { StatusIndicator } from "./StatusIndicator";
+import { useChatInputState } from "../../../hooks/chat/useChatInputState";
 import { useTextareaResize } from "../../../hooks/chat/useTextareaResize";
-import { useDebounce } from "../../../hooks/useDebounce";
-import { REPO_DOWNLOAD_COMPLETE_EVENT } from "../shared/DownloadButton";
-import { RepositoryStatus, getRepositoryStatus } from "../../../lib/services/repo-download-service";
 
 export function ChatInput() {
-  const { addMessage, isLoading, setIsLoading, selectedModelId, selectedRepositoryId, messages } = useChat();
-
-  // Use custom hooks to manage component state
-  const { currentModel, currentRepo, downloadedRepo, repositoryReady, setRepositoryReady, setDownloadedRepo } =
-    useEntitySelection(selectedModelId, selectedRepositoryId);
-
-  const [userCanSendMessage, setUserCanSendMessage] = useState<boolean>(true);
-  const [waitingForResponse, setWaitingForResponse] = useState<boolean>(false);
-  const [repositoryStatus, setRepositoryStatus] = useState<RepositoryStatus | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Use debounced states to avoid unnecessary re-renders
-  const debouncedIsLoading = useDebounce(isLoading, 300);
-  const debouncedWaitingForResponse = useDebounce(waitingForResponse, 300);
-  const debouncedRepositoryStatus = useDebounce(repositoryStatus, 300);
-
-  // Message submission handling
-  const { message, isSubmitting, handleSubmit, handleMessageChange, handleKeyDown, setMessage } = useMessageSubmission({
-    addMessage,
-    setIsLoading,
+  // Use custom hook to manage input state logic
+  const {
+    message,
+    setMessage,
+    isInputDisabled,
     currentModel,
     currentRepo,
-    downloadedRepo,
     repositoryReady,
-  });
+    repositoryStatus,
+    errorMessage,
+    handleSubmit,
+    handleMessageChange,
+    handleKeyDown,
+    getPlaceholderMessage,
+  } = useChatInputState();
 
+  // Reference to the textarea element
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
   // Get resize functionality for the textarea
   const { resetTextareaHeight, resizeTextarea } = useTextareaResize(textareaRef, message);
 
-  // Reset response waiting state if no response received after a timeout
-  const responseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Listen for prompt suggestions from ChatMessageList
-  useEffect(() => {
-    const handleSetPromptInInput = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      const prompt = customEvent.detail?.prompt;
-
-      if (prompt) {
-        // Set the prompt in the input
-        setMessage(prompt);
-
-        // Focus the textarea
-        if (textareaRef.current) {
-          textareaRef.current.focus();
-          // Place cursor at the end
-          setTimeout(() => {
-            if (textareaRef.current) {
-              textareaRef.current.selectionStart = textareaRef.current.selectionEnd = prompt.length;
-              // Resize the textarea to fit the content
-              resizeTextarea();
-            }
-          }, 50);
-        }
-      }
-    };
-
-    window.addEventListener("setPromptInInput", handleSetPromptInInput);
-
-    return () => {
-      window.removeEventListener("setPromptInInput", handleSetPromptInInput);
-    };
-  }, [setMessage, resizeTextarea]);
-
-  // Check repository status on component load and when selectedRepositoryId changes
-  useEffect(() => {
-    if (selectedRepositoryId) {
-      const status = getRepositoryStatus(selectedRepositoryId);
-      setRepositoryStatus(status);
-
-      // Determine if repository is ready to use
-      if (status === RepositoryStatus.READY) {
-        setRepositoryReady(true);
-        setUserCanSendMessage(true);
-      } else if (status === RepositoryStatus.DOWNLOADING || status === RepositoryStatus.QUEUED) {
-        setRepositoryReady(false);
-        setUserCanSendMessage(false);
-      } else {
-        setRepositoryReady(false);
-      }
-
-      // Set up interval to check status periodically
-      const checkStatusInterval = setInterval(() => {
-        const currentStatus = getRepositoryStatus(selectedRepositoryId);
-        setRepositoryStatus(currentStatus);
-
-        if (currentStatus === RepositoryStatus.READY) {
-          setRepositoryReady(true);
-          setUserCanSendMessage(true);
-          clearInterval(checkStatusInterval);
-        }
-      }, 1000);
-
-      return () => clearInterval(checkStatusInterval);
-    }
-  }, [selectedRepositoryId, setRepositoryReady]);
-
-  // Listen for suggested prompt error events
-  useEffect(() => {
-    const handleSuggestedPromptError = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      setErrorMessage(customEvent.detail?.message || "Cannot use suggestion at this time");
-
-      // Clear error message after a delay
-      if (errorTimeoutRef.current) {
-        clearTimeout(errorTimeoutRef.current);
-      }
-
-      errorTimeoutRef.current = setTimeout(() => {
-        setErrorMessage(null);
-      }, 3000);
-    };
-
-    window.addEventListener("suggestedPromptError", handleSuggestedPromptError);
-
-    return () => {
-      window.removeEventListener("suggestedPromptError", handleSuggestedPromptError);
-      if (errorTimeoutRef.current) {
-        clearTimeout(errorTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const timeoutId = responseTimeoutRef.current;
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, []);
-
-  // Listen for repository download completion
-  useEffect(() => {
-    const handleRepoDownloadComplete = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      const downloadedRepository = customEvent.detail?.repository;
-      const action = customEvent.detail?.action || "download";
-
-      if (downloadedRepository && downloadedRepository.id === selectedRepositoryId) {
-        setDownloadedRepo(downloadedRepository);
-
-        // Only set repository as ready if it was downloaded (not just added)
-        if (action === "download") {
-          setRepositoryReady(true);
-          setRepositoryStatus(RepositoryStatus.READY);
-
-          // Enable sending messages after download is complete
-          setUserCanSendMessage(true);
-        }
-      }
-    };
-
-    // Add event listener
-    window.addEventListener(REPO_DOWNLOAD_COMPLETE_EVENT, handleRepoDownloadComplete);
-
-    // Clean up
-    return () => {
-      window.removeEventListener(REPO_DOWNLOAD_COMPLETE_EVENT, handleRepoDownloadComplete);
-    };
-  }, [selectedRepositoryId, setDownloadedRepo, setRepositoryReady]);
-
-  // Check messages to determine states
-  useEffect(() => {
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-
-      // Check if the message indicates repository readiness
-      if (
-        lastMsg.role === "assistant-informational" &&
-        lastMsg.content.includes("repository") &&
-        (lastMsg.content.includes("ready to query") || lastMsg.content.includes("successfully ingested"))
-      ) {
-        setRepositoryReady(true);
-        setRepositoryStatus(RepositoryStatus.READY);
-
-        // Reset waiting state if this was a response we were waiting for
-        if (waitingForResponse) {
-          setWaitingForResponse(false);
-          setIsLoading(false);
-        }
-
-        // Enable user to send messages
-        setUserCanSendMessage(true);
-      }
-
-      // If we have a user message followed by an assistant/model response, we're no longer waiting
-      if (messages.length >= 2) {
-        const userMsg = messages[messages.length - 2];
-        const responseMsg = messages[messages.length - 1];
-        if (
-          userMsg.role === "user" &&
-          (responseMsg.role === "assistant" ||
-            responseMsg.role === "model-response" ||
-            responseMsg.role === "assistant-informational")
-        ) {
-          setWaitingForResponse(false);
-          setIsLoading(false);
-
-          // Enable user to send messages
-          setUserCanSendMessage(true);
-        }
-      }
-    }
-  }, [messages, setIsLoading, waitingForResponse, setRepositoryReady, setUserCanSendMessage]);
-
-  // Determine if the input should be disabled
-  const isInputDisabled = isSubmitting || debouncedIsLoading || debouncedWaitingForResponse || !userCanSendMessage;
-
-  // Get a more specific placeholder message depending on the state
-  const getPlaceholderMessage = () => {
-    if (isInputDisabled) {
-      return "Waiting for response...";
-    }
-
-    if (!currentModel) {
-      return "Please select a model to start chatting";
-    }
-
-    if (!currentRepo) {
-      return "Please select a repository to analyze";
-    }
-
-    if (currentRepo && debouncedRepositoryStatus === RepositoryStatus.DOWNLOADING) {
-      return "Repository is being downloaded. Please wait...";
-    }
-
-    if (currentRepo && debouncedRepositoryStatus === RepositoryStatus.QUEUED) {
-      return "Repository is queued for download. Please wait...";
-    }
-
-    if (currentModel && currentRepo && repositoryReady) {
-      return `Ask about the ${currentRepo.name} repository...`;
-    }
-
-    return "Ask a question...";
-  };
-
-  // Helper to determine if we should show an error message
-  const getMissingRequirement = () => {
-    // If we have an error message from suggested prompts, show that first
-    if (errorMessage) {
-      return {
-        message: errorMessage,
-        icon: (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fillRule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-              clipRule="evenodd"
-            />
-          </svg>
-        ),
-        bg: "bg-red-50 dark:bg-red-900/40",
-        text: "text-red-800 dark:text-red-300",
-        animate: "animate-fadeIn",
-      };
-    }
-
-    if (!currentModel) {
-      return {
-        message: "Please select a model to start chatting",
-        icon: (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 
-                    01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"
-            />
-          </svg>
-        ),
-        bg: "bg-blue-50 dark:bg-blue-900/40",
-        text: "text-blue-800 dark:text-blue-300",
-        animate: "",
-      };
-    }
-
-    if (!currentRepo) {
-      return {
-        message: "Please select a repository to analyze",
-        icon: (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fillRule="evenodd"
-              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-              clipRule="evenodd"
-            />
-          </svg>
-        ),
-        bg: "bg-indigo-50 dark:bg-indigo-900/40",
-        text: "text-indigo-800 dark:text-indigo-300",
-        animate: "",
-      };
-    }
-
-    if (currentRepo && debouncedRepositoryStatus === RepositoryStatus.DOWNLOADING) {
-      return {
-        message: "Repository is being downloaded. Please wait...",
-        icon: (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 animate-pulse"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path
-              fillRule="evenodd"
-              d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-              clipRule="evenodd"
-            />
-          </svg>
-        ),
-        bg: "bg-yellow-50 dark:bg-yellow-900/40",
-        text: "text-yellow-800 dark:text-yellow-300",
-        animate: "",
-      };
-    }
-
-    if (currentRepo && debouncedRepositoryStatus === RepositoryStatus.QUEUED) {
-      return {
-        message: "Repository is queued for download. Please wait...",
-        icon: (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-              clipRule="evenodd"
-            />
-          </svg>
-        ),
-        bg: "bg-blue-50 dark:bg-blue-900/40",
-        text: "text-blue-800 dark:text-blue-300",
-        animate: "",
-      };
-    }
-
-    return null;
-  };
-
-  const missingRequirement = getMissingRequirement();
-
   return (
     <div className="w-full max-w-4xl mx-auto">
-      {missingRequirement && (
-        <div
-          className={`mb-2 px-3 py-2 ${missingRequirement.bg} ${missingRequirement.text} text-sm rounded-md shadow-sm ${missingRequirement.animate}`}
-        >
-          <div className="flex items-center">
-            {missingRequirement.icon}
-            <span className="ml-2">{missingRequirement.message}</span>
-          </div>
-        </div>
-      )}
+      {/* Status and error messages */}
+      <StatusIndicator
+        errorMessage={errorMessage}
+        currentModel={currentModel}
+        currentRepo={currentRepo}
+        repositoryStatus={repositoryStatus}
+        repositoryReady={repositoryReady}
+      />
+      
+      {/* Input form */}
       <form onSubmit={handleSubmit} className="flex items-center gap-1 w-full">
-        <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            className={`w-full px-3 py-2 bg-gray-100 dark:bg-gray-800 border
-                     border-gray-300 dark:border-gray-700 rounded-lg resize-none 
-                     focus:outline-none focus:ring-0 transition-all min-h-[44px] 
-                     max-h-[150px] overflow-auto align-middle ${
-                       isInputDisabled ? "opacity-70 cursor-not-allowed" : ""
-                     }`}
-            placeholder={getPlaceholderMessage()}
-            aria-label="Chat input"
-            value={message}
-            onChange={(e) => {
-              handleMessageChange(e);
-              resizeTextarea();
-            }}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            autoFocus
-            disabled={isInputDisabled || !currentModel || !repositoryReady}
-          />
-        </div>
-        <button
-          type="submit"
-          aria-label="Send message"
-          disabled={isInputDisabled || !message.trim() || !currentModel || !repositoryReady}
-          className="flex items-center justify-center w-11 h-11 bg-gray-900 text-white 
-                 rounded-lg border border-gray-300 dark:border-gray-700 shadow-sm 
-                 hover:bg-gray-800 dark:hover:bg-gray-700 focus:outline-none 
-                 focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-600 
-                 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 
-                 dark:disabled:text-gray-600 disabled:cursor-not-allowed align-middle 
-                 transition-colors"
-        >
-          {isInputDisabled ? (
-            <div
-              className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 
-                        border-t-transparent rounded-full animate-spin"
-            />
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 
-                   009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 
-                   001.17-1.408l-7-14z"
-              />
-            </svg>
-          )}
-        </button>
+        {/* Text input area */}
+        <MessageInput
+          message={message}
+          isDisabled={isInputDisabled || !currentModel || !repositoryReady}
+          placeholderMessage={getPlaceholderMessage()}
+          handleMessageChange={handleMessageChange}
+          handleKeyDown={handleKeyDown}
+          resizeTextarea={resizeTextarea}
+          setMessage={setMessage}
+        />
+        
+        {/* Send button */}
+        <InputControls 
+          isDisabled={isInputDisabled || !currentModel || !repositoryReady}
+          isInputEmpty={!message.trim()} 
+        />
       </form>
     </div>
   );
