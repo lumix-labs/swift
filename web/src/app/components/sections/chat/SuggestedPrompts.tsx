@@ -10,7 +10,7 @@ export interface SuggestedPromptsProps {
 export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
   const [expanded, setExpanded] = useState(false);
   const { selectedModelId, selectedRepositoryId } = useChat();
-  
+
   // Check if chat input is ready to receive text
   const isChatInputReady = !!selectedModelId && !!selectedRepositoryId;
 
@@ -51,8 +51,8 @@ export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
         onSelectPrompt(prompt);
       } else {
         // If not ready, show feedback to user
-        const event = new CustomEvent('suggestedPromptError', {
-          detail: { message: 'Please select a model and repository first' }
+        const event = new CustomEvent("suggestedPromptError", {
+          detail: { message: "Please select a model and repository first" },
         });
         window.dispatchEvent(event);
       }
@@ -68,9 +68,10 @@ export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
             key={prompt}
             onClick={() => handleSelectPrompt(prompt)}
             className={`px-3 py-1.5 text-sm rounded-full transition-all duration-200 
-              ${isChatInputReady 
-                ? "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
-                : "bg-gray-100/70 dark:bg-gray-800/50 cursor-not-allowed opacity-70"
+              ${
+                isChatInputReady
+                  ? "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  : "bg-gray-100/70 dark:bg-gray-800/50 cursor-not-allowed opacity-70"
               }`}
             title={isChatInputReady ? prompt : "Select model and repository first"}
           >

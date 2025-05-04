@@ -108,7 +108,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
   const getMessageIcon = () => {
     if (isInformationalMessage) {
       return (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4 mr-2 flex-shrink-0"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
           <path
             fillRule="evenodd"
             d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
@@ -118,7 +123,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
       );
     } else if (isModelResponse) {
       return (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4 mr-2 flex-shrink-0"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
           <path
             fillRule="evenodd"
             d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z"
@@ -143,11 +153,11 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
   return (
     <div className={`flex ${isUserMessage ? "justify-end" : "justify-start"} ${getAnimationClass()}`}>
-      <div 
+      <div
         className={`max-w-[85%] p-3 rounded-lg ${getMessageStyleClasses()} transition-all duration-300`}
         style={{
-          maxWidth: isInformationalMessage ? '95%' : '85%',
-          opacity: isInformationalMessage ? 0.95 : 1
+          maxWidth: isInformationalMessage ? "95%" : "85%",
+          opacity: isInformationalMessage ? 0.95 : 1,
         }}
       >
         {isInformationalMessage || isModelResponse ? (
@@ -163,11 +173,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
             dangerouslySetInnerHTML={{ __html: processedContent }}
           />
         )}
-        <div 
-          className={`text-xs text-right mt-1 select-none ${
-            isInformationalMessage ? 'opacity-50' : 'opacity-70'
-          }`}
-        >
+        <div className={`text-xs text-right mt-1 select-none ${isInformationalMessage ? "opacity-50" : "opacity-70"}`}>
           {message.timestamp instanceof Date
             ? message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             : new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

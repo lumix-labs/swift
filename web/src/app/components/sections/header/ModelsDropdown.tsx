@@ -85,8 +85,8 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
           }`}
         >
           <div className="flex justify-between items-center">
-            <div 
-              className="flex-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 rounded-md p-1 transition-colors duration-200" 
+            <div
+              className="flex-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 rounded-md p-1 transition-colors duration-200"
               onClick={() => onModelSelect(model.id)}
             >
               <div className="font-medium">{model.name}</div>
@@ -95,7 +95,7 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
               </div>
             </div>
             {/* Use the new RemoveButton component */}
-            <RemoveButton 
+            <RemoveButton
               onClick={() => handleModelRemove(model.id)}
               disabled={isActionInProgress || models.length <= 1}
             />
@@ -134,7 +134,7 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
                       rounded-md shadow-lg z-10"
         >
           {modelsList}
-          
+
           <div className="p-2 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={onAddClick}

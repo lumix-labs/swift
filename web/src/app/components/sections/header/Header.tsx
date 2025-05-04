@@ -23,9 +23,7 @@ export function Header() {
   }`;
 
   return (
-    <header
-      className="sticky top-0 z-10 flex items-center justify-between px-4 h-14 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black"
-    >
+    <header className="sticky top-0 z-10 flex items-center justify-between px-4 h-14 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black">
       <div className="flex items-center space-x-2">
         <Link href="/" onClick={() => window.location.reload()}>
           <div className="flex items-center space-x-2 cursor-pointer">

@@ -43,17 +43,17 @@ export function ChatInput() {
   // Reset response waiting state if no response received after a timeout
   const responseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Listen for prompt suggestions from ChatMessageList
   useEffect(() => {
     const handleSetPromptInInput = (event: Event) => {
       const customEvent = event as CustomEvent;
       const prompt = customEvent.detail?.prompt;
-      
+
       if (prompt) {
         // Set the prompt in the input
         setMessage(prompt);
-        
+
         // Focus the textarea
         if (textareaRef.current) {
           textareaRef.current.focus();
@@ -68,11 +68,11 @@ export function ChatInput() {
         }
       }
     };
-    
-    window.addEventListener('setPromptInInput', handleSetPromptInInput);
-    
+
+    window.addEventListener("setPromptInInput", handleSetPromptInInput);
+
     return () => {
-      window.removeEventListener('setPromptInInput', handleSetPromptInInput);
+      window.removeEventListener("setPromptInInput", handleSetPromptInInput);
     };
   }, [setMessage, resizeTextarea]);
 
@@ -114,21 +114,21 @@ export function ChatInput() {
     const handleSuggestedPromptError = (event: Event) => {
       const customEvent = event as CustomEvent;
       setErrorMessage(customEvent.detail?.message || "Cannot use suggestion at this time");
-      
+
       // Clear error message after a delay
       if (errorTimeoutRef.current) {
         clearTimeout(errorTimeoutRef.current);
       }
-      
+
       errorTimeoutRef.current = setTimeout(() => {
         setErrorMessage(null);
       }, 3000);
     };
-    
-    window.addEventListener('suggestedPromptError', handleSuggestedPromptError);
-    
+
+    window.addEventListener("suggestedPromptError", handleSuggestedPromptError);
+
     return () => {
-      window.removeEventListener('suggestedPromptError', handleSuggestedPromptError);
+      window.removeEventListener("suggestedPromptError", handleSuggestedPromptError);
       if (errorTimeoutRef.current) {
         clearTimeout(errorTimeoutRef.current);
       }
@@ -267,10 +267,10 @@ export function ChatInput() {
         ),
         bg: "bg-red-50 dark:bg-red-900/40",
         text: "text-red-800 dark:text-red-300",
-        animate: "animate-fadeIn"
+        animate: "animate-fadeIn",
       };
     }
-    
+
     if (!currentModel) {
       return {
         message: "Please select a model to start chatting",
@@ -284,7 +284,7 @@ export function ChatInput() {
         ),
         bg: "bg-blue-50 dark:bg-blue-900/40",
         text: "text-blue-800 dark:text-blue-300",
-        animate: ""
+        animate: "",
       };
     }
 
@@ -302,7 +302,7 @@ export function ChatInput() {
         ),
         bg: "bg-indigo-50 dark:bg-indigo-900/40",
         text: "text-indigo-800 dark:text-indigo-300",
-        animate: ""
+        animate: "",
       };
     }
 
@@ -325,7 +325,7 @@ export function ChatInput() {
         ),
         bg: "bg-yellow-50 dark:bg-yellow-900/40",
         text: "text-yellow-800 dark:text-yellow-300",
-        animate: ""
+        animate: "",
       };
     }
 
@@ -343,7 +343,7 @@ export function ChatInput() {
         ),
         bg: "bg-blue-50 dark:bg-blue-900/40",
         text: "text-blue-800 dark:text-blue-300",
-        animate: ""
+        animate: "",
       };
     }
 

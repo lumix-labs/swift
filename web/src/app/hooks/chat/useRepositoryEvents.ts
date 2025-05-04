@@ -60,7 +60,7 @@ export function useRepositoryEvents({
         if (!downloadedRepository.status) {
           downloadedRepository.status = RepositoryStatus.READY;
         }
-        
+
         setDownloadedRepo(downloadedRepository);
 
         // Only set repository as ready if it was downloaded (not just added)

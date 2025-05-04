@@ -29,7 +29,7 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
   const [repoStatus, setRepoStatus] = useState<RepositoryStatus>(RepositoryStatus.PENDING);
   const [isDownloading, setIsDownloading] = useState(downloadingRepos.get(repository.id) || false);
   const [actionInProgress, setActionInProgress] = useState(false);
-  const [transitionState, setTransitionState] = useState<'idle' | 'start' | 'downloading' | 'complete'>('idle');
+  const [transitionState, setTransitionState] = useState<"idle" | "start" | "downloading" | "complete">("idle");
 
   // Use debounced state to prevent flickering with longer delay
   const debouncedIsDownloading = useDebounce(isDownloading, 500);
@@ -48,13 +48,13 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
   useEffect(() => {
     if (isSmooth) {
       if (debouncedRepoStatus === RepositoryStatus.DOWNLOADING) {
-        setTransitionState('start');
+        setTransitionState("start");
         // After a brief delay, show downloading animation
-        setTimeout(() => setTransitionState('downloading'), 300);
+        setTimeout(() => setTransitionState("downloading"), 300);
       } else if (debouncedRepoStatus === RepositoryStatus.READY) {
-        setTransitionState('complete');
+        setTransitionState("complete");
       } else {
-        setTransitionState('idle');
+        setTransitionState("idle");
       }
     }
   }, [debouncedRepoStatus, isSmooth]);
@@ -156,14 +156,20 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
   // Get button appearance based on repository status
   const getButtonAppearance = () => {
     const baseClasses = "transition-all duration-300 rounded-md px-3 py-1.5 text-sm font-medium ";
-    
+
     switch (debouncedRepoStatus) {
       case RepositoryStatus.READY:
         return {
-          bgClass: baseClasses + 
+          bgClass:
+            baseClasses +
             "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800",
           icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform duration-300" viewBox="0 0 20 20" fill="currentColor">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 transition-transform duration-300"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
               <path
                 fillRule="evenodd"
                 d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -200,7 +206,8 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
         };
       default:
         return {
-          bgClass: baseClasses + 
+          bgClass:
+            baseClasses +
             "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700",
           icon: (
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -218,17 +225,19 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
   };
 
   const buttonAppearance = getButtonAppearance();
-  
+
   // Use transition classes based on state for smooth animations
   const getTransitionClasses = () => {
-    if (!isSmooth) return "";
-    
+    if (!isSmooth) {
+      return "";
+    }
+
     switch (transitionState) {
-      case 'start':
+      case "start":
         return "opacity-70 scale-95";
-      case 'downloading':
+      case "downloading":
         return "opacity-100 scale-100";
-      case 'complete':
+      case "complete":
         return "opacity-100 scale-100 transform-gpu";
       default:
         return "";

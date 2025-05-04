@@ -86,15 +86,15 @@ export function RepositoriesDropdown({ resolvedTheme }: RepositoriesDropdownProp
       >
         <div className="flex flex-col space-y-2">
           <div className="flex justify-between items-center">
-            <div 
-              className="flex-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 rounded-md p-1 transition-colors duration-200" 
+            <div
+              className="flex-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 rounded-md p-1 transition-colors duration-200"
               onClick={() => onRepositorySelect(repo.id)}
             >
               <div className="font-medium">{repo.name}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{repo.url}</div>
             </div>
             {/* Use the new RemoveButton component */}
-            <RemoveButton 
+            <RemoveButton
               onClick={() => handleRepositoryRemove(repo.id)}
               disabled={isActionInProgress || repositories.length <= 1}
             />

@@ -16,7 +16,7 @@ export function ChatMessageList() {
   // Get entity selection hook for current model and repo status
   const { currentModel, currentRepo, downloadedRepo, repositoryReady } = useEntitySelection(
     selectedModelId,
-    selectedRepositoryId
+    selectedRepositoryId,
   );
 
   // Scroll to bottom when new messages are added
@@ -35,14 +35,14 @@ export function ChatMessageList() {
     // Check if necessary requirements are met
     if (!currentModel || !currentRepo || !repositoryReady) {
       // Dispatch custom event to notify that requirements aren't met
-      const errorEvent = new CustomEvent('suggestedPromptError', {
-        detail: { 
-          message: !currentModel 
-            ? "Please select a model first" 
-            : !currentRepo 
-              ? "Please select a repository first" 
-              : "Repository is not ready yet"
-        }
+      const errorEvent = new CustomEvent("suggestedPromptError", {
+        detail: {
+          message: !currentModel
+            ? "Please select a model first"
+            : !currentRepo
+              ? "Please select a repository first"
+              : "Repository is not ready yet",
+        },
       });
       window.dispatchEvent(errorEvent);
       return;
@@ -50,8 +50,8 @@ export function ChatMessageList() {
 
     // Set the value in the textarea input instead of directly submitting
     // This is done through a custom event that the ChatInput will listen for
-    const event = new CustomEvent('setPromptInInput', {
-      detail: { prompt }
+    const event = new CustomEvent("setPromptInInput", {
+      detail: { prompt },
     });
     window.dispatchEvent(event);
   };
