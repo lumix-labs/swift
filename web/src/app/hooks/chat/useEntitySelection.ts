@@ -5,9 +5,9 @@ import { LLMModel, Repository } from "../../lib/types/entities";
 import { getModels, getRepositories } from "../../lib/services/entity-service";
 import {
   getDownloadedRepository,
-  isRepositoryDownloaded,
   RepositoryStatus,
   getRepositoryStatus,
+  isRepositoryReadyForChat
 } from "../../lib/services/repo-download-service";
 import { DownloadedRepository } from "../../types/repository";
 
@@ -42,7 +42,7 @@ export function useEntitySelection(selectedModelId: string | null, selectedRepos
         setRepositoryStatus(status);
 
         // Check if repository is ready for use
-        if (status === RepositoryStatus.READY) {
+        if (isRepositoryReadyForChat(status)) {
           setRepositoryReady(true);
           const downloaded = getDownloadedRepository(repo.id);
           if (downloaded) {
@@ -63,7 +63,7 @@ export function useEntitySelection(selectedModelId: string | null, selectedRepos
           const currentStatus = getRepositoryStatus(repo.id);
           setRepositoryStatus(currentStatus);
 
-          if (currentStatus === RepositoryStatus.READY) {
+          if (isRepositoryReadyForChat(currentStatus)) {
             setRepositoryReady(true);
             const updated = getDownloadedRepository(repo.id);
             if (updated) {

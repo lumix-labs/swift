@@ -4,7 +4,11 @@ import { useState, useRef, useCallback, FormEvent } from "react";
 import { LLMModel, Repository } from "../../lib/types/entities";
 import { GeminiService } from "../../lib/services/gemini-service";
 import { EXCLUDED_MESSAGE_ROLES } from "../../context/chat/types";
-import { RepositoryStatus, getRepositoryStatus } from "../../lib/services/repo-download-service";
+import { 
+  RepositoryStatus, 
+  getRepositoryStatus, 
+  isRepositoryReadyForChat 
+} from "../../lib/services/repo-download-service";
 
 // Define the DownloadedRepository interface to replace any
 interface DownloadedRepository extends Repository {
@@ -13,6 +17,7 @@ interface DownloadedRepository extends Repository {
   fileCount?: number;
   size?: number;
   readmeContent?: string;
+  repoTree?: string;
   status?: RepositoryStatus;
 }
 
@@ -66,16 +71,26 @@ export function useMessageSubmission({
       // Check repository status
       if (currentRepo) {
         const repoStatus = getRepositoryStatus(currentRepo.id);
-        if (repoStatus !== RepositoryStatus.READY) {
+        if (!isRepositoryReadyForChat(repoStatus)) {
+          let statusMessage = "It's not ready yet.";
+          
+          switch(repoStatus) {
+            case RepositoryStatus.DOWNLOADING:
+              statusMessage = "It's currently being downloaded.";
+              break;
+            case RepositoryStatus.QUEUED:
+              statusMessage = "It's in the download queue.";
+              break;
+            case RepositoryStatus.INGESTING:
+              statusMessage = "It's currently being processed.";
+              break;
+            default:
+              statusMessage = "Please download it first.";
+          }
+          
           addMessage({
             role: "assistant-informational" as const,
-            content: `Repository ${currentRepo.name} is not ready yet. ${
-              repoStatus === RepositoryStatus.DOWNLOADING
-                ? "It's currently being downloaded."
-                : repoStatus === RepositoryStatus.QUEUED
-                  ? "It's in the download queue."
-                  : "Please download it first."
-            }`,
+            content: `Repository ${currentRepo.name} is not ready for chat. ${statusMessage}`,
           });
           return;
         }
@@ -120,13 +135,22 @@ export function useMessageSubmission({
         if (currentModel.provider === "gemini") {
           const geminiService = new GeminiService(currentModel.apiKey);
 
-          if (currentRepo && downloadedRepo && downloadedRepo.readmeContent) {
-            // Use repository context when available
+          if (currentRepo && downloadedRepo) {
+            // Prepare context data from repository
+            const contextData = {
+              repoName: currentRepo.name,
+              repoUrl: currentRepo.url,
+              readmeContent: downloadedRepo.readmeContent || "",
+              repoTree: downloadedRepo.repoTree || ""
+            };
+            
+            // Use repository context when available with tree data
             response = await geminiService.sendMessage(
               userMessageContent,
-              currentRepo.name,
-              currentRepo.url,
-              downloadedRepo.readmeContent,
+              contextData.repoName,
+              contextData.repoUrl,
+              contextData.readmeContent,
+              contextData.repoTree
             );
           } else {
             // No repository context

@@ -7,6 +7,11 @@ export interface SuggestedPromptsProps {
   onSelectPrompt: (prompt: string) => void;
 }
 
+// Define a type for prompt mapping
+interface PromptMap {
+  [displayText: string]: string;
+}
+
 export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
   const [expanded, setExpanded] = useState(false);
   const { selectedModelId, selectedRepositoryId } = useChat();
@@ -14,31 +19,31 @@ export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
   // Check if chat input is ready to receive text
   const isChatInputReady = !!selectedModelId && !!selectedRepositoryId;
 
-  // Memoize the prompt lists to prevent unnecessary re-renders
-  const initialPrompts = useMemo(
-    () => [
-      "Analyze our market position",
-      "Optimize business processes",
-      "Strategic planning",
-      "Competitive analysis",
-      "Improve operational efficiency",
-    ],
+  // Memoize the prompt maps to prevent unnecessary re-renders
+  const initialPromptMap = useMemo(
+    (): PromptMap => ({
+      "Analyze our market position": "Conduct a detailed analysis of our market position compared to major competitors. What are our strengths, weaknesses, and opportunities?",
+      "Optimize business processes": "Review our current business processes and identify opportunities for optimization. Which processes should be prioritized?",
+      "Strategic planning": "Help create a strategic plan for the next 2 years, taking into account industry trends and our current capabilities.",
+      "Competitive analysis": "Analyze our top 3 competitors and highlight key differentiating factors between us and them. What can we learn from them?",
+      "Improve operational efficiency": "Identify ways to improve our operational efficiency and reduce costs without sacrificing quality.",
+    }),
     [],
   );
 
-  const expandedPrompts = useMemo(
-    () => [
-      ...initialPrompts,
-      "Technology investment guidance",
-      "Digital transformation strategy",
-      "Customer experience insights",
-      "Talent development strategy",
-      "Cross-departmental collaboration",
-    ],
-    [initialPrompts],
+  const expandedPromptMap = useMemo(
+    (): PromptMap => ({
+      ...initialPromptMap,
+      "Technology investment guidance": "What technology investments should we prioritize in the next 12-18 months to maintain competitive advantage?",
+      "Digital transformation strategy": "Help develop a comprehensive digital transformation strategy that aligns with our business goals and customer needs.",
+      "Customer experience insights": "Analyze our customer journey and suggest improvements to enhance customer experience and increase retention.",
+      "Talent development strategy": "Create a talent development strategy to ensure we have the skills needed for future growth and innovation.",
+      "Cross-departmental collaboration": "Recommend effective approaches to improve collaboration between different departments and break down organizational silos.",
+    }),
+    [initialPromptMap],
   );
 
-  const visiblePrompts = expanded ? expandedPrompts : initialPrompts;
+  const visiblePromptMap = expanded ? expandedPromptMap : initialPromptMap;
 
   // Memoize handler functions to prevent unnecessary re-renders
   const toggleExpanded = useCallback(() => {
@@ -46,9 +51,10 @@ export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
   }, []);
 
   const handleSelectPrompt = useCallback(
-    (prompt: string) => {
+    (displayText: string) => {
       if (isChatInputReady) {
-        onSelectPrompt(prompt);
+        // Pass the detailed query (value) to the callback function
+        onSelectPrompt(visiblePromptMap[displayText]);
       } else {
         // If not ready, show feedback to user
         const event = new CustomEvent("suggestedPromptError", {
@@ -57,25 +63,25 @@ export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
         window.dispatchEvent(event);
       }
     },
-    [onSelectPrompt, isChatInputReady],
+    [onSelectPrompt, visiblePromptMap, isChatInputReady],
   );
 
   return (
     <div className="w-full max-w-4xl mx-auto mb-4 will-change-contents">
       <div className="flex flex-wrap gap-2 justify-center mb-2">
-        {visiblePrompts.map((prompt) => (
+        {Object.keys(visiblePromptMap).map((displayText) => (
           <button
-            key={prompt}
-            onClick={() => handleSelectPrompt(prompt)}
+            key={displayText}
+            onClick={() => handleSelectPrompt(displayText)}
             className={`px-3 py-1.5 text-sm rounded-full transition-all duration-200 
               ${
                 isChatInputReady
                   ? "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
                   : "bg-gray-100/70 dark:bg-gray-800/50 cursor-not-allowed opacity-70"
               }`}
-            title={isChatInputReady ? prompt : "Select model and repository first"}
+            title={isChatInputReady ? displayText : "Select model and repository first"}
           >
-            {prompt}
+            {displayText}
           </button>
         ))}
 

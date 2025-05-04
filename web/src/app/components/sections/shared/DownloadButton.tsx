@@ -5,11 +5,12 @@ import { Repository } from "../../../lib/types/entities";
 import { useChat } from "../../../context/ChatContext";
 import {
   downloadRepository,
-  isRepositoryDownloaded,
+  isRepositoryReady,
   getDownloadedRepository,
   getRepositoryStatus,
   RepositoryStatus,
   updateRepositoryStatus,
+  startIngestion,
 } from "../../../lib/services/repo-download-service";
 import { useDebounce } from "../../../hooks/useDebounce";
 
@@ -29,7 +30,7 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
   const [repoStatus, setRepoStatus] = useState<RepositoryStatus>(RepositoryStatus.PENDING);
   const [isDownloading, setIsDownloading] = useState(downloadingRepos.get(repository.id) || false);
   const [actionInProgress, setActionInProgress] = useState(false);
-  const [transitionState, setTransitionState] = useState<"idle" | "start" | "downloading" | "complete">("idle");
+  const [transitionState, setTransitionState] = useState<"idle" | "start" | "downloading" | "ingesting" | "complete">("idle");
 
   // Use debounced state to prevent flickering with longer delay
   const debouncedIsDownloading = useDebounce(isDownloading, 500);
@@ -51,7 +52,9 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
         setTransitionState("start");
         // After a brief delay, show downloading animation
         setTimeout(() => setTransitionState("downloading"), 300);
-      } else if (debouncedRepoStatus === RepositoryStatus.READY) {
+      } else if (debouncedRepoStatus === RepositoryStatus.INGESTING) {
+        setTransitionState("ingesting");
+      } else if (debouncedRepoStatus === RepositoryStatus.INGESTED || debouncedRepoStatus === RepositoryStatus.READY) {
         setTransitionState("complete");
       } else {
         setTransitionState("idle");
@@ -66,11 +69,15 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
         const status = getRepositoryStatus(repository.id);
         setRepoStatus(status);
 
-        // If status is downloading, update the local isDownloading state
-        if (status === RepositoryStatus.DOWNLOADING || status === RepositoryStatus.QUEUED) {
+        // If status is downloading or processing, update the local isDownloading state
+        if (
+          status === RepositoryStatus.DOWNLOADING || 
+          status === RepositoryStatus.QUEUED || 
+          status === RepositoryStatus.INGESTING
+        ) {
           setIsDownloading(true);
           downloadingRepos.set(repository.id, true);
-        } else if (status === RepositoryStatus.READY) {
+        } else if (status === RepositoryStatus.READY || status === RepositoryStatus.INGESTED) {
           setIsDownloading(false);
           downloadingRepos.set(repository.id, false);
         }
@@ -87,7 +94,7 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
   }, [repository.id]);
 
   const handleDownload = useCallback(async () => {
-    if (isDownloading || repoStatus === RepositoryStatus.READY || actionInProgress) {
+    if (isDownloading || repoStatus === RepositoryStatus.READY || repoStatus === RepositoryStatus.INGESTED || actionInProgress) {
       console.warn("Repository is already downloaded or downloading:", repository.id);
       return;
     }
@@ -112,9 +119,17 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
     try {
       // Start the download
       const downloadedRepo = await downloadRepository(repository.id, repository.name, repository.url);
-
+      
       console.warn("Repository downloaded successfully:", repository.id);
-      setRepoStatus(RepositoryStatus.READY);
+      
+      // Add a message about ingestion starting
+      addMessage({
+        role: "assistant-informational",
+        content: `Processing repository ${repository.name}. Creating repository tree (respecting .gitignore)...`,
+      });
+      
+      // Set status to ingested/ready
+      setRepoStatus(downloadedRepo.status);
 
       // Add a longer delay before sending events to ensure UI updates properly
       setTimeout(() => {
@@ -127,7 +142,7 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
         // Notify user when download is complete
         addMessage({
           role: "assistant-informational",
-          content: `Repository ${repository.name} has been successfully ingested and is ready to query!`,
+          content: `Repository ${repository.name} has been successfully ingested and is ready to chat!`,
         });
 
         console.warn("Repository download events dispatched:", repository.id);
@@ -159,6 +174,7 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
 
     switch (debouncedRepoStatus) {
       case RepositoryStatus.READY:
+      case RepositoryStatus.INGESTED:
         return {
           bgClass:
             baseClasses +
@@ -180,6 +196,15 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
           text: "Ready to Chat",
           disabled: true,
         };
+      case RepositoryStatus.INGESTING:
+        return {
+          bgClass: baseClasses + "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-300",
+          icon: (
+            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-1"></div>
+          ),
+          text: "Processing...",
+          disabled: true,
+        };  
       case RepositoryStatus.DOWNLOADING:
         return {
           bgClass: baseClasses + "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300",
@@ -236,6 +261,7 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
       case "start":
         return "opacity-70 scale-95";
       case "downloading":
+      case "ingesting":
         return "opacity-100 scale-100";
       case "complete":
         return "opacity-100 scale-100 transform-gpu";

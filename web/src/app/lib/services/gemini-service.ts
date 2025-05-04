@@ -49,8 +49,18 @@ export class GeminiService {
   /**
    * Format repository context for the prompt
    */
-  private formatRepoContext(repoName: string, repoUrl: string, readmeContent?: string): string {
+  private formatRepoContext(
+    repoName: string, 
+    repoUrl: string, 
+    readmeContent?: string,
+    repoTree?: string
+  ): string {
     let context = `You are assisting with a code repository: ${repoName} (${repoUrl}).\n\n`;
+
+    // Add repository tree if available
+    if (repoTree) {
+      context += `Repository file structure (respecting .gitignore):\n\`\`\`\n${repoTree}\n\`\`\`\n\n`;
+    }
 
     if (readmeContent) {
       // Limit README content to avoid token limits
@@ -135,19 +145,26 @@ export class GeminiService {
   /**
    * Sends a message to Gemini API and receives a response
    */
-  async sendMessage(message: string, repoName?: string, repoUrl?: string, readmeContent?: string): Promise<string> {
+  async sendMessage(
+    message: string, 
+    repoName?: string, 
+    repoUrl?: string, 
+    readmeContent?: string,
+    repoTree?: string
+  ): Promise<string> {
     try {
       console.warn("Sending message to Gemini API:", {
         messageLength: message.length,
         hasRepoContext: Boolean(repoName && repoUrl),
         readmeContentLength: readmeContent?.length || 0,
+        hasRepoTree: Boolean(repoTree)
       });
 
       // Add repository context if available
       let repoContext = this.repositoryContext;
       if (repoName && repoUrl) {
         // Generate new repository context if repository parameters are provided
-        repoContext = this.formatRepoContext(repoName, repoUrl, readmeContent);
+        repoContext = this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree);
       }
 
       // Add conversation context to the message
@@ -237,8 +254,13 @@ export class GeminiService {
    * Updates the repository context without sending a message
    * Useful when switching repositories
    */
-  updateRepositoryContext(repoName: string, repoUrl: string, readmeContent?: string): void {
-    this.formatRepoContext(repoName, repoUrl, readmeContent);
+  updateRepositoryContext(
+    repoName: string, 
+    repoUrl: string, 
+    readmeContent?: string,
+    repoTree?: string
+  ): void {
+    this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree);
     console.warn("Repository context updated for:", repoName);
   }
 }

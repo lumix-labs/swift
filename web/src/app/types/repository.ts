@@ -10,5 +10,6 @@ export interface DownloadedRepository extends Repository {
   fileCount?: number;
   size?: number;
   readmeContent?: string;
+  repoTree?: string; // Repository tree structure as a string
   status: RepositoryStatus;
 }

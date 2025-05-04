@@ -5,7 +5,7 @@ import { useChat } from "../../context/ChatContext";
 import { useEntitySelection } from "./useEntitySelection";
 import { useMessageSubmission } from "./useMessageSubmission";
 import { useDebounce } from "../useDebounce";
-import { RepositoryStatus, getRepositoryStatus } from "../../lib/services/repo-download-service";
+import { RepositoryStatus, getRepositoryStatus, isRepositoryReadyForChat } from "../../lib/services/repo-download-service";
 import { REPO_DOWNLOAD_COMPLETE_EVENT } from "../../components/sections/shared/DownloadButton";
 
 export function useChatInputState() {
@@ -47,10 +47,14 @@ export function useChatInputState() {
       setRepositoryStatus(status);
 
       // Determine if repository is ready to use
-      if (status === RepositoryStatus.READY) {
+      if (isRepositoryReadyForChat(status)) {
         setRepositoryReady(true);
         setUserCanSendMessage(true);
-      } else if (status === RepositoryStatus.DOWNLOADING || status === RepositoryStatus.QUEUED) {
+      } else if (
+        status === RepositoryStatus.DOWNLOADING || 
+        status === RepositoryStatus.QUEUED || 
+        status === RepositoryStatus.INGESTING
+      ) {
         setRepositoryReady(false);
         setUserCanSendMessage(false);
       } else {
@@ -62,7 +66,7 @@ export function useChatInputState() {
         const currentStatus = getRepositoryStatus(selectedRepositoryId);
         setRepositoryStatus(currentStatus);
 
-        if (currentStatus === RepositoryStatus.READY) {
+        if (isRepositoryReadyForChat(currentStatus)) {
           setRepositoryReady(true);
           setUserCanSendMessage(true);
           clearInterval(checkStatusInterval);
@@ -119,12 +123,9 @@ export function useChatInputState() {
       if (downloadedRepository && downloadedRepository.id === selectedRepositoryId) {
         setDownloadedRepo(downloadedRepository);
 
-        // Only set repository as ready if it was downloaded (not just added)
-        if (action === "download") {
+        // Check if repository is in a ready state
+        if (isRepositoryReadyForChat(downloadedRepository.status)) {
           setRepositoryReady(true);
-          setRepositoryStatus(RepositoryStatus.READY);
-
-          // Enable sending messages after download is complete
           setUserCanSendMessage(true);
         }
       }
@@ -148,10 +149,16 @@ export function useChatInputState() {
       if (
         lastMsg.role === "assistant-informational" &&
         lastMsg.content.includes("repository") &&
-        (lastMsg.content.includes("ready to query") || lastMsg.content.includes("successfully ingested"))
+        (lastMsg.content.includes("ready to query") || 
+         lastMsg.content.includes("successfully ingested") ||
+         lastMsg.content.includes("ready to chat"))
       ) {
         setRepositoryReady(true);
-        setRepositoryStatus(RepositoryStatus.READY);
+        
+        // Update status to INGESTED if it's not already in a ready state
+        if (repositoryStatus !== RepositoryStatus.READY && repositoryStatus !== RepositoryStatus.INGESTED) {
+          setRepositoryStatus(RepositoryStatus.INGESTED);
+        }
 
         // Reset waiting state if this was a response we were waiting for
         if (waitingForResponse) {
@@ -181,7 +188,7 @@ export function useChatInputState() {
         }
       }
     }
-  }, [messages, setIsLoading, waitingForResponse, setRepositoryReady]);
+  }, [messages, setIsLoading, waitingForResponse, setRepositoryReady, repositoryStatus]);
 
   // Determine if the input should be disabled
   const isInputDisabled = isSubmitting || debouncedIsLoading || debouncedWaitingForResponse || !userCanSendMessage;
@@ -207,8 +214,12 @@ export function useChatInputState() {
     if (currentRepo && debouncedRepositoryStatus === RepositoryStatus.QUEUED) {
       return "Repository is queued for download. Please wait...";
     }
+    
+    if (currentRepo && debouncedRepositoryStatus === RepositoryStatus.INGESTING) {
+      return "Repository is being processed. Please wait...";
+    }
 
-    if (currentModel && currentRepo && repositoryReady) {
+    if (currentModel && currentRepo && isRepositoryReadyForChat(debouncedRepositoryStatus)) {
       return `Ask about the ${currentRepo.name} repository...`;
     }
 

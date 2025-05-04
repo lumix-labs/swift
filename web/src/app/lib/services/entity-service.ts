@@ -6,6 +6,8 @@ import {
   downloadRepository,
   RepositoryStatus,
   updateRepositoryStatus,
+  startIngestion,
+  isRepositoryReadyForChat,
 } from "./repo-download-service";
 
 // Export the event name for repository download completion
@@ -75,11 +77,15 @@ export const addRepository = (url: string): Repository => {
     setTimeout(() => {
       downloadRepository(newRepo.id, newRepo.name, newRepo.url)
         .then((downloadedRepo) => {
-          // Dispatch custom event for repository download completion
-          const event = new CustomEvent(REPO_DOWNLOAD_COMPLETE_EVENT, {
-            detail: { repository: downloadedRepo, action: "download" },
-          });
-          window.dispatchEvent(event);
+          // Only if the repository is in a ready state (either READY or INGESTED),
+          // dispatch the completion event
+          if (isRepositoryReadyForChat(downloadedRepo.status)) {
+            // Dispatch custom event for repository download completion
+            const event = new CustomEvent(REPO_DOWNLOAD_COMPLETE_EVENT, {
+              detail: { repository: downloadedRepo, action: "download" },
+            });
+            window.dispatchEvent(event);
+          }
         })
         .catch((err) => {
           console.error("Error downloading repository:", err);
