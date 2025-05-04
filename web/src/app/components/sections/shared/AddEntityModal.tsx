@@ -80,7 +80,7 @@ export function AddRepositoryModal({ isOpen, onClose, onSave }: AddRepositoryMod
 }
 
 export function AddModelModal({ isOpen, onClose, onSave }: AddModelModalProps) {
-  const [provider, setProvider] = useState<LLMProvider>("gemini");
+  const [provider] = useState<LLMProvider>("gemini"); // Fixed to gemini provider only
   const [apiKey, setApiKey] = useState("");
   const [isValid, setIsValid] = useState(false);
 
@@ -88,18 +88,8 @@ export function AddModelModal({ isOpen, onClose, onSave }: AddModelModalProps) {
     const key = e.target.value;
     setApiKey(key);
 
-    // Simple validation based on provider
-    if (provider === "gemini") {
-      setIsValid(/^AIza[0-9A-Za-z-_]{35}$/.test(key));
-    } else if (provider === "anthropic") {
-      setIsValid(/^sk-ant-api[0-9A-Za-z]{24,}$/.test(key));
-    }
-  };
-
-  const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setProvider(e.target.value as LLMProvider);
-    setIsValid(false); // Reset validation when provider changes
-    setApiKey(""); // Clear API key when provider changes
+    // Gemini API key validation
+    setIsValid(/^AIza[0-9A-Za-z-_]{35}$/.test(key));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -118,15 +108,9 @@ export function AddModelModal({ isOpen, onClose, onSave }: AddModelModalProps) {
           <label htmlFor="provider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Provider
           </label>
-          <select
-            id="provider"
-            value={provider}
-            onChange={handleProviderChange}
-            className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-          >
-            <option value="gemini">Gemini</option>
-            <option value="anthropic">Anthropic (Claude)</option>
-          </select>
+          <div className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+            Gemini
+          </div>
         </div>
         <div className="mb-4">
           <label htmlFor="apiKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -137,13 +121,12 @@ export function AddModelModal({ isOpen, onClose, onSave }: AddModelModalProps) {
             id="apiKey"
             value={apiKey}
             onChange={handleApiKeyChange}
-            placeholder={provider === "gemini" ? "AIza..." : "sk-ant-api..."}
+            placeholder="AIza..."
             className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            autoFocus
           />
           {apiKey && !isValid && (
-            <p className="mt-1 text-sm text-red-500">
-              Please enter a valid {provider === "gemini" ? "Gemini" : "Anthropic"} API key
-            </p>
+            <p className="mt-1 text-sm text-red-500">Please enter a valid Gemini API key</p>
           )}
         </div>
         <div className="flex justify-end space-x-2">

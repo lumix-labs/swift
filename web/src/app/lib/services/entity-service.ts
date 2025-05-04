@@ -29,7 +29,11 @@ export const addRepository = (url: string): Repository => {
   const match = url.match(/github\.com\/([\w-]+)\/([\w.-]+)\/?$/);
   const orgName = match ? match[1] : "";
   const repoName = match ? match[2] : "";
-  const fullName = orgName && repoName ? `${orgName}/${repoName}` : `Repository ${new Date().toISOString()}`;
+  
+  // Format name as "org/repo" or fallback
+  const fullName = orgName && repoName 
+    ? `${orgName}/${repoName}` 
+    : `Repository ${new Date().toISOString().substring(0, 10)}`;
 
   const newRepo: Repository = {
     id: generateId(),
@@ -50,6 +54,13 @@ export const addRepository = (url: string): Repository => {
 export const removeRepository = (id: string): void => {
   try {
     const repos = getRepositories();
+    
+    // Ensure we're not removing the last repository
+    if (repos.length <= 1) {
+      console.warn("Cannot remove the last repository");
+      return;
+    }
+    
     const updatedRepos = repos.filter((repo) => repo.id !== id);
     localStorage.setItem(REPOSITORIES_KEY, JSON.stringify(updatedRepos));
   } catch (error) {
@@ -73,7 +84,7 @@ export const getModels = (): LLMModel[] => {
 };
 
 export const addModel = (provider: LLMProvider, apiKey: string): LLMModel => {
-  // Generate model name based on provider without the date part
+  // Generate model name based on provider
   const modelName = provider === "gemini" ? "Gemini 1.5 Flash" : "Claude 3 Haiku";
 
   const newModel: LLMModel = {
@@ -85,6 +96,17 @@ export const addModel = (provider: LLMProvider, apiKey: string): LLMModel => {
 
   try {
     const models = getModels();
+    
+    // If a model already exists with the same provider, don't add a new one
+    const existingModel = models.find(model => model.provider === provider);
+    if (existingModel) {
+      // Update the existing model with new API key
+      existingModel.apiKey = apiKey;
+      localStorage.setItem(MODELS_KEY, JSON.stringify(models));
+      return existingModel;
+    }
+    
+    // Add new model
     localStorage.setItem(MODELS_KEY, JSON.stringify([...models, newModel]));
   } catch (error) {
     console.error("Error saving model:", error);
@@ -96,6 +118,13 @@ export const addModel = (provider: LLMProvider, apiKey: string): LLMModel => {
 export const removeModel = (id: string): void => {
   try {
     const models = getModels();
+    
+    // Ensure we're not removing the last model
+    if (models.length <= 1) {
+      console.warn("Cannot remove the last model");
+      return;
+    }
+    
     const updatedModels = models.filter((model) => model.id !== id);
     localStorage.setItem(MODELS_KEY, JSON.stringify(updatedModels));
   } catch (error) {

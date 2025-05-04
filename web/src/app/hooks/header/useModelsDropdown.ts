@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { LLMProvider } from "../../lib/types/entities";
 import { addModel, removeModel } from "../../lib/services/entity-service";
 import { useChat } from "../../context/ChatContext";
@@ -12,6 +12,13 @@ export function useModelsDropdown() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isActionInProgress, setIsActionInProgress] = useState(false);
+
+  // Auto-select the first model when models are loaded and none is selected
+  useEffect(() => {
+    if (models.length > 0 && !selectedModelId) {
+      setSelectedModelId(models[0].id);
+    }
+  }, [models, selectedModelId, setSelectedModelId]);
 
   // Set UI update lock to prevent component re-rendering during actions
   const lockUIUpdates = useCallback(() => {
@@ -40,17 +47,30 @@ export function useModelsDropdown() {
       // Set updating flag to prevent UI flickering
       setIsUpdating(true);
 
-      // Check if model with the same name already exists
-      const modelName = provider === "gemini" ? "Gemini 1.5 Flash" : "Claude 3 Haiku";
-
-      const existingModel = models.find(
-        (model) => model.name.toLowerCase() === modelName.toLowerCase() && model.provider === provider,
-      );
+      // Check if model with the same provider already exists
+      const existingModel = models.find((model) => model.provider === provider);
 
       if (existingModel) {
-        // Model with same name already exists
-        alert(`A model named "${existingModel.name}" already exists.`);
-        setIsUpdating(false);
+        // Update the existing model instead of adding a new one
+        const updatedModel = addModel(provider, apiKey);
+        setSelectedModelId(updatedModel.id);
+        
+        // Add a notification message after a short delay to ensure proper sequencing
+        setTimeout(() => {
+          addMessage({
+            role: "assistant",
+            content: `${updatedModel.name} has been updated and selected as the active model.`,
+          });
+
+          // Trigger model change to refresh the list
+          triggerModelChange();
+
+          // Reset updating flag after state is updated
+          setTimeout(() => {
+            setIsUpdating(false);
+          }, 500);
+        }, 500);
+        
         return;
       }
 
@@ -90,6 +110,15 @@ export function useModelsDropdown() {
         return;
       }
 
+      // Don't allow removing the last model
+      if (models.length <= 1) {
+        addMessage({
+          role: "assistant",
+          content: "At least one model must be available. You cannot remove the only model.",
+        });
+        return;
+      }
+
       // Lock UI updates to prevent flickering
       lockUIUpdates();
 
@@ -103,15 +132,19 @@ export function useModelsDropdown() {
 
         removeModel(id);
 
-        // If the removed model was selected, clear the selection
+        // If the removed model was selected, select another model
         if (id === selectedModelId) {
-          setSelectedModelId(null);
+          // Find another model to select
+          const nextModel = models.find(m => m.id !== id);
+          if (nextModel) {
+            setSelectedModelId(nextModel.id);
+          }
 
           // Add a notification message after a short delay to ensure proper sequencing
           setTimeout(() => {
             addMessage({
               role: "assistant",
-              content: `${modelName} has been removed. Please select another model to continue chatting.`,
+              content: `${modelName} has been removed. ${nextModel ? `${nextModel.name} is now the active model.` : "Please select another model to continue chatting."}`,
             });
           }, 300);
         } else {

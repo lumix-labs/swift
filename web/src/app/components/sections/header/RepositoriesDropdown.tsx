@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import { AddRepositoryModal } from "../shared/AddEntityModal";
 import { DownloadButton } from "../shared/DownloadButton";
 import { useDropdown } from "../../../hooks/header/useDropdown";
@@ -25,8 +25,14 @@ export function RepositoriesDropdown({ resolvedTheme }: RepositoriesDropdownProp
     handleRepositorySave,
     handleRepositoryRemove,
     handleRepositorySelect,
-    handleClearRepository,
   } = useRepositoriesDropdown();
+
+  // Auto-select first repository if none is selected
+  useEffect(() => {
+    if (!selectedRepositoryId && repositories.length > 0) {
+      handleRepositorySelect(repositories[0].id);
+    }
+  }, [repositories, selectedRepositoryId, handleRepositorySelect]);
 
   // Handle add button click - wrapped in useCallback to prevent recreations
   const onAddClick = useCallback(
@@ -47,13 +53,6 @@ export function RepositoriesDropdown({ resolvedTheme }: RepositoriesDropdownProp
     },
     [handleRepositorySelect, setShow],
   );
-
-  // Handle clearing repository selection - wrapped in useCallback to prevent recreations
-  const onClearRepository = useCallback(() => {
-    if (handleClearRepository()) {
-      setShow(false);
-    }
-  }, [handleClearRepository, setShow]);
 
   // Memoize the repository list to prevent unnecessary re-renders
   const repositoryList = React.useMemo(() => {
@@ -79,7 +78,9 @@ export function RepositoriesDropdown({ resolvedTheme }: RepositoriesDropdownProp
       <div
         key={repo.id}
         className={`p-2 border-b border-gray-200 dark:border-gray-700 last:border-0 ${
-          repo.id === selectedRepositoryId ? "bg-gray-100 dark:bg-gray-800" : ""
+          repo.id === selectedRepositoryId 
+            ? "bg-gray-100 dark:bg-gray-800 border-l-4 border-l-green-500 dark:border-l-green-400" 
+            : ""
         }`}
       >
         <div className="flex flex-col space-y-2">
@@ -88,25 +89,28 @@ export function RepositoriesDropdown({ resolvedTheme }: RepositoriesDropdownProp
               <div className="font-medium">{repo.name}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{repo.url}</div>
             </div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleRepositoryRemove(repo.id);
-              }}
-              className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-              aria-label="Remove repository"
-              disabled={isActionInProgress}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 text-gray-500 dark:text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+            {/* Only show remove button if there's more than one repository */}
+            {repositories.length > 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRepositoryRemove(repo.id);
+                }}
+                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                aria-label="Remove repository"
+                disabled={isActionInProgress}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 text-gray-500 dark:text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
 
           {/* Download Button */}
@@ -115,6 +119,9 @@ export function RepositoriesDropdown({ resolvedTheme }: RepositoriesDropdownProp
       </div>
     ));
   }, [repositories, selectedRepositoryId, isUpdating, onRepositorySelect, handleRepositoryRemove, isActionInProgress]);
+
+  // Get currently selected repository for display
+  const selectedRepo = selectedRepositoryId ? repositories.find(r => r.id === selectedRepositoryId) : null;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -125,7 +132,9 @@ export function RepositoriesDropdown({ resolvedTheme }: RepositoriesDropdownProp
         onClick={toggleDropdown}
         disabled={isActionInProgress}
       >
-        <span className="hidden sm:inline">Repositories</span>
+        <span className="hidden sm:inline">
+          {selectedRepo ? `Repo: ${selectedRepo.name}` : "Repositories"}
+        </span>
         <span className="sm:hidden">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -136,7 +145,7 @@ export function RepositoriesDropdown({ resolvedTheme }: RepositoriesDropdownProp
           >
             <path
               strokeLinecap="round"
-              strokeLinejoin="round"
+              strokeLinejoin="round" 
               strokeWidth={2}
               d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
             />
@@ -149,35 +158,6 @@ export function RepositoriesDropdown({ resolvedTheme }: RepositoriesDropdownProp
           className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 
                       rounded-md shadow-lg z-10"
         >
-          {/* Show clear option if a repository is selected */}
-          {selectedRepositoryId && (
-            <div className="p-2 border-b border-gray-200 dark:border-gray-700">
-              <button
-                onClick={onClearRepository}
-                className="w-full p-2 text-sm bg-gray-100 dark:bg-gray-800 rounded 
-                         hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
-                disabled={isUpdating || isActionInProgress}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 mr-1"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 
-                                             111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 
-                                             11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 
-                                             5.707a1 1 0 010-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Clear repository selection
-              </button>
-            </div>
-          )}
-
           {repositoryList}
 
           <div className="p-2 border-t border-gray-200 dark:border-gray-700">

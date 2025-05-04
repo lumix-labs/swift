@@ -118,64 +118,157 @@ export function ChatInput() {
   // Determine if the input should be disabled
   const isInputDisabled = isSubmitting || debouncedIsLoading || debouncedWaitingForResponse || !userCanSendMessage;
 
+  // Get a more specific placeholder message depending on the state
+  const getPlaceholderMessage = () => {
+    if (isInputDisabled) {
+      return "Waiting for response...";
+    }
+    
+    if (!currentModel) {
+      return "Please select a model to start chatting";
+    }
+    
+    if (!currentRepo) {
+      return "Please select a repository to analyze";
+    }
+    
+    if (currentRepo && !repositoryReady) {
+      return "Repository is being downloaded. Please wait...";
+    }
+    
+    if (currentModel && currentRepo && repositoryReady) {
+      return `Ask about the ${currentRepo.name} repository...`;
+    }
+    
+    return "Ask a question...";
+  };
+
+  // Helper to determine if we should show an error message
+  const getMissingRequirement = () => {
+    if (!currentModel) {
+      return {
+        message: "Please select a model to start chatting",
+        icon: (
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className="h-5 w-5" 
+            viewBox="0 0 20 20" 
+            fill="currentColor"
+          >
+            <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 
+                    01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+          </svg>
+        ),
+        bg: "bg-blue-50 dark:bg-blue-900",
+        text: "text-blue-800 dark:text-blue-200",
+      };
+    }
+    
+    if (!currentRepo) {
+      return {
+        message: "Please select a repository to analyze",
+        icon: (
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className="h-5 w-5" 
+            viewBox="0 0 20 20" 
+            fill="currentColor"
+          >
+            <path fillRule="evenodd" 
+              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" 
+              clipRule="evenodd" 
+            />
+          </svg>
+        ),
+        bg: "bg-indigo-50 dark:bg-indigo-900",
+        text: "text-indigo-800 dark:text-indigo-200",
+      };
+    }
+    
+    if (currentRepo && !repositoryReady) {
+      return {
+        message: "Repository is being downloaded. Please wait...",
+        icon: (
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className="h-5 w-5 animate-pulse" 
+            viewBox="0 0 20 20" 
+            fill="currentColor"
+          >
+            <path fillRule="evenodd" 
+              d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" 
+              clipRule="evenodd" 
+            />
+          </svg>
+        ),
+        bg: "bg-yellow-50 dark:bg-yellow-900",
+        text: "text-yellow-800 dark:text-yellow-200",
+      };
+    }
+    
+    return null;
+  };
+
+  const missingRequirement = getMissingRequirement();
+
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-1 w-full max-w-4xl mx-auto">
-      <div className="flex-1 relative">
-        <textarea
-          ref={textareaRef}
-          className={`w-full px-3 py-2 bg-gray-100 dark:bg-gray-800 border
+    <div className="w-full max-w-4xl mx-auto">
+      {missingRequirement && (
+        <div className={`mb-2 px-3 py-2 ${missingRequirement.bg} ${missingRequirement.text} text-sm rounded-md shadow-sm`}>
+          <div className="flex items-center">
+            {missingRequirement.icon}
+            <span className="ml-2">{missingRequirement.message}</span>
+          </div>
+        </div>
+      )}
+      <form onSubmit={handleSubmit} className="flex items-center gap-1 w-full">
+        <div className="flex-1 relative">
+          <textarea
+            ref={textareaRef}
+            className={`w-full px-3 py-2 bg-gray-100 dark:bg-gray-800 border
                      border-gray-300 dark:border-gray-700 rounded-lg resize-none 
                      focus:outline-none focus:ring-0 transition-all min-h-[44px] 
                      max-h-[150px] overflow-auto align-middle ${
                        isInputDisabled ? "opacity-70 cursor-not-allowed" : ""
                      }`}
-          placeholder={
-            isInputDisabled
-              ? "Waiting for response..."
-              : currentRepo && !repositoryReady
-                ? "Waiting for repository to download..."
-                : currentModel && currentRepo && repositoryReady
-                  ? `Ask about the ${currentRepo.name} repository...`
-                  : currentModel
-                    ? "Ask a question..."
-                    : "Please select a model first"
-          }
-          aria-label="Chat input"
-          value={message}
-          onChange={handleMessageChange}
-          onKeyDown={handleKeyDown}
-          rows={1}
-          autoFocus
-          disabled={isInputDisabled || (currentRepo && !repositoryReady) || !currentModel}
-        />
-      </div>
-      <button
-        type="submit"
-        aria-label="Send message"
-        disabled={isInputDisabled || !message.trim() || (currentRepo && !repositoryReady) || !currentModel}
-        className="flex items-center justify-center w-11 h-11 bg-gray-900 text-white 
+            placeholder={getPlaceholderMessage()}
+            aria-label="Chat input"
+            value={message}
+            onChange={handleMessageChange}
+            onKeyDown={handleKeyDown}
+            rows={1}
+            autoFocus
+            disabled={isInputDisabled || (currentRepo && !repositoryReady) || !currentModel}
+          />
+        </div>
+        <button
+          type="submit"
+          aria-label="Send message"
+          disabled={isInputDisabled || !message.trim() || (currentRepo && !repositoryReady) || !currentModel}
+          className="flex items-center justify-center w-11 h-11 bg-gray-900 text-white 
                  rounded-lg border border-gray-300 dark:border-gray-700 shadow-sm 
                  hover:bg-gray-800 dark:hover:bg-gray-700 focus:outline-none 
                  focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-600 
                  disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 
                  dark:disabled:text-gray-600 disabled:cursor-not-allowed align-middle 
                  transition-colors"
-      >
-        {isInputDisabled ? (
-          <div
-            className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 
+        >
+          {isInputDisabled ? (
+            <div
+              className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 
                         border-t-transparent rounded-full animate-spin"
-          />
-        ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 
+            />
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 
                    009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 
                    001.17-1.408l-7-14z"
-            />
-          </svg>
-        )}
-      </button>
-    </form>
+              />
+            </svg>
+          )}
+        </button>
+      </form>
+    </div>
   );
 }

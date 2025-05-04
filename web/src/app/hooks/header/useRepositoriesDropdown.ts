@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { addRepository, removeRepository } from "../../lib/services/entity-service";
 import { useChat } from "../../context/ChatContext";
 import { useRepositoryDownload } from "../useRepositoryDownload";
@@ -11,6 +11,13 @@ export function useRepositoriesDropdown() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isActionInProgress, setIsActionInProgress] = useState(false);
+
+  // Auto-select the first repository when repositories are loaded and none is selected
+  useEffect(() => {
+    if (repositories.length > 0 && !selectedRepositoryId) {
+      setSelectedRepositoryId(repositories[0].id);
+    }
+  }, [repositories, selectedRepositoryId, setSelectedRepositoryId]);
 
   // Set UI update lock to prevent component re-rendering during actions
   const lockUIUpdates = useCallback(() => {
@@ -40,9 +47,8 @@ export function useRepositoriesDropdown() {
       setIsUpdating(true);
 
       try {
-        // Extract name from URL and add repository
-        const name = repoUrl.split("/").pop() || "Repository";
-        const newRepo = addRepository(name);
+        // Extract name from URL and add repository using GitHub format
+        const newRepo = addRepository(repoUrl);
 
         // Automatically select the newly added repository
         setSelectedRepositoryId(newRepo.id);
@@ -83,6 +89,15 @@ export function useRepositoriesDropdown() {
         return;
       }
 
+      // If there's only one repository, don't allow removal
+      if (repositories.length <= 1) {
+        addMessage({
+          role: "assistant",
+          content: "At least one repository must be selected. You cannot remove the only repository.",
+        });
+        return;
+      }
+
       // Lock UI updates to prevent flickering
       lockUIUpdates();
 
@@ -94,28 +109,25 @@ export function useRepositoriesDropdown() {
         const repo = repositories.find((r) => r.id === id);
         const repoName = repo?.name || "Repository";
 
+        // If the removed repository was selected, select another repository
+        if (id === selectedRepositoryId) {
+          // Find another repository to select
+          const nextRepo = repositories.find(r => r.id !== id);
+          if (nextRepo) {
+            setSelectedRepositoryId(nextRepo.id);
+          }
+        }
+
+        // Remove the repository
         removeRepository(id);
 
-        // If the removed repository was selected, clear the selection
-        if (id === selectedRepositoryId) {
-          setSelectedRepositoryId(null);
-
-          // Add a notification message after a short delay to ensure proper sequencing
-          setTimeout(() => {
-            addMessage({
-              role: "assistant",
-              content: `Repository "${repoName}" has been removed. Please select another repository or continue chatting without one.`,
-            });
-          }, 300);
-        } else {
-          // Add a notification message after a short delay to ensure proper sequencing
-          setTimeout(() => {
-            addMessage({
-              role: "assistant",
-              content: `Repository "${repoName}" has been removed.`,
-            });
-          }, 300);
-        }
+        // Add a notification message after a short delay to ensure proper sequencing
+        setTimeout(() => {
+          addMessage({
+            role: "assistant",
+            content: `Repository "${repoName}" has been removed.`,
+          });
+        }, 300);
 
         // Use a timer to delay the UI update to prevent flickering
         setTimeout(() => {
@@ -146,7 +158,7 @@ export function useRepositoriesDropdown() {
   const handleRepositorySelect = useCallback(
     (id: string) => {
       if (isActionInProgress) {
-        return;
+        return false;
       }
 
       // Lock UI updates to prevent flickering
@@ -171,31 +183,6 @@ export function useRepositoriesDropdown() {
     [setSelectedRepositoryId, repositories, addMessage, isActionInProgress, lockUIUpdates],
   );
 
-  const handleClearRepository = useCallback(() => {
-    if (isActionInProgress || !selectedRepositoryId) {
-      return;
-    }
-
-    // Lock UI updates to prevent flickering
-    lockUIUpdates();
-
-    // Get repository name for notification
-    const repo = repositories.find((r) => r.id === selectedRepositoryId);
-    const repoName = repo?.name || "Repository";
-
-    setSelectedRepositoryId(null);
-
-    // Add a notification message after a short delay to ensure proper sequencing
-    setTimeout(() => {
-      addMessage({
-        role: "assistant",
-        content: `Repository "${repoName}" has been deselected. You are now in general conversation mode.`,
-      });
-    }, 300);
-
-    return true; // Return true to indicate dropdown should close
-  }, [selectedRepositoryId, setSelectedRepositoryId, repositories, addMessage, isActionInProgress, lockUIUpdates]);
-
   return {
     selectedRepositoryId,
     repositories,
@@ -207,6 +194,5 @@ export function useRepositoriesDropdown() {
     handleRepositorySave,
     handleRepositoryRemove,
     handleRepositorySelect,
-    handleClearRepository,
   };
 }

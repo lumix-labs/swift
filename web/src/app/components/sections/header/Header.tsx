@@ -17,6 +17,11 @@ export function Header() {
     createNewSession();
   };
 
+  // Common button style for consistent appearance
+  const buttonStyle = `p-2 sm:px-3 sm:py-1.5 text-sm font-medium rounded-md transition-colors ${
+    resolvedTheme === "dark" ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800"
+  }`;
+
   return (
     <header
       className="sticky top-0 z-10 flex items-center justify-between px-4 h-14 
@@ -60,9 +65,7 @@ export function Header() {
               />
             </svg>
           }
-          className={`p-2 sm:px-3 sm:py-1.5 text-sm font-medium rounded-md transition-colors ${
-            resolvedTheme === "dark" ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800"
-          }`}
+          className={buttonStyle}
         />
         <HeaderActionButton
           href="https://docs.google.com/presentation/d/1i3VbI0HzMQcodzJs8n_66absswe0SxkKM0BaPPBFJHA/edit?usp=sharing"
@@ -87,11 +90,7 @@ export function Header() {
               />
             </svg>
           }
-          className={`p-2 sm:px-3 sm:py-1.5 text-sm font-medium rounded-md transition-colors ${
-            resolvedTheme === "dark"
-              ? "bg-gray-100 text-black hover:bg-gray-200"
-              : "bg-gray-800 text-white hover:bg-gray-900"
-          }`}
+          className={buttonStyle}
         />
 
         {/* Updated Dropdowns to use the new components */}
@@ -116,9 +115,7 @@ export function Header() {
               />
             </svg>
           }
-          className={`p-2 sm:px-3 sm:py-1.5 text-sm font-medium rounded-md transition-colors ${
-            resolvedTheme === "dark" ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800"
-          }`}
+          className={buttonStyle}
         />
         <ThemeToggle />
       </div>

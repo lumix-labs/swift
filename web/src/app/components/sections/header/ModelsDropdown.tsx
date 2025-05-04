@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useEffect } from "react";
 import { AddModelModal } from "../shared/AddEntityModal";
 import { useDropdown } from "../../../hooks/header/useDropdown";
 import { useModelsDropdown } from "../../../hooks/header/useModelsDropdown";
@@ -25,6 +25,13 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
     handleModelRemove,
     handleModelSelect,
   } = useModelsDropdown();
+
+  // Auto-select first model if none is selected
+  useEffect(() => {
+    if (!selectedModelId && models.length > 0) {
+      handleModelSelect(models[0].id);
+    }
+  }, [models, selectedModelId, handleModelSelect]);
 
   // Handle add button click - wrap in useCallback to prevent recreation
   const onAddClick = useCallback(
@@ -73,7 +80,9 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
         <div
           key={model.id}
           className={`p-2 border-b border-gray-200 dark:border-gray-700 last:border-0 ${
-            isSelected ? "bg-gray-100 dark:bg-gray-800" : ""
+            isSelected 
+              ? "bg-gray-100 dark:bg-gray-800 border-l-4 border-l-blue-500 dark:border-l-blue-400" 
+              : ""
           }`}
         >
           <div className="flex justify-between items-center">
@@ -83,31 +92,40 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
                 {model.provider.charAt(0).toUpperCase() + model.provider.slice(1)}
               </div>
             </div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleModelRemove(model.id);
-              }}
-              className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-              aria-label="Remove model"
-              disabled={isActionInProgress}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 text-gray-500 dark:text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+            {/* Only show remove button if there's more than one model */}
+            {models.length > 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleModelRemove(model.id);
+                }}
+                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                aria-label="Remove model"
+                disabled={isActionInProgress}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 text-gray-500 dark:text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       );
     });
   }, [models, selectedModelId, isUpdating, isActionInProgress, onModelSelect, handleModelRemove]);
 
+  // Get currently selected model for display
+  const selectedModel = selectedModelId ? models.find(m => m.id === selectedModelId) : null;
+  
+  // Determine if the "Add" button should be shown - only if no models exist
+  const shouldShowAddButton = models.length === 0;
+  
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -117,7 +135,9 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
         onClick={toggleDropdown}
         disabled={isActionInProgress}
       >
-        <span className="hidden sm:inline">Models</span>
+        <span className="hidden sm:inline">
+          {selectedModel ? `Model: ${selectedModel.name}` : "Models"}
+        </span>
         <span className="sm:hidden">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path
@@ -134,36 +154,39 @@ export function ModelsDropdown({ resolvedTheme }: ModelsDropdownProps) {
                       rounded-md shadow-lg z-10"
         >
           {modelsList}
-          <div className="p-2 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={onAddClick}
-              className="w-full p-2 text-sm bg-gray-100 dark:bg-gray-800 rounded 
-                       hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
-              disabled={isUpdating || isActionInProgress}
-            >
-              {isUpdating ? (
-                <div
-                  className="w-4 h-4 border-2 border-gray-500 dark:border-gray-400 
-                              border-t-transparent rounded-full animate-spin mr-2"
-                ></div>
-              ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 mr-1"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 
-                                             11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              )}
-              Add new model
-            </button>
-          </div>
+          {/* Only show Add button if no models exist */}
+          {shouldShowAddButton && (
+            <div className="p-2 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={onAddClick}
+                className="w-full p-2 text-sm bg-gray-100 dark:bg-gray-800 rounded 
+                        hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
+                disabled={isUpdating || isActionInProgress}
+              >
+                {isUpdating ? (
+                  <div
+                    className="w-4 h-4 border-2 border-gray-500 dark:border-gray-400 
+                                border-t-transparent rounded-full animate-spin mr-2"
+                  ></div>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 mr-1"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 
+                                              11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                )}
+                Add Gemini API Key
+              </button>
+            </div>
+          )}
         </div>
       )}
 
