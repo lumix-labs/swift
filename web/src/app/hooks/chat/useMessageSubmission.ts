@@ -4,10 +4,10 @@ import { useState, useRef, useCallback, FormEvent } from "react";
 import { LLMModel, Repository } from "../../lib/types/entities";
 import { GeminiService } from "../../lib/services/gemini-service";
 import { EXCLUDED_MESSAGE_ROLES } from "../../context/chat/types";
-import { 
-  RepositoryStatus, 
-  getRepositoryStatus, 
-  isRepositoryReadyForChat 
+import {
+  RepositoryStatus,
+  getRepositoryStatus,
+  isRepositoryReadyForChat,
 } from "../../lib/services/repo-download-service";
 
 // Define the DownloadedRepository interface to replace any
@@ -73,8 +73,8 @@ export function useMessageSubmission({
         const repoStatus = getRepositoryStatus(currentRepo.id);
         if (!isRepositoryReadyForChat(repoStatus)) {
           let statusMessage = "It's not ready yet.";
-          
-          switch(repoStatus) {
+
+          switch (repoStatus) {
             case RepositoryStatus.DOWNLOADING:
               statusMessage = "It's currently being downloaded.";
               break;
@@ -87,7 +87,7 @@ export function useMessageSubmission({
             default:
               statusMessage = "Please download it first.";
           }
-          
+
           addMessage({
             role: "assistant-informational" as const,
             content: `Repository ${currentRepo.name} is not ready for chat. ${statusMessage}`,
@@ -141,16 +141,16 @@ export function useMessageSubmission({
               repoName: currentRepo.name,
               repoUrl: currentRepo.url,
               readmeContent: downloadedRepo.readmeContent || "",
-              repoTree: downloadedRepo.repoTree || ""
+              repoTree: downloadedRepo.repoTree || "",
             };
-            
+
             // Use repository context when available with tree data
             response = await geminiService.sendMessage(
               userMessageContent,
               contextData.repoName,
               contextData.repoUrl,
               contextData.readmeContent,
-              contextData.repoTree
+              contextData.repoTree,
             );
           } else {
             // No repository context

@@ -110,7 +110,7 @@ export const downloadRepository = async (
 
   // Save to local storage
   saveDownloadedRepository(downloadedRepo);
-  
+
   // Now start the ingestion process
   return startIngestion(downloadedRepo);
 };
@@ -122,26 +122,26 @@ export const startIngestion = async (repo: DownloadedRepository): Promise<Downlo
     ...repo,
     status: RepositoryStatus.INGESTING,
   };
-  
+
   // Save the ingesting state
   saveDownloadedRepository(ingestingRepo);
-  
+
   // Simulate ingestion delay
   await new Promise((resolve) => setTimeout(resolve, 1000));
-  
+
   // Generate a mock repository tree (respecting .gitignore)
   const mockRepoTree = generateMockRepoTree(repo.name);
-  
+
   // Update status to INGESTED and set as READY
   const ingestedRepo: DownloadedRepository = {
     ...ingestingRepo,
     status: RepositoryStatus.INGESTED,
     repoTree: mockRepoTree,
   };
-  
+
   // Save to local storage
   saveDownloadedRepository(ingestedRepo);
-  
+
   return ingestedRepo;
 };
 

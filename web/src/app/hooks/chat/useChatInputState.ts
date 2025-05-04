@@ -5,7 +5,11 @@ import { useChat } from "../../context/ChatContext";
 import { useEntitySelection } from "./useEntitySelection";
 import { useMessageSubmission } from "./useMessageSubmission";
 import { useDebounce } from "../useDebounce";
-import { RepositoryStatus, getRepositoryStatus, isRepositoryReadyForChat } from "../../lib/services/repo-download-service";
+import {
+  RepositoryStatus,
+  getRepositoryStatus,
+  isRepositoryReadyForChat,
+} from "../../lib/services/repo-download-service";
 import { REPO_DOWNLOAD_COMPLETE_EVENT } from "../../components/sections/shared/DownloadButton";
 
 export function useChatInputState() {
@@ -51,8 +55,8 @@ export function useChatInputState() {
         setRepositoryReady(true);
         setUserCanSendMessage(true);
       } else if (
-        status === RepositoryStatus.DOWNLOADING || 
-        status === RepositoryStatus.QUEUED || 
+        status === RepositoryStatus.DOWNLOADING ||
+        status === RepositoryStatus.QUEUED ||
         status === RepositoryStatus.INGESTING
       ) {
         setRepositoryReady(false);
@@ -149,12 +153,12 @@ export function useChatInputState() {
       if (
         lastMsg.role === "assistant-informational" &&
         lastMsg.content.includes("repository") &&
-        (lastMsg.content.includes("ready to query") || 
-         lastMsg.content.includes("successfully ingested") ||
-         lastMsg.content.includes("ready to chat"))
+        (lastMsg.content.includes("ready to query") ||
+          lastMsg.content.includes("successfully ingested") ||
+          lastMsg.content.includes("ready to chat"))
       ) {
         setRepositoryReady(true);
-        
+
         // Update status to INGESTED if it's not already in a ready state
         if (repositoryStatus !== RepositoryStatus.READY && repositoryStatus !== RepositoryStatus.INGESTED) {
           setRepositoryStatus(RepositoryStatus.INGESTED);
@@ -214,7 +218,7 @@ export function useChatInputState() {
     if (currentRepo && debouncedRepositoryStatus === RepositoryStatus.QUEUED) {
       return "Repository is queued for download. Please wait...";
     }
-    
+
     if (currentRepo && debouncedRepositoryStatus === RepositoryStatus.INGESTING) {
       return "Repository is being processed. Please wait...";
     }

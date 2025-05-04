@@ -84,11 +84,11 @@ export function ChatMessage({ message }: ChatMessageProps) {
   // Get styling based on message type
   const getMessageStyleClasses = () => {
     if (isUserMessage) {
-      return "bg-black text-white dark:bg-white dark:text-black shadow-md";
+      return "bg-white text-black dark:bg-black dark:text-white shadow-md";
     } else if (isInformationalMessage) {
       return "bg-blue-50 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50 text-sm";
     } else if (isModelResponse) {
-      return "bg-violet-50 dark:bg-violet-900/50 text-violet-800 dark:text-violet-200 shadow-sm";
+      return "bg-black text-white dark:bg-white dark:text-black shadow-sm";
     } else {
       return "bg-gray-100 dark:bg-gray-800 text-black dark:text-white shadow-sm";
     }

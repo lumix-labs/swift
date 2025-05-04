@@ -30,7 +30,9 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
   const [repoStatus, setRepoStatus] = useState<RepositoryStatus>(RepositoryStatus.PENDING);
   const [isDownloading, setIsDownloading] = useState(downloadingRepos.get(repository.id) || false);
   const [actionInProgress, setActionInProgress] = useState(false);
-  const [transitionState, setTransitionState] = useState<"idle" | "start" | "downloading" | "ingesting" | "complete">("idle");
+  const [transitionState, setTransitionState] = useState<"idle" | "start" | "downloading" | "ingesting" | "complete">(
+    "idle",
+  );
 
   // Use debounced state to prevent flickering with longer delay
   const debouncedIsDownloading = useDebounce(isDownloading, 500);
@@ -71,8 +73,8 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
 
         // If status is downloading or processing, update the local isDownloading state
         if (
-          status === RepositoryStatus.DOWNLOADING || 
-          status === RepositoryStatus.QUEUED || 
+          status === RepositoryStatus.DOWNLOADING ||
+          status === RepositoryStatus.QUEUED ||
           status === RepositoryStatus.INGESTING
         ) {
           setIsDownloading(true);
@@ -94,7 +96,12 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
   }, [repository.id]);
 
   const handleDownload = useCallback(async () => {
-    if (isDownloading || repoStatus === RepositoryStatus.READY || repoStatus === RepositoryStatus.INGESTED || actionInProgress) {
+    if (
+      isDownloading ||
+      repoStatus === RepositoryStatus.READY ||
+      repoStatus === RepositoryStatus.INGESTED ||
+      actionInProgress
+    ) {
       console.warn("Repository is already downloaded or downloading:", repository.id);
       return;
     }
@@ -119,15 +126,15 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
     try {
       // Start the download
       const downloadedRepo = await downloadRepository(repository.id, repository.name, repository.url);
-      
+
       console.warn("Repository downloaded successfully:", repository.id);
-      
+
       // Add a message about ingestion starting
       addMessage({
         role: "assistant-informational",
         content: `Processing repository ${repository.name}. Creating repository tree (respecting .gitignore)...`,
       });
-      
+
       // Set status to ingested/ready
       setRepoStatus(downloadedRepo.status);
 
@@ -204,7 +211,7 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
           ),
           text: "Processing...",
           disabled: true,
-        };  
+        };
       case RepositoryStatus.DOWNLOADING:
         return {
           bgClass: baseClasses + "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300",

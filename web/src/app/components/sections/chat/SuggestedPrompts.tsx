@@ -22,11 +22,16 @@ export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
   // Memoize the prompt maps to prevent unnecessary re-renders
   const initialPromptMap = useMemo(
     (): PromptMap => ({
-      "Analyze our market position": "Conduct a detailed analysis of our market position compared to major competitors. What are our strengths, weaknesses, and opportunities?",
-      "Optimize business processes": "Review our current business processes and identify opportunities for optimization. Which processes should be prioritized?",
-      "Strategic planning": "Help create a strategic plan for the next 2 years, taking into account industry trends and our current capabilities.",
-      "Competitive analysis": "Analyze our top 3 competitors and highlight key differentiating factors between us and them. What can we learn from them?",
-      "Improve operational efficiency": "Identify ways to improve our operational efficiency and reduce costs without sacrificing quality.",
+      "Analyze our market position":
+        "Conduct a detailed analysis of our market position compared to major competitors. What are our strengths, weaknesses, and opportunities?",
+      "Optimize business processes":
+        "Review our current business processes and identify opportunities for optimization. Which processes should be prioritized?",
+      "Strategic planning":
+        "Help create a strategic plan for the next 2 years, taking into account industry trends and our current capabilities.",
+      "Competitive analysis":
+        "Analyze our top 3 competitors and highlight key differentiating factors between us and them. What can we learn from them?",
+      "Improve operational efficiency":
+        "Identify ways to improve our operational efficiency and reduce costs without sacrificing quality.",
     }),
     [],
   );
@@ -34,11 +39,16 @@ export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
   const expandedPromptMap = useMemo(
     (): PromptMap => ({
       ...initialPromptMap,
-      "Technology investment guidance": "What technology investments should we prioritize in the next 12-18 months to maintain competitive advantage?",
-      "Digital transformation strategy": "Help develop a comprehensive digital transformation strategy that aligns with our business goals and customer needs.",
-      "Customer experience insights": "Analyze our customer journey and suggest improvements to enhance customer experience and increase retention.",
-      "Talent development strategy": "Create a talent development strategy to ensure we have the skills needed for future growth and innovation.",
-      "Cross-departmental collaboration": "Recommend effective approaches to improve collaboration between different departments and break down organizational silos.",
+      "Technology investment guidance":
+        "What technology investments should we prioritize in the next 12-18 months to maintain competitive advantage?",
+      "Digital transformation strategy":
+        "Help develop a comprehensive digital transformation strategy that aligns with our business goals and customer needs.",
+      "Customer experience insights":
+        "Analyze our customer journey and suggest improvements to enhance customer experience and increase retention.",
+      "Talent development strategy":
+        "Create a talent development strategy to ensure we have the skills needed for future growth and innovation.",
+      "Cross-departmental collaboration":
+        "Recommend effective approaches to improve collaboration between different departments and break down organizational silos.",
     }),
     [initialPromptMap],
   );

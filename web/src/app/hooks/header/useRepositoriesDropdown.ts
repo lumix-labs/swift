@@ -57,7 +57,7 @@ export function useRepositoriesDropdown() {
         setTimeout(() => {
           addMessage({
             role: "assistant",
-            content: `Repository "${newRepo.name}" has been added. It will be downloaded and indexed when you send your first message.`,
+            content: `Repository "${newRepo.name}" has been added. It is being downloaded and ingested.`,
           });
 
           // Use a timer to delay the UI update to prevent flickering

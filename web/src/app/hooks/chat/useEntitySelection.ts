@@ -7,7 +7,7 @@ import {
   getDownloadedRepository,
   RepositoryStatus,
   getRepositoryStatus,
-  isRepositoryReadyForChat
+  isRepositoryReadyForChat,
 } from "../../lib/services/repo-download-service";
 import { DownloadedRepository } from "../../types/repository";
 
