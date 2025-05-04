@@ -14,9 +14,7 @@ export function RemoveButton({ onClick, disabled = false }: RemoveButtonProps) {
         e.stopPropagation();
         onClick(e);
       }}
-      className={`p-1 rounded-md transition-all duration-200 ${
-        disabled ? "opacity-50 cursor-not-allowed" : ""
-      }`}
+      className={`p-1 rounded-md transition-all duration-200 ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
       aria-label="Remove"
       disabled={disabled}
     >

@@ -12,21 +12,15 @@ export function useChatInputState() {
   const { addMessage, isLoading, setIsLoading, selectedModelId, selectedRepositoryId, messages } = useChat();
 
   // Use custom hooks to manage component state
-  const { 
-    currentModel, 
-    currentRepo, 
-    downloadedRepo, 
-    repositoryReady, 
-    setRepositoryReady, 
-    setDownloadedRepo 
-  } = useEntitySelection(selectedModelId, selectedRepositoryId);
+  const { currentModel, currentRepo, downloadedRepo, repositoryReady, setRepositoryReady, setDownloadedRepo } =
+    useEntitySelection(selectedModelId, selectedRepositoryId);
 
   // Component state
   const [userCanSendMessage, setUserCanSendMessage] = useState<boolean>(true);
   const [waitingForResponse, setWaitingForResponse] = useState<boolean>(false);
   const [repositoryStatus, setRepositoryStatus] = useState<RepositoryStatus | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  
+
   // Refs for timeouts
   const responseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -37,14 +31,7 @@ export function useChatInputState() {
   const debouncedRepositoryStatus = useDebounce(repositoryStatus, 300);
 
   // Message submission handling
-  const { 
-    message, 
-    isSubmitting, 
-    handleSubmit, 
-    handleMessageChange, 
-    handleKeyDown, 
-    setMessage 
-  } = useMessageSubmission({
+  const { message, isSubmitting, handleSubmit, handleMessageChange, handleKeyDown, setMessage } = useMessageSubmission({
     addMessage,
     setIsLoading,
     currentModel,

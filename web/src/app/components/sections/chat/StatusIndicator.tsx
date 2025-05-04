@@ -26,7 +26,6 @@ export function StatusIndicator({
   repositoryStatus,
   repositoryReady,
 }: StatusIndicatorProps) {
-  
   // Helper to determine if we should show an error message
   const getMissingRequirement = (): StatusMessage | null => {
     // If we have an error message from suggested prompts, show that first

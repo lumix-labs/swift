@@ -26,7 +26,7 @@ export function ChatInput() {
 
   // Reference to the textarea element
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
+
   // Get resize functionality for the textarea
   const { resetTextareaHeight, resizeTextarea } = useTextareaResize(textareaRef, message);
 
@@ -40,7 +40,7 @@ export function ChatInput() {
         repositoryStatus={repositoryStatus}
         repositoryReady={repositoryReady}
       />
-      
+
       {/* Input form */}
       <form onSubmit={handleSubmit} className="flex items-center gap-1 w-full">
         {/* Text input area */}
@@ -53,11 +53,11 @@ export function ChatInput() {
           resizeTextarea={resizeTextarea}
           setMessage={setMessage}
         />
-        
+
         {/* Send button */}
-        <InputControls 
+        <InputControls
           isDisabled={isInputDisabled || !currentModel || !repositoryReady}
-          isInputEmpty={!message.trim()} 
+          isInputEmpty={!message.trim()}
         />
       </form>
     </div>
