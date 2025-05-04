@@ -4,7 +4,7 @@ export const repoService = {
   async connectRepository(repoUrl: string): Promise<{ success: boolean; message: string }> {
     try {
       // This would be replaced with an actual API call in production
-      console.log(`Connecting to repository: ${repoUrl}`);
+      console.warn(`Connecting to repository: ${repoUrl}`);
       
       // Simulate a network request
       await new Promise(resolve => setTimeout(resolve, 1000));

@@ -8,25 +8,34 @@ import { ChatInput } from './ChatInput';
 import { useChat } from '../../../context/ChatContext';
 import { useDebounce } from '../../../hooks/useDebounce';
 
+// Error boundary to catch and handle errors in the chat components
 class ChatErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false };
   }
+
   static getDerivedStateFromError() {
     return { hasError: true };
   }
+
   componentDidCatch(error: Error, info: ErrorInfo) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('ErrorBoundary caught error', error, info);
-    }
+    console.error('ErrorBoundary caught error:', error);
+    console.error('Component stack:', info.componentStack);
   }
+
   render() {
     if (this.state.hasError) {
       return (
         <div className="flex flex-col h-screen items-center justify-center bg-white dark:bg-black text-black dark:text-white">
           <h1 className="text-2xl font-bold mb-2">Something went wrong.</h1>
           <p className="mb-4">Please refresh the page or try again later.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700"
+          >
+            Refresh Page
+          </button>
         </div>
       );
     }
@@ -37,15 +46,53 @@ class ChatErrorBoundary extends Component<{ children: ReactNode }, { hasError: b
 export function ChatLayout() {
   const { isLoading, messages } = useChat();
   const [mounted, setMounted] = useState(false);
-  const debouncedLoading = useDebounce(isLoading, 300); // Debounce loading state to prevent flickering
+
+  // Debounce loading state to prevent flickering UI
+  const debouncedLoading = useDebounce(isLoading, 500);
+  const debouncedMessages = useDebounce(messages, 300);
 
   // Safe mounting to avoid hydration issues
   useEffect(() => {
     setMounted(true);
+
+    // Add performance monitoring to track long-running handlers
+    const originalAddEventListener = window.addEventListener;
+    
+    // Define a type for the wrapped listener function
+    type WrappedListener = (this: typeof window, event: Event) => unknown;
+    
+    // Override addEventListener with performance tracking
+    window.addEventListener = function (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) {
+      // Create a wrapped listener that tracks execution time
+      const wrappedListener: WrappedListener = function(this: typeof window, event: Event) {
+        const start = performance.now();
+        
+        // Call the original listener with the proper context
+        const result = typeof listener === 'function'
+          ? listener.call(this, event)
+          : listener.handleEvent.call(listener, event);
+          
+        const end = performance.now();
+        const duration = end - start;
+        
+        if (duration > 100) {
+          console.warn(`Event listener for '${type}' took ${duration.toFixed(2)}ms to execute`);
+        }
+
+        return result;
+      };
+
+      return originalAddEventListener.call(this, type, wrappedListener as EventListener, options);
+    };
+
+    return () => {
+      // Restore original addEventListener
+      window.addEventListener = originalAddEventListener;
+    };
   }, []);
 
   // Determine if we're in an active chat session
-  const inActiveChat = messages.length > 0;
+  const hasMessages = debouncedMessages.length > 0;
 
   // Memoize the loading indicator to prevent unnecessary re-renders
   const loadingIndicator = useMemo(() =>

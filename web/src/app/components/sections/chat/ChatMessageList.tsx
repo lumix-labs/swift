@@ -4,8 +4,7 @@ import React, { useRef, useEffect } from 'react';
 import { useChat } from '../../../context/ChatContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { ChatMessage } from './ChatMessage';
-import { HeroSection } from '../hero/HeroSection';
-import { SuggestedPrompts } from './SuggestedPrompts';
+import { EmptyChatView } from './EmptyChatView';
 
 export function ChatMessageList() {
   const { messages, addMessage } = useChat();
@@ -34,14 +33,7 @@ export function ChatMessageList() {
   return (
     <div className="flex-1 p-4 overflow-hidden h-full w-full">
       {messages.length === 0 ? (
-        <div className="h-full flex flex-col">
-          <div className="flex-1">
-            <HeroSection />
-          </div>
-          <div className="mt-auto">
-            <SuggestedPrompts onSelectPrompt={handleSelectPrompt} />
-          </div>
-        </div>
+        <EmptyChatView onSelectPrompt={handleSelectPrompt} />
       ) : (
         <div 
           ref={scrollContainerRef}

@@ -25,13 +25,15 @@ export const getRepositories = (): Repository[] => {
 };
 
 export const addRepository = (url: string): Repository => {
-  // Extract repo name from URL
-  const match = url.match(/github\.com\/[\w-]+\/([\w.-]+)\/?$/);
-  const name = match ? match[1] : `Repository ${new Date().toISOString()}`;
+  // Extract organization and repo name from URL
+  const match = url.match(/github\.com\/([\w-]+)\/([\w.-]+)\/?$/);
+  const orgName = match ? match[1] : '';
+  const repoName = match ? match[2] : '';
+  const fullName = orgName && repoName ? `${orgName}/${repoName}` : `Repository ${new Date().toISOString()}`;
 
   const newRepo: Repository = {
     id: generateId(),
-    name,
+    name: fullName,
     url
   };
 
@@ -71,14 +73,14 @@ export const getModels = (): LLMModel[] => {
 };
 
 export const addModel = (provider: LLMProvider, apiKey: string): LLMModel => {
-  // Generate model name based on provider
+  // Generate model name based on provider without the date part
   const modelName = provider === 'gemini'
-    ? 'Gemini Pro'
-    : 'Claude';
+    ? 'Gemini 1.5 Flash'
+    : 'Claude 3 Haiku';
 
   const newModel: LLMModel = {
     id: generateId(),
-    name: `${modelName} ${new Date().toLocaleDateString()}`,
+    name: modelName,
     provider,
     apiKey
   };

@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
  * Used by Docker health checks to verify the service is running
  */
 export async function GET() {
-  console.log('Health check endpoint called at', new Date().toISOString());
+  console.warn('Health check endpoint called at', new Date().toISOString());
   
   return NextResponse.json(
     { 
