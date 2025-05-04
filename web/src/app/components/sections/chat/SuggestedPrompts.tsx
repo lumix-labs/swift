@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useMemo } from "react";
+import { useChat } from "../../../context/ChatContext";
 
 export interface SuggestedPromptsProps {
   onSelectPrompt: (prompt: string) => void;
@@ -8,6 +9,10 @@ export interface SuggestedPromptsProps {
 
 export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
   const [expanded, setExpanded] = useState(false);
+  const { selectedModelId, selectedRepositoryId } = useChat();
+  
+  // Check if chat input is ready to receive text
+  const isChatInputReady = !!selectedModelId && !!selectedRepositoryId;
 
   // Memoize the prompt lists to prevent unnecessary re-renders
   const initialPrompts = useMemo(
@@ -42,9 +47,17 @@ export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
 
   const handleSelectPrompt = useCallback(
     (prompt: string) => {
-      onSelectPrompt(prompt);
+      if (isChatInputReady) {
+        onSelectPrompt(prompt);
+      } else {
+        // If not ready, show feedback to user
+        const event = new CustomEvent('suggestedPromptError', {
+          detail: { message: 'Please select a model and repository first' }
+        });
+        window.dispatchEvent(event);
+      }
     },
-    [onSelectPrompt],
+    [onSelectPrompt, isChatInputReady],
   );
 
   return (
@@ -54,7 +67,12 @@ export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
           <button
             key={prompt}
             onClick={() => handleSelectPrompt(prompt)}
-            className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            className={`px-3 py-1.5 text-sm rounded-full transition-all duration-200 
+              ${isChatInputReady 
+                ? "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+                : "bg-gray-100/70 dark:bg-gray-800/50 cursor-not-allowed opacity-70"
+              }`}
+            title={isChatInputReady ? prompt : "Select model and repository first"}
           >
             {prompt}
           </button>

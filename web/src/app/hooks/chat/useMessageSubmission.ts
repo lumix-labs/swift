@@ -3,6 +3,8 @@
 import { useState, useRef, useCallback, FormEvent } from "react";
 import { LLMModel, Repository } from "../../lib/types/entities";
 import { GeminiService } from "../../lib/services/gemini-service";
+import { EXCLUDED_MESSAGE_ROLES } from "../../context/chat/types";
+import { RepositoryStatus, getRepositoryStatus } from "../../lib/services/repo-download-service";
 
 // Define the DownloadedRepository interface to replace any
 interface DownloadedRepository extends Repository {
@@ -11,10 +13,14 @@ interface DownloadedRepository extends Repository {
   fileCount?: number;
   size?: number;
   readmeContent?: string;
+  status?: RepositoryStatus;
 }
 
 interface UseMessageSubmissionProps {
-  addMessage: (message: { role: "user" | "assistant"; content: string }) => void;
+  addMessage: (message: {
+    role: "user" | "assistant" | "assistant-informational" | "model-response";
+    content: string;
+  }) => void;
   setIsLoading: (loading: boolean) => void;
   currentModel: LLMModel | null;
   currentRepo: Repository | null;
@@ -51,19 +57,28 @@ export function useMessageSubmission({
       // Check if model is selected
       if (!currentModel) {
         addMessage({
-          role: "assistant" as const,
+          role: "assistant-informational" as const,
           content: "Please select a model from the Models dropdown first.",
         });
         return;
       }
 
-      // If repository is selected but not downloaded/ready
-      if (currentRepo && !repositoryReady) {
-        addMessage({
-          role: "assistant" as const,
-          content: "Please wait for the repository to be downloaded before sending your question.",
-        });
-        return;
+      // Check repository status
+      if (currentRepo) {
+        const repoStatus = getRepositoryStatus(currentRepo.id);
+        if (repoStatus !== RepositoryStatus.READY) {
+          addMessage({
+            role: "assistant-informational" as const,
+            content: `Repository ${currentRepo.name} is not ready yet. ${
+              repoStatus === RepositoryStatus.DOWNLOADING
+                ? "It's currently being downloaded."
+                : repoStatus === RepositoryStatus.QUEUED
+                  ? "It's in the download queue."
+                  : "Please download it first."
+            }`,
+          });
+          return;
+        }
       }
 
       const userMessageContent = trimmedMessage;
@@ -122,9 +137,9 @@ export function useMessageSubmission({
           response = `Using ${currentModel.name} (${currentModel.provider}):\n\nThis model provider is not yet implemented.`;
         }
 
-        // Add the AI response to the chat
+        // Add the AI response to the chat with model-response role
         addMessage({
-          role: "assistant" as const,
+          role: "model-response" as const,
           content: response,
         });
 
@@ -136,7 +151,7 @@ export function useMessageSubmission({
       } catch (error) {
         // Add an error message
         addMessage({
-          role: "assistant" as const,
+          role: "assistant-informational" as const,
           content:
             error instanceof Error
               ? `Error: ${error.message}`

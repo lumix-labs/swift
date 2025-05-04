@@ -7,6 +7,7 @@ import { useMessageSubmission } from "../../../hooks/chat/useMessageSubmission";
 import { useTextareaResize } from "../../../hooks/chat/useTextareaResize";
 import { useDebounce } from "../../../hooks/useDebounce";
 import { REPO_DOWNLOAD_COMPLETE_EVENT } from "../shared/DownloadButton";
+import { RepositoryStatus, getRepositoryStatus } from "../../../lib/services/repo-download-service";
 
 export function ChatInput() {
   const { addMessage, isLoading, setIsLoading, selectedModelId, selectedRepositoryId, messages } = useChat();
@@ -17,14 +18,17 @@ export function ChatInput() {
 
   const [userCanSendMessage, setUserCanSendMessage] = useState<boolean>(true);
   const [waitingForResponse, setWaitingForResponse] = useState<boolean>(false);
+  const [repositoryStatus, setRepositoryStatus] = useState<RepositoryStatus | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Use debounced states to avoid unnecessary re-renders
   const debouncedIsLoading = useDebounce(isLoading, 300);
   const debouncedWaitingForResponse = useDebounce(waitingForResponse, 300);
+  const debouncedRepositoryStatus = useDebounce(repositoryStatus, 300);
 
   // Message submission handling
-  const { message, isSubmitting, handleSubmit, handleMessageChange, handleKeyDown } = useMessageSubmission({
+  const { message, isSubmitting, handleSubmit, handleMessageChange, handleKeyDown, setMessage } = useMessageSubmission({
     addMessage,
     setIsLoading,
     currentModel,
@@ -38,6 +42,98 @@ export function ChatInput() {
 
   // Reset response waiting state if no response received after a timeout
   const responseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Listen for prompt suggestions from ChatMessageList
+  useEffect(() => {
+    const handleSetPromptInInput = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const prompt = customEvent.detail?.prompt;
+      
+      if (prompt) {
+        // Set the prompt in the input
+        setMessage(prompt);
+        
+        // Focus the textarea
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          // Place cursor at the end
+          setTimeout(() => {
+            if (textareaRef.current) {
+              textareaRef.current.selectionStart = textareaRef.current.selectionEnd = prompt.length;
+              // Resize the textarea to fit the content
+              resizeTextarea();
+            }
+          }, 50);
+        }
+      }
+    };
+    
+    window.addEventListener('setPromptInInput', handleSetPromptInInput);
+    
+    return () => {
+      window.removeEventListener('setPromptInInput', handleSetPromptInInput);
+    };
+  }, [setMessage, resizeTextarea]);
+
+  // Check repository status on component load and when selectedRepositoryId changes
+  useEffect(() => {
+    if (selectedRepositoryId) {
+      const status = getRepositoryStatus(selectedRepositoryId);
+      setRepositoryStatus(status);
+
+      // Determine if repository is ready to use
+      if (status === RepositoryStatus.READY) {
+        setRepositoryReady(true);
+        setUserCanSendMessage(true);
+      } else if (status === RepositoryStatus.DOWNLOADING || status === RepositoryStatus.QUEUED) {
+        setRepositoryReady(false);
+        setUserCanSendMessage(false);
+      } else {
+        setRepositoryReady(false);
+      }
+
+      // Set up interval to check status periodically
+      const checkStatusInterval = setInterval(() => {
+        const currentStatus = getRepositoryStatus(selectedRepositoryId);
+        setRepositoryStatus(currentStatus);
+
+        if (currentStatus === RepositoryStatus.READY) {
+          setRepositoryReady(true);
+          setUserCanSendMessage(true);
+          clearInterval(checkStatusInterval);
+        }
+      }, 1000);
+
+      return () => clearInterval(checkStatusInterval);
+    }
+  }, [selectedRepositoryId, setRepositoryReady]);
+
+  // Listen for suggested prompt error events
+  useEffect(() => {
+    const handleSuggestedPromptError = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      setErrorMessage(customEvent.detail?.message || "Cannot use suggestion at this time");
+      
+      // Clear error message after a delay
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+      }
+      
+      errorTimeoutRef.current = setTimeout(() => {
+        setErrorMessage(null);
+      }, 3000);
+    };
+    
+    window.addEventListener('suggestedPromptError', handleSuggestedPromptError);
+    
+    return () => {
+      window.removeEventListener('suggestedPromptError', handleSuggestedPromptError);
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const timeoutId = responseTimeoutRef.current;
@@ -61,6 +157,7 @@ export function ChatInput() {
         // Only set repository as ready if it was downloaded (not just added)
         if (action === "download") {
           setRepositoryReady(true);
+          setRepositoryStatus(RepositoryStatus.READY);
 
           // Enable sending messages after download is complete
           setUserCanSendMessage(true);
@@ -84,11 +181,12 @@ export function ChatInput() {
 
       // Check if the message indicates repository readiness
       if (
-        lastMsg.role === "assistant" &&
+        lastMsg.role === "assistant-informational" &&
         lastMsg.content.includes("repository") &&
         (lastMsg.content.includes("ready to query") || lastMsg.content.includes("successfully ingested"))
       ) {
         setRepositoryReady(true);
+        setRepositoryStatus(RepositoryStatus.READY);
 
         // Reset waiting state if this was a response we were waiting for
         if (waitingForResponse) {
@@ -100,11 +198,16 @@ export function ChatInput() {
         setUserCanSendMessage(true);
       }
 
-      // If we have a user message followed by an assistant message, we're no longer waiting
+      // If we have a user message followed by an assistant/model response, we're no longer waiting
       if (messages.length >= 2) {
         const userMsg = messages[messages.length - 2];
-        const assistantMsg = messages[messages.length - 1];
-        if (userMsg.role === "user" && assistantMsg.role === "assistant") {
+        const responseMsg = messages[messages.length - 1];
+        if (
+          userMsg.role === "user" &&
+          (responseMsg.role === "assistant" ||
+            responseMsg.role === "model-response" ||
+            responseMsg.role === "assistant-informational")
+        ) {
           setWaitingForResponse(false);
           setIsLoading(false);
 
@@ -123,89 +226,127 @@ export function ChatInput() {
     if (isInputDisabled) {
       return "Waiting for response...";
     }
-    
+
     if (!currentModel) {
       return "Please select a model to start chatting";
     }
-    
+
     if (!currentRepo) {
       return "Please select a repository to analyze";
     }
-    
-    if (currentRepo && !repositoryReady) {
+
+    if (currentRepo && debouncedRepositoryStatus === RepositoryStatus.DOWNLOADING) {
       return "Repository is being downloaded. Please wait...";
     }
-    
+
+    if (currentRepo && debouncedRepositoryStatus === RepositoryStatus.QUEUED) {
+      return "Repository is queued for download. Please wait...";
+    }
+
     if (currentModel && currentRepo && repositoryReady) {
       return `Ask about the ${currentRepo.name} repository...`;
     }
-    
+
     return "Ask a question...";
   };
 
   // Helper to determine if we should show an error message
   const getMissingRequirement = () => {
+    // If we have an error message from suggested prompts, show that first
+    if (errorMessage) {
+      return {
+        message: errorMessage,
+        icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+              clipRule="evenodd"
+            />
+          </svg>
+        ),
+        bg: "bg-red-50 dark:bg-red-900/40",
+        text: "text-red-800 dark:text-red-300",
+        animate: "animate-fadeIn"
+      };
+    }
+    
     if (!currentModel) {
       return {
         message: "Please select a model to start chatting",
         icon: (
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-5 w-5" 
-            viewBox="0 0 20 20" 
-            fill="currentColor"
-          >
-            <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 
-                    01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 
+                    01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"
+            />
           </svg>
         ),
-        bg: "bg-blue-50 dark:bg-blue-900",
-        text: "text-blue-800 dark:text-blue-200",
+        bg: "bg-blue-50 dark:bg-blue-900/40",
+        text: "text-blue-800 dark:text-blue-300",
+        animate: ""
       };
     }
-    
+
     if (!currentRepo) {
       return {
         message: "Please select a repository to analyze",
         icon: (
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-5 w-5" 
-            viewBox="0 0 20 20" 
-            fill="currentColor"
-          >
-            <path fillRule="evenodd" 
-              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" 
-              clipRule="evenodd" 
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fillRule="evenodd"
+              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+              clipRule="evenodd"
             />
           </svg>
         ),
-        bg: "bg-indigo-50 dark:bg-indigo-900",
-        text: "text-indigo-800 dark:text-indigo-200",
+        bg: "bg-indigo-50 dark:bg-indigo-900/40",
+        text: "text-indigo-800 dark:text-indigo-300",
+        animate: ""
       };
     }
-    
-    if (currentRepo && !repositoryReady) {
+
+    if (currentRepo && debouncedRepositoryStatus === RepositoryStatus.DOWNLOADING) {
       return {
         message: "Repository is being downloaded. Please wait...",
         icon: (
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-5 w-5 animate-pulse" 
-            viewBox="0 0 20 20" 
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5 animate-pulse"
+            viewBox="0 0 20 20"
             fill="currentColor"
           >
-            <path fillRule="evenodd" 
-              d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" 
-              clipRule="evenodd" 
+            <path
+              fillRule="evenodd"
+              d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+              clipRule="evenodd"
             />
           </svg>
         ),
-        bg: "bg-yellow-50 dark:bg-yellow-900",
-        text: "text-yellow-800 dark:text-yellow-200",
+        bg: "bg-yellow-50 dark:bg-yellow-900/40",
+        text: "text-yellow-800 dark:text-yellow-300",
+        animate: ""
       };
     }
-    
+
+    if (currentRepo && debouncedRepositoryStatus === RepositoryStatus.QUEUED) {
+      return {
+        message: "Repository is queued for download. Please wait...",
+        icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+              clipRule="evenodd"
+            />
+          </svg>
+        ),
+        bg: "bg-blue-50 dark:bg-blue-900/40",
+        text: "text-blue-800 dark:text-blue-300",
+        animate: ""
+      };
+    }
+
     return null;
   };
 
@@ -214,7 +355,9 @@ export function ChatInput() {
   return (
     <div className="w-full max-w-4xl mx-auto">
       {missingRequirement && (
-        <div className={`mb-2 px-3 py-2 ${missingRequirement.bg} ${missingRequirement.text} text-sm rounded-md shadow-sm`}>
+        <div
+          className={`mb-2 px-3 py-2 ${missingRequirement.bg} ${missingRequirement.text} text-sm rounded-md shadow-sm ${missingRequirement.animate}`}
+        >
           <div className="flex items-center">
             {missingRequirement.icon}
             <span className="ml-2">{missingRequirement.message}</span>
@@ -234,17 +377,20 @@ export function ChatInput() {
             placeholder={getPlaceholderMessage()}
             aria-label="Chat input"
             value={message}
-            onChange={handleMessageChange}
+            onChange={(e) => {
+              handleMessageChange(e);
+              resizeTextarea();
+            }}
             onKeyDown={handleKeyDown}
             rows={1}
             autoFocus
-            disabled={isInputDisabled || (currentRepo && !repositoryReady) || !currentModel}
+            disabled={isInputDisabled || !currentModel || !repositoryReady}
           />
         </div>
         <button
           type="submit"
           aria-label="Send message"
-          disabled={isInputDisabled || !message.trim() || (currentRepo && !repositoryReady) || !currentModel}
+          disabled={isInputDisabled || !message.trim() || !currentModel || !repositoryReady}
           className="flex items-center justify-center w-11 h-11 bg-gray-900 text-white 
                  rounded-lg border border-gray-300 dark:border-gray-700 shadow-sm 
                  hover:bg-gray-800 dark:hover:bg-gray-700 focus:outline-none 

@@ -54,7 +54,7 @@ export function useModelsDropdown() {
         // Update the existing model instead of adding a new one
         const updatedModel = addModel(provider, apiKey);
         setSelectedModelId(updatedModel.id);
-        
+
         // Add a notification message after a short delay to ensure proper sequencing
         setTimeout(() => {
           addMessage({
@@ -70,7 +70,7 @@ export function useModelsDropdown() {
             setIsUpdating(false);
           }, 500);
         }, 500);
-        
+
         return;
       }
 
@@ -135,7 +135,7 @@ export function useModelsDropdown() {
         // If the removed model was selected, select another model
         if (id === selectedModelId) {
           // Find another model to select
-          const nextModel = models.find(m => m.id !== id);
+          const nextModel = models.find((m) => m.id !== id);
           if (nextModel) {
             setSelectedModelId(nextModel.id);
           }

@@ -112,7 +112,7 @@ export function useRepositoriesDropdown() {
         // If the removed repository was selected, select another repository
         if (id === selectedRepositoryId) {
           // Find another repository to select
-          const nextRepo = repositories.find(r => r.id !== id);
+          const nextRepo = repositories.find((r) => r.id !== id);
           if (nextRepo) {
             setSelectedRepositoryId(nextRepo.id);
           }

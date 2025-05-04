@@ -125,9 +125,7 @@ export function AddModelModal({ isOpen, onClose, onSave }: AddModelModalProps) {
             className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             autoFocus
           />
-          {apiKey && !isValid && (
-            <p className="mt-1 text-sm text-red-500">Please enter a valid Gemini API key</p>
-          )}
+          {apiKey && !isValid && <p className="mt-1 text-sm text-red-500">Please enter a valid Gemini API key</p>}
         </div>
         <div className="flex justify-end space-x-2">
           <button

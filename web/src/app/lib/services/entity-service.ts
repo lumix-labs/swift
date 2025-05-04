@@ -1,6 +1,15 @@
 "use client";
 
 import { Repository, LLMModel, LLMProvider } from "../types/entities";
+import {
+  queueRepositoryForDownload,
+  downloadRepository,
+  RepositoryStatus,
+  updateRepositoryStatus,
+} from "./repo-download-service";
+
+// Export the event name for repository download completion
+export const REPO_DOWNLOAD_COMPLETE_EVENT = "repoDownloadComplete";
 
 // Local storage keys
 const REPOSITORIES_KEY = "swift_repositories";
@@ -25,25 +34,57 @@ export const getRepositories = (): Repository[] => {
 };
 
 export const addRepository = (url: string): Repository => {
-  // Extract organization and repo name from URL
-  const match = url.match(/github\.com\/([\w-]+)\/([\w.-]+)\/?$/);
-  const orgName = match ? match[1] : "";
-  const repoName = match ? match[2] : "";
-  
-  // Format name as "org/repo" or fallback
-  const fullName = orgName && repoName 
-    ? `${orgName}/${repoName}` 
-    : `Repository ${new Date().toISOString().substring(0, 10)}`;
+  // Properly extract organization and repo name from URL
+  // GitHub URLs can be in the format:
+  // - https://github.com/org/repo
+  // - https://github.com/org/repo.git
+  // - github.com/org/repo
+  // - http://github.com/org/repo
+  const normalizedUrl = url.trim().replace(/\.git$/, "");
+
+  // Extract org and repo name using regex
+  const match = normalizedUrl.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/]+)\/([^\/]+)/i);
+
+  if (!match || !match[1] || !match[2]) {
+    throw new Error("Invalid GitHub repository URL. Please use format: github.com/organization/repository");
+  }
+
+  const orgName = match[1];
+  const repoName = match[2];
+
+  // Format full name as "org/repo"
+  const fullName = `${orgName}/${repoName}`;
+
+  // Ensure URL has https:// prefix for consistency
+  const formattedUrl = `https://github.com/${orgName}/${repoName}`;
 
   const newRepo: Repository = {
     id: generateId(),
     name: fullName,
-    url,
+    url: formattedUrl,
   };
 
   try {
     const repos = getRepositories();
     localStorage.setItem(REPOSITORIES_KEY, JSON.stringify([...repos, newRepo]));
+
+    // Auto-queue the repository for download
+    const queuedRepo = queueRepositoryForDownload(newRepo.id, newRepo.name, newRepo.url);
+
+    // Trigger immediate download
+    setTimeout(() => {
+      downloadRepository(newRepo.id, newRepo.name, newRepo.url)
+        .then((downloadedRepo) => {
+          // Dispatch custom event for repository download completion
+          const event = new CustomEvent(REPO_DOWNLOAD_COMPLETE_EVENT, {
+            detail: { repository: downloadedRepo, action: "download" },
+          });
+          window.dispatchEvent(event);
+        })
+        .catch((err) => {
+          console.error("Error downloading repository:", err);
+        });
+    }, 500);
   } catch (error) {
     console.error("Error saving repository:", error);
   }
@@ -54,13 +95,13 @@ export const addRepository = (url: string): Repository => {
 export const removeRepository = (id: string): void => {
   try {
     const repos = getRepositories();
-    
+
     // Ensure we're not removing the last repository
     if (repos.length <= 1) {
       console.warn("Cannot remove the last repository");
       return;
     }
-    
+
     const updatedRepos = repos.filter((repo) => repo.id !== id);
     localStorage.setItem(REPOSITORIES_KEY, JSON.stringify(updatedRepos));
   } catch (error) {
@@ -96,16 +137,16 @@ export const addModel = (provider: LLMProvider, apiKey: string): LLMModel => {
 
   try {
     const models = getModels();
-    
-    // If a model already exists with the same provider, don't add a new one
-    const existingModel = models.find(model => model.provider === provider);
-    if (existingModel) {
+
+    // If a model already exists with the same provider, update it instead of adding new
+    const existingModelIndex = models.findIndex((model) => model.provider === provider);
+    if (existingModelIndex >= 0) {
       // Update the existing model with new API key
-      existingModel.apiKey = apiKey;
+      models[existingModelIndex].apiKey = apiKey;
       localStorage.setItem(MODELS_KEY, JSON.stringify(models));
-      return existingModel;
+      return models[existingModelIndex];
     }
-    
+
     // Add new model
     localStorage.setItem(MODELS_KEY, JSON.stringify([...models, newModel]));
   } catch (error) {
@@ -118,13 +159,13 @@ export const addModel = (provider: LLMProvider, apiKey: string): LLMModel => {
 export const removeModel = (id: string): void => {
   try {
     const models = getModels();
-    
+
     // Ensure we're not removing the last model
     if (models.length <= 1) {
       console.warn("Cannot remove the last model");
       return;
     }
-    
+
     const updatedModels = models.filter((model) => model.id !== id);
     localStorage.setItem(MODELS_KEY, JSON.stringify(updatedModels));
   } catch (error) {

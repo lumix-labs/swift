@@ -5,6 +5,7 @@ import { AddRepositoryModal } from "../shared/AddEntityModal";
 import { DownloadButton } from "../shared/DownloadButton";
 import { useDropdown } from "../../../hooks/header/useDropdown";
 import { useRepositoriesDropdown } from "../../../hooks/header/useRepositoriesDropdown";
+import { RemoveButton } from "./RemoveButton";
 
 export interface RepositoriesDropdownProps {
   resolvedTheme: string;
@@ -78,50 +79,36 @@ export function RepositoriesDropdown({ resolvedTheme }: RepositoriesDropdownProp
       <div
         key={repo.id}
         className={`p-2 border-b border-gray-200 dark:border-gray-700 last:border-0 ${
-          repo.id === selectedRepositoryId 
-            ? "bg-gray-100 dark:bg-gray-800 border-l-4 border-l-green-500 dark:border-l-green-400" 
+          repo.id === selectedRepositoryId
+            ? "bg-gray-100 dark:bg-gray-800 border-l-4 border-l-green-500 dark:border-l-green-400"
             : ""
         }`}
       >
         <div className="flex flex-col space-y-2">
           <div className="flex justify-between items-center">
-            <div className="flex-1 cursor-pointer" onClick={() => onRepositorySelect(repo.id)}>
+            <div 
+              className="flex-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 rounded-md p-1 transition-colors duration-200" 
+              onClick={() => onRepositorySelect(repo.id)}
+            >
               <div className="font-medium">{repo.name}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{repo.url}</div>
             </div>
-            {/* Only show remove button if there's more than one repository */}
-            {repositories.length > 1 && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRepositoryRemove(repo.id);
-                }}
-                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-                aria-label="Remove repository"
-                disabled={isActionInProgress}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 text-gray-500 dark:text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
+            {/* Use the new RemoveButton component */}
+            <RemoveButton 
+              onClick={() => handleRepositoryRemove(repo.id)}
+              disabled={isActionInProgress || repositories.length <= 1}
+            />
           </div>
 
-          {/* Download Button */}
-          <DownloadButton repository={repo} />
+          {/* Download Button - moved after the name/info for better visual flow */}
+          <DownloadButton repository={repo} isSmooth={true} />
         </div>
       </div>
     ));
   }, [repositories, selectedRepositoryId, isUpdating, onRepositorySelect, handleRepositoryRemove, isActionInProgress]);
 
   // Get currently selected repository for display
-  const selectedRepo = selectedRepositoryId ? repositories.find(r => r.id === selectedRepositoryId) : null;
+  const selectedRepo = selectedRepositoryId ? repositories.find((r) => r.id === selectedRepositoryId) : null;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -132,9 +119,7 @@ export function RepositoriesDropdown({ resolvedTheme }: RepositoriesDropdownProp
         onClick={toggleDropdown}
         disabled={isActionInProgress}
       >
-        <span className="hidden sm:inline">
-          {selectedRepo ? `Repo: ${selectedRepo.name}` : "Repositories"}
-        </span>
+        <span className="hidden sm:inline">{selectedRepo ? `Repo: ${selectedRepo.name}` : "Repositories"}</span>
         <span className="sm:hidden">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -145,7 +130,7 @@ export function RepositoriesDropdown({ resolvedTheme }: RepositoriesDropdownProp
           >
             <path
               strokeLinecap="round"
-              strokeLinejoin="round" 
+              strokeLinejoin="round"
               strokeWidth={2}
               d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
             />

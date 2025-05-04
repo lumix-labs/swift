@@ -62,6 +62,57 @@ body {
 
 .animate-fadeIn {
   animation-name: fadeIn;
+  animation-duration: 0.3s;
+  animation-fill-mode: both;
+}
+
+/* Slide in animations for chat messages */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-slideInRight {
+  animation-name: slideInRight;
+  animation-duration: 0.3s;
+  animation-fill-mode: both;
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-slideInLeft {
+  animation-name: slideInLeft;
+  animation-duration: 0.3s;
+  animation-fill-mode: both;
+}
+
+/* Chat message styling */
+.chat-message pre {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 10px 0;
+}
+
+.dark .chat-message pre {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.chat-message code {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.9em;
+}
+
+.chat-message p {
+  margin-bottom: 0.75em;
+}
+
+.chat-message p:last-child {
+  margin-bottom: 0;
 }
 
 /* Prevent layout shifts */

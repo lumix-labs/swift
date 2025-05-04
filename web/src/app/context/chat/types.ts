@@ -3,10 +3,13 @@
 // Define message types
 export interface Message {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "assistant-informational" | "model-response";
   content: string;
   timestamp: Date;
 }
+
+// Define message roles that should be excluded when sending to model
+export const EXCLUDED_MESSAGE_ROLES = ["assistant-informational"];
 
 // Define chat session type
 export interface ChatSession {
@@ -27,7 +30,7 @@ export interface SavedSession {
   updatedAt: string;
   messages: Array<{
     id: string;
-    role: "user" | "assistant";
+    role: "user" | "assistant" | "assistant-informational" | "model-response";
     content: string;
     timestamp: string;
   }>;

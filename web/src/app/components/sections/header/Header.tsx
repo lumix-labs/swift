@@ -17,15 +17,14 @@ export function Header() {
     createNewSession();
   };
 
-  // Common button style for consistent appearance
+  // Common button style for consistent appearance across all buttons
   const buttonStyle = `p-2 sm:px-3 sm:py-1.5 text-sm font-medium rounded-md transition-colors ${
     resolvedTheme === "dark" ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800"
   }`;
 
   return (
     <header
-      className="sticky top-0 z-10 flex items-center justify-between px-4 h-14 
-                     border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black"
+      className="sticky top-0 z-10 flex items-center justify-between px-4 h-14 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black"
     >
       <div className="flex items-center space-x-2">
         <Link href="/" onClick={() => window.location.reload()}>
@@ -58,9 +57,7 @@ export function Header() {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path
                 fillRule="evenodd"
-                d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 
-                                         002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 
-                                         5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
                 clipRule="evenodd"
               />
             </svg>
@@ -85,8 +82,7 @@ export function Header() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M13 16h-1v-4h-1m4 0h1v4h1M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 
-                      00-2 2v12a2 2 0 002 2z"
+                d="M13 16h-1v-4h-1m4 0h1v4h1M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
               />
             </svg>
           }
@@ -109,8 +105,7 @@ export function Header() {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path
                 fillRule="evenodd"
-                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 
-                                         11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
                 clipRule="evenodd"
               />
             </svg>

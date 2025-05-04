@@ -1,5 +1,7 @@
 "use client";
 
+import { EXCLUDED_MESSAGE_ROLES } from "../../context/chat/types";
+
 /**
  * Gemini service for handling communication with Google's Gemini API
  */
@@ -98,6 +100,7 @@ export class GeminiService {
 
   /**
    * Adds the current conversation to the message for context
+   * Filters out any message roles that should be excluded
    */
   private addConversationContext(messageContent: string): string {
     if (this.previousMessages.length === 0) {
@@ -106,12 +109,21 @@ export class GeminiService {
 
     // Include up to 5 previous message pairs for context
     const maxContextPairs = 5;
-    const contextMessages = this.previousMessages.slice(-maxContextPairs * 2);
+    // Filter out excluded message roles
+    const filteredMessages = this.previousMessages.filter((msg) => !EXCLUDED_MESSAGE_ROLES.includes(msg.role as any));
+    const contextMessages = filteredMessages.slice(-maxContextPairs * 2);
 
     let context = "Previous conversation:\n";
 
     contextMessages.forEach((msg) => {
-      const role = msg.role === "user" ? "User" : "Assistant";
+      const role =
+        msg.role === "user"
+          ? "User"
+          : msg.role === "model-response"
+            ? "Assistant"
+            : msg.role === "assistant"
+              ? "Assistant"
+              : "System";
       context += `${role}: ${msg.content}\n\n`;
     });
 
@@ -194,7 +206,7 @@ export class GeminiService {
 
       // Store messages for conversation context
       this.previousMessages.push({ role: "user", content: message });
-      this.previousMessages.push({ role: "assistant", content: generatedText });
+      this.previousMessages.push({ role: "model-response", content: generatedText });
 
       // Limit conversation history to last 10 messages (5 exchanges)
       if (this.previousMessages.length > 10) {

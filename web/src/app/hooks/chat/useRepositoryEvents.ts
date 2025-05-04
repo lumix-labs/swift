@@ -2,17 +2,9 @@
 
 import { useEffect, useCallback } from "react";
 import { REPO_DOWNLOAD_COMPLETE_EVENT } from "../../components/sections/shared/DownloadButton";
-import { Repository } from "../../lib/types/entities";
 import { Message } from "../../context/chat/types";
-
-// Define downloaded repository interface to replace 'any'
-interface DownloadedRepository extends Repository {
-  localPath?: string;
-  downloadDate?: number;
-  fileCount?: number;
-  size?: number;
-  readmeContent?: string;
-}
+import { RepositoryStatus } from "../../lib/services/repo-download-service";
+import { DownloadedRepository } from "../../types/repository";
 
 interface UseRepositoryEventsProps {
   selectedRepositoryId: string | null;
@@ -64,6 +56,11 @@ export function useRepositoryEvents({
       const action = customEvent.detail?.action || "download";
 
       if (downloadedRepository && downloadedRepository.id === selectedRepositoryId) {
+        // Ensure the status property is set to maintain type compatibility
+        if (!downloadedRepository.status) {
+          downloadedRepository.status = RepositoryStatus.READY;
+        }
+        
         setDownloadedRepo(downloadedRepository);
 
         // Only set repository as ready if it was downloaded (not just added)
