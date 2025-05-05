@@ -8,6 +8,7 @@ import { ChatInput } from "./ChatInput";
 import { useChat } from "../../../context/ChatContext";
 import { useDebounce } from "../../../hooks/useDebounce";
 import { DebugSwitch } from "../shared/DebugSwitch";
+import { toggleDebugMode } from "../../../lib/utils/debugMode";
 
 // Error boundary to catch and handle errors in the chat components
 class ChatErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -54,13 +55,8 @@ export function ChatLayout() {
 
   // Handle debug mode changes
   const handleDebugChange = (enabled: boolean) => {
-    // Create a custom event that the chat service can listen for
-    const event = new CustomEvent('swift_debug_toggle', { 
-      detail: { enabled } 
-    });
-    window.dispatchEvent(event);
-    
-    console.log(`Debug mode ${enabled ? 'enabled' : 'disabled'}`);
+    // Use the utility function to toggle debug mode
+    toggleDebugMode(enabled);
   };
 
   // Safe mounting to avoid hydration issues
@@ -152,7 +148,7 @@ export function ChatLayout() {
         <Header />
 
         <main className="flex-1 flex flex-col overflow-hidden relative">
-          <ChatMessageList />
+          <ChatMessageList messages={messages} />
           {loadingIndicator}
 
           <div className="px-4 py-3 w-full border-t border-gray-200 dark:border-gray-800">
@@ -161,7 +157,7 @@ export function ChatLayout() {
         </main>
 
         <Footer />
-        
+
         {/* Debug mode toggle */}
         <DebugSwitch onChange={handleDebugChange} />
       </div>

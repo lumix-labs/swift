@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import { REPO_DOWNLOAD_COMPLETE_EVENT } from "../../components/sections/shared/DownloadButton";
-import { Message } from "../../context/chat/types";
+import { Message } from "../../lib/types/message";
 import { RepositoryStatus } from "../../lib/services/repo-download-service";
 import { DownloadedRepository } from "../../types/repository";
 

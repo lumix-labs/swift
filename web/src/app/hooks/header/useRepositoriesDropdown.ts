@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { addRepository, removeRepository } from "../../lib/services/entity-service";
 import { useChat } from "../../context/ChatContext";
 import { useRepositoryDownload } from "../useRepositoryDownload";
+import { SENDERS, SenderType } from "../../lib/types/message";
 
 export function useRepositoriesDropdown() {
   const { selectedRepositoryId, setSelectedRepositoryId, addMessage } = useChat();
@@ -56,8 +57,9 @@ export function useRepositoriesDropdown() {
         // Add a notification message after a short delay to ensure proper sequencing
         setTimeout(() => {
           addMessage({
-            role: "assistant",
             content: `Repository "${newRepo.name}" has been added. It is being downloaded and ingested.`,
+            sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+            role: "assistant",
           });
 
           // Use a timer to delay the UI update to prevent flickering
@@ -73,8 +75,9 @@ export function useRepositoriesDropdown() {
 
         // Add an error message if there was a problem
         addMessage({
-          role: "assistant",
           content: `Error adding repository: ${error instanceof Error ? error.message : "Unknown error"}`,
+          sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+          role: "assistant",
         });
 
         setIsUpdating(false);
@@ -92,8 +95,9 @@ export function useRepositoriesDropdown() {
       // If there's only one repository, don't allow removal
       if (repositories.length <= 1) {
         addMessage({
-          role: "assistant",
           content: "At least one repository must be selected. You cannot remove the only repository.",
+          sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+          role: "assistant",
         });
         return;
       }
@@ -124,8 +128,9 @@ export function useRepositoriesDropdown() {
         // Add a notification message after a short delay to ensure proper sequencing
         setTimeout(() => {
           addMessage({
-            role: "assistant",
             content: `Repository "${repoName}" has been removed.`,
+            sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+            role: "assistant",
           });
         }, 300);
 
@@ -173,8 +178,9 @@ export function useRepositoriesDropdown() {
       // Add a notification message after a short delay to ensure proper sequencing
       setTimeout(() => {
         addMessage({
-          role: "assistant",
           content: `Repository "${repoName}" has been selected. You can now ask questions about this repository.`,
+          sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+          role: "assistant",
         });
       }, 300);
 

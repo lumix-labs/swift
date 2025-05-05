@@ -6,6 +6,7 @@ import { Repository } from "../lib/types/entities";
 import { getRepositories } from "../lib/services/entity-service";
 import { useChat } from "../context/ChatContext";
 import { useDebounce } from "./useDebounce";
+import { SENDERS, SenderType } from "../lib/types/message";
 
 // Store repository state globally to persist between component unmounts
 const repositoriesCache = {
@@ -129,8 +130,9 @@ export function useRepositoryDownload() {
           // Notify for repository addition
           setTimeout(() => {
             addMessage({
-              role: "assistant",
               content: `Repository ${downloadedRepo.name} has been added. You can download it using the download button in the repositories dropdown.`,
+              sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+              role: "assistant",
             });
           }, 500);
         }

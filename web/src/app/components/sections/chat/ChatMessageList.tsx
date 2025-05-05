@@ -1,78 +1,70 @@
 "use client";
 
-import React, { useRef, useEffect, useContext } from "react";
-import { useChat } from "../../../context/ChatContext";
-import { useTheme } from "../../../context/ThemeContext";
+import { useEffect, useRef } from "react";
+import { Message, SenderType } from "../../../lib/types/message";
 import { ChatMessage } from "./ChatMessage";
-import { EmptyChatView } from "./EmptyChatView";
-import { useMessageSubmission } from "../../../hooks/chat/useMessageSubmission";
-import { useEntitySelection } from "../../../hooks/chat/useEntitySelection";
+import { useChat } from "../../../context/ChatContext";
 
-export function ChatMessageList() {
-  const { messages, addMessage, selectedModelId, selectedRepositoryId, isLoading, setIsLoading } = useChat();
-  const { resolvedTheme } = useTheme();
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+interface ChatMessageListProps {
+  messages: Message[];
+}
 
-  // Get entity selection hook for current model and repo status
-  const { currentModel, currentRepo, downloadedRepo, repositoryReady } = useEntitySelection(
-    selectedModelId,
-    selectedRepositoryId,
-  );
+export function ChatMessageList({ messages }: ChatMessageListProps) {
+  const { isLoading } = useChat();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom when new messages are added
+  // Scroll to bottom when messages change
   useEffect(() => {
-    if (scrollContainerRef.current && messages.length > 0) {
-      const scrollContainer = scrollContainerRef.current;
-      // Use requestAnimationFrame to ensure DOM has updated before scrolling
-      requestAnimationFrame(() => {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
-  // Handle selecting a suggested prompt
-  const handleSelectPrompt = (prompt: string) => {
-    // Check if necessary requirements are met
-    if (!currentModel || !currentRepo || !repositoryReady) {
-      // Dispatch custom event to notify that requirements aren't met
-      const errorEvent = new CustomEvent("suggestedPromptError", {
-        detail: {
-          message: !currentModel
-            ? "Please select a model first"
-            : !currentRepo
-              ? "Please select a repository first"
-              : "Repository is not ready yet",
-        },
-      });
-      window.dispatchEvent(errorEvent);
-      return;
+  // Show loading indicator for model messages
+  const renderLoadingIndicator = () => {
+    if (!isLoading) {
+      return null;
     }
 
-    // Set the value in the textarea input instead of directly submitting
-    // This is done through a custom event that the ChatInput will listen for
-    const event = new CustomEvent("setPromptInInput", {
-      detail: { prompt },
-    });
-    window.dispatchEvent(event);
+    // Create a temporary "loading" message
+    const lastMessage = messages[messages.length - 1];
+    const lastSender = lastMessage?.sender;
+
+    // Only show loading if the last message was from a user
+    if (lastSender?.type !== SenderType.USER) {
+      return null;
+    }
+
+    const loadingSender = messages.find((m) =>
+      [SenderType.GEMINI, SenderType.CLAUDE, SenderType.OPENAI].includes(m.sender.type),
+    )?.sender || {
+      id: "model",
+      type: SenderType.GEMINI,
+      name: "AI Assistant",
+      avatarUrl: "/avatars/gemini-avatar.png",
+      includeInModelContext: true,
+    };
+
+    const loadingMessage: Message = {
+      id: "loading",
+      sender: loadingSender,
+      content: "...",
+      timestamp: new Date(),
+      isMarkdown: true,
+    };
+
+    return <ChatMessage message={loadingMessage} isLoading={true} />;
   };
 
   return (
-    <div className="flex-1 p-4 overflow-hidden h-full w-full">
-      {messages.length === 0 ? (
-        <EmptyChatView onSelectPrompt={handleSelectPrompt} />
-      ) : (
-        <div
-          ref={scrollContainerRef}
-          className={`max-w-4xl mx-auto h-full overflow-y-auto scrollbar-${resolvedTheme}`}
-          style={{ overflowX: "hidden" }}
-        >
-          {messages.map((message, index) => (
-            <div key={index} className="py-2">
-              <ChatMessage message={message} />
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="flex-1 overflow-y-auto px-4 py-3 space-y-6">
+      {messages.map((message) => (
+        <ChatMessage key={message.id} message={message} />
+      ))}
+
+      {renderLoadingIndicator()}
+
+      <div ref={messagesEndRef} className="h-4" />
     </div>
   );
 }

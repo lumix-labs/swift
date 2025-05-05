@@ -3,14 +3,17 @@
 import { useState, useRef, useCallback, FormEvent } from "react";
 import { LLMModel, Repository } from "../../lib/types/entities";
 import { GeminiService } from "../../lib/services/gemini-service";
-import { EXCLUDED_MESSAGE_ROLES } from "../../context/chat/types";
+import { ClaudeService } from "../../lib/services/claude-service";
+import { OpenAIService } from "../../lib/services/openai-service";
+import { SenderType, SENDERS } from "../../lib/types/message";
 import {
   RepositoryStatus,
   getRepositoryStatus,
   isRepositoryReadyForChat,
 } from "../../lib/services/repo-download-service";
+import { getModelById } from "../../lib/services/entity-service";
 
-// Define the DownloadedRepository interface to replace any
+// Define the DownloadedRepository interface
 interface DownloadedRepository extends Repository {
   localPath?: string;
   downloadDate?: number;
@@ -64,6 +67,19 @@ export function useMessageSubmission({
         addMessage({
           role: "assistant-informational" as const,
           content: "Please select a model from the Models dropdown first.",
+        });
+        return;
+      }
+
+      // Check if API key is provided
+      if (!currentModel.apiKey) {
+        // Look up full model details
+        const modelDetails = getModelById(currentModel.id);
+        const modelName = modelDetails?.name || currentModel.name;
+
+        addMessage({
+          role: "assistant-informational" as const,
+          content: `Please add your API key for ${modelName} in the Models dropdown before using it.`,
         });
         return;
       }
@@ -130,35 +146,95 @@ export function useMessageSubmission({
 
       try {
         let response = "";
+        let modelSender = SENDERS[SenderType.GEMINI]; // Default to Gemini
 
-        // Use appropriate service based on selected model
-        if (currentModel.provider === "gemini") {
-          const geminiService = new GeminiService(currentModel.apiKey);
+        // Set the appropriate model sender based on provider
+        if (currentModel.provider === "anthropic") {
+          modelSender = SENDERS[SenderType.CLAUDE];
+        } else if (currentModel.provider === "openai") {
+          modelSender = SENDERS[SenderType.OPENAI];
+        }
 
-          if (currentRepo && downloadedRepo) {
-            // Prepare context data from repository
-            const contextData = {
-              repoName: currentRepo.name,
-              repoUrl: currentRepo.url,
-              readmeContent: downloadedRepo.readmeContent || "",
-              repoTree: downloadedRepo.repoTree || "",
-            };
+        // Prepare repository context data
+        const contextData =
+          currentRepo && downloadedRepo
+            ? {
+                repoName: currentRepo.name,
+                repoUrl: currentRepo.url,
+                readmeContent: downloadedRepo.readmeContent || "",
+                repoTree: downloadedRepo.repoTree || "",
+                localPath: downloadedRepo.localPath || "",
+              }
+            : undefined;
 
-            // Use repository context when available with tree data
-            response = await geminiService.sendMessage(
-              userMessageContent,
-              contextData.repoName,
-              contextData.repoUrl,
-              contextData.readmeContent,
-              contextData.repoTree,
-            );
-          } else {
-            // No repository context
-            response = await geminiService.sendMessage(userMessageContent);
+        // Use appropriate service based on selected model provider
+        switch (currentModel.provider) {
+          case "gemini": {
+            const geminiService = new GeminiService(currentModel.apiKey);
+
+            if (contextData) {
+              // Use repository context when available with tree data
+              response = await geminiService.sendMessage(
+                userMessageContent,
+                contextData.repoName,
+                contextData.repoUrl,
+                contextData.readmeContent,
+                contextData.repoTree,
+                contextData.localPath,
+              );
+            } else {
+              // No repository context
+              response = await geminiService.sendMessage(userMessageContent);
+            }
+            break;
           }
-        } else {
-          // Fallback for other providers (e.g., Anthropic)
-          response = `Using ${currentModel.name} (${currentModel.provider}):\n\nThis model provider is not yet implemented.`;
+
+          case "anthropic": {
+            const claudeService = new ClaudeService(
+              currentModel.apiKey,
+              currentModel.modelId || "claude-3-haiku-20240307",
+            );
+
+            if (contextData) {
+              // Use repository context when available with tree data
+              response = await claudeService.sendMessage(
+                userMessageContent,
+                contextData.repoName,
+                contextData.repoUrl,
+                contextData.readmeContent,
+                contextData.repoTree,
+                contextData.localPath,
+              );
+            } else {
+              // No repository context
+              response = await claudeService.sendMessage(userMessageContent);
+            }
+            break;
+          }
+
+          case "openai": {
+            const openaiService = new OpenAIService(currentModel.apiKey, currentModel.modelId || "gpt-3.5-turbo");
+
+            if (contextData) {
+              // Use repository context when available with tree data
+              response = await openaiService.sendMessage(
+                userMessageContent,
+                contextData.repoName,
+                contextData.repoUrl,
+                contextData.readmeContent,
+                contextData.repoTree,
+                contextData.localPath,
+              );
+            } else {
+              // No repository context
+              response = await openaiService.sendMessage(userMessageContent);
+            }
+            break;
+          }
+
+          default:
+            // Fallback message if the provider is not implemented
+            response = `Using ${currentModel.name} (${currentModel.provider}):\n\nThis model provider is not yet implemented.`;
         }
 
         // Add the AI response to the chat with model-response role

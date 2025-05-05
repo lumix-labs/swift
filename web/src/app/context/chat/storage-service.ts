@@ -30,35 +30,53 @@ export const saveSessions = (sessions: ChatSession[], currentSessionId: string |
 export const loadSessions = (): {
   sessions: ChatSession[];
   currentSessionId: string | null;
-  selectedModelId: string | null;
+  selectedAIAdvisorId: string | null;
   selectedRepositoryId: string | null;
 } => {
   try {
+    // Try to load from both new and old storage keys for backward compatibility
     const savedSessions = localStorage.getItem("chatSessions");
     const savedCurrentSessionId = localStorage.getItem("currentSessionId");
-    const savedModelId = localStorage.getItem("selectedModelId");
+    const savedAIAdvisorId = localStorage.getItem("selectedAIAdvisorId");
+    const savedModelId = localStorage.getItem("selectedModelId"); // Legacy key
     const savedRepositoryId = localStorage.getItem("selectedRepositoryId");
 
     let sessions: ChatSession[] = [];
 
     if (savedSessions) {
-      const parsedSessions = JSON.parse(savedSessions).map((session: SavedSession) => ({
-        ...session,
-        createdAt: new Date(session.createdAt),
-        updatedAt: new Date(session.updatedAt),
-        messages: session.messages.map((msg) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp),
-        })),
-      }));
+      const parsedSessions = JSON.parse(savedSessions).map((session: SavedSession) => {
+        // If the session has modelId but not aiAdvisorId, use the modelId value for aiAdvisorId
+        if (session.modelId && !session.aiAdvisorId) {
+          session.aiAdvisorId = session.modelId;
+        }
+
+        return {
+          ...session,
+          createdAt: new Date(session.createdAt),
+          updatedAt: new Date(session.updatedAt),
+          messages: session.messages.map((msg) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp),
+          })),
+        };
+      });
 
       sessions = parsedSessions;
+    }
+
+    // Prefer aiAdvisorId, fall back to modelId for backward compatibility
+    const effectiveAIAdvisorId = savedAIAdvisorId || savedModelId;
+
+    // Clear old storage key if we're migrating
+    if (savedModelId && !savedAIAdvisorId) {
+      localStorage.setItem("selectedAIAdvisorId", savedModelId);
+      localStorage.removeItem("selectedModelId");
     }
 
     return {
       sessions,
       currentSessionId: savedCurrentSessionId,
-      selectedModelId: savedModelId,
+      selectedAIAdvisorId: effectiveAIAdvisorId,
       selectedRepositoryId: savedRepositoryId,
     };
   } catch (error) {
@@ -66,24 +84,27 @@ export const loadSessions = (): {
     return {
       sessions: [],
       currentSessionId: null,
-      selectedModelId: null,
+      selectedAIAdvisorId: null,
       selectedRepositoryId: null,
     };
   }
 };
 
-// Save selected model ID
-export const saveSelectedModelId = (modelId: string | null): void => {
+// Save selected AI advisor ID
+export const saveSelectedAIAdvisorId = (aiAdvisorId: string | null): void => {
   try {
-    if (modelId !== null) {
-      localStorage.setItem("selectedModelId", modelId);
+    if (aiAdvisorId !== null) {
+      localStorage.setItem("selectedAIAdvisorId", aiAdvisorId);
     } else {
-      localStorage.removeItem("selectedModelId");
+      localStorage.removeItem("selectedAIAdvisorId");
     }
   } catch (error) {
-    console.error("Error saving model ID to localStorage:", error);
+    console.error("Error saving AI advisor ID to localStorage:", error);
   }
 };
+
+// For backward compatibility, use the same function with the old name
+export const saveSelectedModelId = saveSelectedAIAdvisorId;
 
 // Save selected repository ID
 export const saveSelectedRepositoryId = (repositoryId: string | null): void => {

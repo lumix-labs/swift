@@ -5,25 +5,26 @@ import { LLMModel } from "../lib/types/entities";
 import { getModels } from "../lib/services/entity-service";
 import { useDebounce } from "./useDebounce";
 
-// Create a custom event for model changes
-export const MODEL_CHANGE_EVENT = "modelChangeEvent";
+// Create a custom event for AI advisor changes
+export const AI_ADVISOR_CHANGE_EVENT = "aiAdvisorChangeEvent";
 
-// Store models state globally to persist between component unmounts
-const modelsCache = {
+// Store AI advisors state globally to persist between component unmounts
+const aiAdvisorsCache = {
   data: [] as LLMModel[],
   lastUpdated: 0,
 };
 
 /**
- * Custom hook to manage models with debouncing to prevent UI flickering
+ * Custom hook to manage AI advisors with debouncing to prevent UI flickering
  */
-export function useModels() {
-  const [models, setModels] = useState<LLMModel[]>(modelsCache.data);
+export function useAIAdvisors() {
+  // Initialize with an empty array to avoid undefined issues
+  const [aiAdvisors, setAIAdvisors] = useState<LLMModel[]>([]);
   const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef<boolean>(true);
 
   // Use a longer debounce time to prevent flickering
-  const debouncedModels = useDebounce(models, 1000); // Increased debounce time
+  const debouncedAIAdvisors = useDebounce(aiAdvisors, 1000); // Increased debounce time
 
   // On component unmount
   useEffect(() => {
@@ -37,7 +38,7 @@ export function useModels() {
   }, []);
 
   // Throttled update function to prevent multiple rapid updates
-  const updateModels = useCallback(() => {
+  const updateAIAdvisors = useCallback(() => {
     // Clear any pending update timer
     if (updateTimerRef.current) {
       clearTimeout(updateTimerRef.current);
@@ -52,20 +53,22 @@ export function useModels() {
 
       const now = Date.now();
 
-      // Only fetch models if it's been at least 800ms since the last update
-      if (now - modelsCache.lastUpdated > 800) {
+      // Only fetch AI advisors if it's been at least 800ms since the last update
+      if (now - aiAdvisorsCache.lastUpdated > 800) {
         try {
-          const updatedModels = getModels();
-          console.warn("Updating models with throttle:", updatedModels.length);
+          const updatedAIAdvisors = getModels();
+          console.log("Updating AI advisors with throttle:", updatedAIAdvisors.length);
 
           // Update both local state and cache
           if (isMountedRef.current) {
-            setModels(updatedModels);
-            modelsCache.data = updatedModels;
-            modelsCache.lastUpdated = now;
+            setAIAdvisors(updatedAIAdvisors || []);
+            aiAdvisorsCache.data = updatedAIAdvisors || [];
+            aiAdvisorsCache.lastUpdated = now;
           }
         } catch (error) {
-          console.error("Error fetching models:", error);
+          console.error("Error fetching AI advisors:", error);
+          // Initialize with empty array to prevent errors
+          setAIAdvisors([]);
         }
       }
 
@@ -74,26 +77,24 @@ export function useModels() {
     }, 800); // Increased from 500ms for better stability
   }, []);
 
-  // Load models initially
+  // Load AI advisors initially
   useEffect(() => {
-    const now = Date.now();
+    try {
+      // Always initialize with empty array first to avoid mapping over undefined
+      setAIAdvisors([]);
 
-    // Only fetch if cache is over 1 second old
-    if (now - modelsCache.lastUpdated > 1000 || modelsCache.data.length === 0) {
-      try {
-        const initialModels = getModels();
-        console.warn("Initial models loaded:", initialModels.length);
+      const initialAIAdvisors = getModels() || [];
+      console.log("Initial AI advisors loaded:", initialAIAdvisors.length);
 
-        if (isMountedRef.current) {
-          setModels(initialModels);
-          modelsCache.data = initialModels;
-          modelsCache.lastUpdated = now;
-        }
-      } catch (error) {
-        console.error("Error loading initial models:", error);
+      if (isMountedRef.current) {
+        setAIAdvisors(initialAIAdvisors);
+        aiAdvisorsCache.data = initialAIAdvisors;
+        aiAdvisorsCache.lastUpdated = Date.now();
       }
-    } else if (modelsCache.data.length > 0) {
-      console.warn("Using cached models:", modelsCache.data.length);
+    } catch (error) {
+      console.error("Error loading initial AI advisors:", error);
+      // Initialize with empty array to prevent errors
+      setAIAdvisors([]);
     }
 
     // Clear any lingering update timers when component unmounts
@@ -105,30 +106,30 @@ export function useModels() {
     };
   }, []);
 
-  // Event handler for model changes
-  const handleModelChange = useCallback(() => {
-    console.warn("Model change event received");
-    // Update models with throttling
-    updateModels();
-  }, [updateModels]);
+  // Event handler for AI advisor changes
+  const handleAIAdvisorChange = useCallback(() => {
+    console.log("AI advisor change event received");
+    // Update AI advisors with throttling
+    updateAIAdvisors();
+  }, [updateAIAdvisors]);
 
   // Set up and tear down event listener
   useEffect(() => {
-    console.warn("Setting up model change event listener");
+    console.log("Setting up AI advisor change event listener");
 
-    // Add event listener for model changes
-    window.addEventListener(MODEL_CHANGE_EVENT, handleModelChange);
+    // Add event listener for AI advisor changes
+    window.addEventListener(AI_ADVISOR_CHANGE_EVENT, handleAIAdvisorChange);
 
     // Clean up event listener on unmount
     return () => {
-      console.warn("Removing model change event listener");
-      window.removeEventListener(MODEL_CHANGE_EVENT, handleModelChange);
+      console.log("Removing AI advisor change event listener");
+      window.removeEventListener(AI_ADVISOR_CHANGE_EVENT, handleAIAdvisorChange);
     };
-  }, [handleModelChange]);
+  }, [handleAIAdvisorChange]);
 
-  // Function to trigger a model change event
-  const triggerModelChange = useCallback(() => {
-    console.warn("Triggering model change event");
+  // Function to trigger an AI advisor change event
+  const triggerAIAdvisorChange = useCallback(() => {
+    console.log("Triggering AI advisor change event");
 
     // Use debouncing to prevent multiple rapid events
     if (updateTimerRef.current) {
@@ -137,15 +138,15 @@ export function useModels() {
     }
 
     updateTimerRef.current = setTimeout(() => {
-      const event = new CustomEvent(MODEL_CHANGE_EVENT);
+      const event = new CustomEvent(AI_ADVISOR_CHANGE_EVENT);
       window.dispatchEvent(event);
       updateTimerRef.current = null;
     }, 200);
   }, []);
 
   return {
-    models: debouncedModels, // Return debounced models to prevent UI flickering
-    updateModels,
-    triggerModelChange,
+    aiAdvisors: debouncedAIAdvisors || [], // Return debounced AI advisors, ensure it's never undefined
+    updateAIAdvisors,
+    triggerAIAdvisorChange,
   };
 }

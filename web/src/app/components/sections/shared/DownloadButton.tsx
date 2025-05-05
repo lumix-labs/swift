@@ -13,6 +13,7 @@ import {
   startIngestion,
 } from "../../../lib/services/repo-download-service";
 import { useDebounce } from "../../../hooks/useDebounce";
+import { SenderType, SENDERS } from "../../../lib/types/message";
 
 // Store download status globally to persist between component unmounts
 const downloadingRepos = new Map<string, boolean>();
@@ -119,8 +120,9 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
 
     // Add downloading message
     addMessage({
-      role: "assistant-informational",
       content: `Downloading repository ${repository.name}. Please wait...`,
+      sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+      role: "assistant-informational",
     });
 
     try {
@@ -131,8 +133,9 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
 
       // Add a message about ingestion starting
       addMessage({
-        role: "assistant-informational",
         content: `Processing repository ${repository.name}. Creating repository tree (respecting .gitignore)...`,
+        sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+        role: "assistant-informational",
       });
 
       // Set status to ingested/ready
@@ -148,8 +151,9 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
 
         // Notify user when download is complete
         addMessage({
-          role: "assistant-informational",
           content: `Repository ${repository.name} has been successfully ingested and is ready to chat!`,
+          sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+          role: "assistant-informational",
         });
 
         console.warn("Repository download events dispatched:", repository.id);
@@ -163,8 +167,9 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
 
       // Notify user of the error
       addMessage({
-        role: "assistant-informational",
         content: `Error downloading repository ${repository.name}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+        role: "assistant-informational",
       });
     } finally {
       // Even in error case, ensure we reset state properly

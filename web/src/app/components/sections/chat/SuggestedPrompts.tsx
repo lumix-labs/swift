@@ -14,10 +14,13 @@ interface PromptMap {
 
 export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
   const [expanded, setExpanded] = useState(false);
-  const { selectedModelId, selectedRepositoryId } = useChat();
+  const { selectedAIAdvisorId, selectedModelId, selectedRepositoryId } = useChat();
+
+  // Use the appropriate model ID (prefer selectedAIAdvisorId, fall back to selectedModelId)
+  const currentModelId = selectedAIAdvisorId || selectedModelId;
 
   // Check if chat input is ready to receive text
-  const isChatInputReady = !!selectedModelId && !!selectedRepositoryId;
+  const isChatInputReady = !!currentModelId && !!selectedRepositoryId;
 
   // Memoize the prompt maps to prevent unnecessary re-renders
   const initialPromptMap = useMemo(

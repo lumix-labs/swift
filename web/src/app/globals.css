@@ -1,132 +1,145 @@
-@import './performance.css';
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #000000;
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 255, 255, 255;
+  --background-end-rgb: 255, 255, 255;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #000000;
-    --foreground: #ffffff;
-  }
+.dark {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 0, 0, 0;
+  --background-end-rgb: 0, 0, 0;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  
-  /* Add content-visibility to help with rendering performance */
-  content-visibility: auto;
-  
-  /* Prevent layout shifts */
-  overflow-y: scroll;
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
 }
 
-/* Clean focus styles */
-*:focus-visible {
-  outline: 2px solid var(--foreground);
-  outline-offset: 2px;
-}
-
-/* Optimize transitions - only animate opacity and transform for better performance */
-@media (prefers-reduced-motion: no-preference) {
-  body {
-    transition: background-color 0.3s ease, color 0.3s ease;
-  }
-  
-  a, button {
-    transition: opacity 0.2s ease, transform 0.2s ease;
-  }
-}
-
-/* Memory optimization - limit animations */
-.animate-pulse {
-  animation-duration: 1.5s;
-}
-
-/* Custom animation for expanded pitch */
+/* Animation keyframes for chat messages */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-.animate-fadeIn {
-  animation-name: fadeIn;
-  animation-duration: 0.3s;
-  animation-fill-mode: both;
-}
-
-/* Slide in animations for chat messages */
 @keyframes slideInRight {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-.animate-slideInRight {
-  animation-name: slideInRight;
-  animation-duration: 0.3s;
-  animation-fill-mode: both;
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 @keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Animation classes for chat messages */
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.2s ease-out;
 }
 
 .animate-slideInLeft {
-  animation-name: slideInLeft;
-  animation-duration: 0.3s;
-  animation-fill-mode: both;
+  animation: slideInLeft 0.2s ease-out;
 }
 
-/* Chat message styling */
-.chat-message pre {
-  background-color: rgba(0, 0, 0, 0.05);
-  border-radius: 6px;
-  padding: 12px;
-  overflow-x: auto;
-  margin: 10px 0;
+/* Enhanced styling for chat message markdown content */
+.chat-message-markdown {
+  @apply text-gray-900 dark:text-gray-100;
 }
 
-.dark .chat-message pre {
-  background-color: rgba(255, 255, 255, 0.1);
+.chat-message-markdown h1, 
+.chat-message-markdown h2, 
+.chat-message-markdown h3, 
+.chat-message-markdown h4, 
+.chat-message-markdown h5, 
+.chat-message-markdown h6 {
+  @apply font-semibold mt-3 mb-2;
 }
 
-.chat-message code {
-  font-family: var(--font-mono), monospace;
-  font-size: 0.9em;
+.chat-message-markdown h1 {
+  @apply text-xl border-b pb-1 border-gray-300 dark:border-gray-700;
 }
 
-.chat-message p {
-  margin-bottom: 0.75em;
+.chat-message-markdown h2 {
+  @apply text-lg border-b pb-1 border-gray-200 dark:border-gray-800;
 }
 
-.chat-message p:last-child {
-  margin-bottom: 0;
+.chat-message-markdown h3 {
+  @apply text-base font-medium text-gray-800 dark:text-gray-200;
 }
 
-/* Prevent layout shifts */
-html, body {
-  height: 100%;
-  width: 100%;
+.chat-message-markdown p {
+  @apply my-2 leading-relaxed;
 }
 
-/* Add containment to main components */
-.flex-1 {
-  contain: content;
+.chat-message-markdown ul, 
+.chat-message-markdown ol {
+  @apply pl-6 my-2;
 }
 
-/* Optimize images */
-img {
-  content-visibility: auto;
+.chat-message-markdown li {
+  @apply mb-1;
+}
+
+.chat-message-markdown code {
+  @apply font-mono text-sm bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded;
+}
+
+.chat-message-markdown pre {
+  @apply my-3 p-3 bg-gray-200 dark:bg-gray-700 rounded-md overflow-x-auto;
+}
+
+.chat-message-markdown pre code {
+  @apply bg-transparent p-0 block text-sm leading-relaxed;
+}
+
+.chat-message-markdown a {
+  @apply text-blue-600 dark:text-blue-400 underline;
+}
+
+.chat-message-markdown blockquote {
+  @apply border-l-4 border-gray-300 dark:border-gray-600 pl-3 my-3 italic text-gray-700 dark:text-gray-300;
+}
+
+.chat-message-markdown strong {
+  @apply font-semibold text-gray-900 dark:text-white;
+}
+
+/* Additional styles for other elements */
+/* General Styles for Input Controls */
+.input-controls-container {
+  @apply flex flex-col gap-2 w-full;
+}
+
+/* Add transitions for smoother theme switching */
+* {
+  transition-property: color, background-color, border-color;
+  transition-duration: 150ms;
 }

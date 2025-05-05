@@ -1,46 +1,51 @@
 "use client";
 
-import { EXCLUDED_MESSAGE_ROLES, EXCLUDED_MESSAGE_SENDERS } from "../../context/chat/types";
-import { SenderType } from "../../lib/types/message";
+import { EXCLUDED_MESSAGE_SENDERS } from "../../context/chat/types";
+import { SenderType } from "../types/message";
 
 /**
- * Gemini service for handling communication with Google's Gemini API
+ * OpenAI service for handling communication with OpenAI's API
  */
 
-interface GeminiRequestBody {
-  contents: {
-    parts: {
-      text: string;
-    }[];
+interface OpenAIRequestBody {
+  model: string;
+  messages: {
     role: string;
+    content: string;
   }[];
-  generationConfig?: {
-    temperature?: number;
-    maxOutputTokens?: number;
-    topP?: number;
-    topK?: number;
+  temperature?: number;
+  max_tokens?: number;
+  frequency_penalty?: number;
+  presence_penalty?: number;
+}
+
+interface OpenAIResponse {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: {
+    message: {
+      role: string;
+      content: string;
+    };
+    index: number;
+    finish_reason: string;
+  }[];
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
   };
 }
 
-interface GeminiResponse {
-  candidates: {
-    content: {
-      parts: {
-        text: string;
-      }[];
-      role: string;
-    };
-    finishReason: string;
-    index: number;
-  }[];
-}
-
-export class GeminiService {
+export class OpenAIService {
   private apiUrl: string;
   private apiKey: string;
   private previousMessages: { role: string; content: string }[] = [];
   private repositoryContext: string | null = null;
   private debug: boolean = true; // Enable debug logging by default
+  private modelId: string;
 
   // Define the context template with updated instructions for more concise, conversational responses
   private contextTemplate = `
@@ -64,21 +69,12 @@ RESPONSE GUIDELINES:
 - Use markdown formatting to improve readability (headers, lists, code blocks)
 - When explaining code, focus on business impact rather than implementation details
 - Use analogies to relate technical concepts to familiar business scenarios
-
-CONVERSATION STARTERS:
-- "What's the overall architecture of this project in simple terms?"
-- "What are the main components of this codebase and how do they work together?"
-- "What technical risks should I be aware of in this project?"
-- "How scalable is this codebase for future business growth?"
-- "What technical debt exists that might impact our roadmap?"
-- "How does this codebase compare to industry best practices?"
-- "What would a technical executive want to know about this repository?"
 `;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, modelId: string = "gpt-3.5-turbo") {
     this.apiKey = apiKey;
-    // Using Gemini 1.5 Flash model, which uses less credits and is more cost-effective
-    this.apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+    this.modelId = modelId;
+    this.apiUrl = "https://api.openai.com/v1/chat/completions";
 
     // Listen for debug toggle events
     if (typeof window !== "undefined") {
@@ -87,7 +83,7 @@ CONVERSATION STARTERS:
         const savedState = localStorage.getItem("swift_debug_mode");
         if (savedState) {
           this.debug = savedState === "true";
-          console.log(`Gemini service debug mode initialized: ${this.debug}`);
+          console.log(`OpenAI service debug mode initialized: ${this.debug}`);
         }
       } catch (error) {
         console.error("Failed to load debug preference:", error);
@@ -96,7 +92,7 @@ CONVERSATION STARTERS:
       // Set up event listener for debug toggle
       window.addEventListener("swift_debug_toggle", ((event: CustomEvent) => {
         this.debug = event.detail.enabled;
-        console.log(`Gemini service debug mode set to: ${this.debug}`);
+        console.log(`OpenAI service debug mode set to: ${this.debug}`);
       }) as EventListener);
     }
   }
@@ -122,8 +118,8 @@ CONVERSATION STARTERS:
     if (readmeContent) {
       // Limit README content to avoid token limits
       const truncatedReadme =
-        readmeContent.length > 10000
-          ? readmeContent.substring(0, 10000) + "... [README truncated due to length]"
+        readmeContent.length > 8000
+          ? readmeContent.substring(0, 8000) + "... [README truncated due to length]"
           : readmeContent;
 
       context += `Repository README content:\n\`\`\`markdown\n${truncatedReadme}\n\`\`\`\n\n`;
@@ -149,31 +145,6 @@ CONVERSATION STARTERS:
       // Handle Dockerfile
       if (configFiles.dockerfile) {
         context += `Dockerfile:\n\`\`\`dockerfile\n${configFiles.dockerfile}\n\`\`\`\n\n`;
-      }
-
-      // Handle docker-compose.yml
-      if (configFiles.dockerCompose) {
-        context += `docker-compose.yml:\n\`\`\`yaml\n${configFiles.dockerCompose}\n\`\`\`\n\n`;
-      }
-
-      // Handle tsconfig.json
-      if (configFiles.tsconfigJson) {
-        context += `tsconfig.json:\n\`\`\`json\n${configFiles.tsconfigJson}\n\`\`\`\n\n`;
-      }
-
-      // Handle .env.example or similar
-      if (configFiles.envExample) {
-        context += `.env.example:\n\`\`\`\n${configFiles.envExample}\n\`\`\`\n\n`;
-      }
-
-      // Handle PRD.md or similar product requirements document
-      if (configFiles.prdMd) {
-        const truncatedPrd =
-          configFiles.prdMd.length > 5000
-            ? configFiles.prdMd.substring(0, 5000) + "... [PRD truncated due to length]"
-            : configFiles.prdMd;
-
-        context += `PRD.md:\n\`\`\`markdown\n${truncatedPrd}\n\`\`\`\n\n`;
       }
     }
 
@@ -230,61 +201,35 @@ CONVERSATION STARTERS:
   }
 
   /**
-   * Prepare system message with repository context
+   * Prepares conversation history with system message
    */
-  private prepareSystemMessage(repoContext?: string | null): {
-    parts: { text: string }[];
-    role: string;
-  } {
-    // Start with our main context template
-    let systemMessage = this.contextTemplate;
+  private prepareMessages(userMessage: string, repoContext?: string | null): { role: string; content: string }[] {
+    const messages: { role: string; content: string }[] = [];
 
-    // Append repository-specific context if available
+    // Add system message with context template and repository info
+    let systemMessage = this.contextTemplate;
     if (repoContext) {
       systemMessage += "\n\n" + repoContext;
     } else if (this.repositoryContext) {
-      // Reuse stored repository context if available
       systemMessage += "\n\n" + this.repositoryContext;
     }
 
-    return {
-      parts: [{ text: systemMessage }],
-      role: "model",
-    };
-  }
+    messages.push({ role: "system", content: systemMessage });
 
-  /**
-   * Adds the current conversation to the message for context
-   * Filters out any message roles that should be excluded
-   */
-  private addConversationContext(messageContent: string): string {
-    if (this.previousMessages.length === 0) {
-      return messageContent;
+    // Add previous conversation history
+    if (this.previousMessages.length > 0) {
+      // Filter out excluded message senders
+      const filteredMessages = this.previousMessages.filter(
+        (msg) => !EXCLUDED_MESSAGE_SENDERS.includes(msg.role as any),
+      );
+
+      messages.push(...filteredMessages);
     }
 
-    // Include up to 5 previous message pairs for context
-    const maxContextPairs = 5;
-    // Filter out excluded message roles
-    const filteredMessages = this.previousMessages.filter((msg) => !EXCLUDED_MESSAGE_ROLES.includes(msg.role as any));
-    const contextMessages = filteredMessages.slice(-maxContextPairs * 2);
+    // Add the current user message
+    messages.push({ role: "user", content: userMessage });
 
-    let context = "Previous conversation:\n";
-
-    contextMessages.forEach((msg) => {
-      const role =
-        msg.role === "user"
-          ? "User"
-          : msg.role === "model-response"
-            ? "Assistant"
-            : msg.role === "assistant"
-              ? "Assistant"
-              : "System";
-      context += `${role}: ${msg.content}\n\n`;
-    });
-
-    context += "Current question:\n" + messageContent;
-
-    return context;
+    return messages;
   }
 
   /**
@@ -292,7 +237,7 @@ CONVERSATION STARTERS:
    */
   setDebugMode(enabled: boolean): void {
     this.debug = enabled;
-    console.log(`Gemini debug mode ${enabled ? "enabled" : "disabled"}`);
+    console.log(`OpenAI debug mode ${enabled ? "enabled" : "disabled"}`);
 
     // Store in localStorage
     if (typeof window !== "undefined") {
@@ -305,7 +250,7 @@ CONVERSATION STARTERS:
   }
 
   /**
-   * Sends a message to Gemini API and receives a response
+   * Sends a message to OpenAI API and receives a response
    */
   async sendMessage(
     message: string,
@@ -316,11 +261,12 @@ CONVERSATION STARTERS:
     repoLocalPath?: string,
   ): Promise<string> {
     try {
-      console.warn("Sending message to Gemini API:", {
+      console.warn("Sending message to OpenAI API:", {
         messageLength: message.length,
         hasRepoContext: Boolean(repoName && repoUrl),
         readmeContentLength: readmeContent?.length || 0,
         hasRepoTree: Boolean(repoTree),
+        model: this.modelId,
       });
 
       // Add repository context if available
@@ -337,50 +283,44 @@ CONVERSATION STARTERS:
         repoContext = this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, configFiles);
       }
 
-      // Add conversation context to the message
-      const messageWithContext = this.addConversationContext(message);
+      // Prepare messages with context and history
+      const messages = this.prepareMessages(message, repoContext);
 
-      // Prepare request body with system message and user query
-      const requestBody: GeminiRequestBody = {
-        contents: [
-          this.prepareSystemMessage(repoContext),
-          {
-            parts: [{ text: messageWithContext }],
-            role: "user",
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 4096, // Increased token limit
-          topP: 0.95,
-          topK: 40,
-        },
+      // Prepare request body
+      const requestBody: OpenAIRequestBody = {
+        model: this.modelId,
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 4000,
+        frequency_penalty: 0.0,
+        presence_penalty: 0.0,
       };
 
       // Debug logging for full request
       if (this.debug) {
-        console.log("===== GEMINI REQUEST =====");
+        console.log("===== OPENAI REQUEST =====");
         console.log(JSON.stringify(requestBody, null, 2));
         console.log("==========================");
       }
 
-      console.warn("Calling Gemini API with repository context...");
-      const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, {
+      console.warn("Calling OpenAI API with repository context...");
+      const response = await fetch(this.apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         // Try to parse error message from response
-        let errorMsg = `Gemini API error: ${response.status}`;
+        let errorMsg = `OpenAI API error: ${response.status}`;
         try {
           const errData = await response.json();
-          console.error("Gemini API error details:", errData);
-          if (errData && errData.error && errData.error.message) {
-            errorMsg = `Gemini API error: ${errData.error.message}`;
+          console.error("OpenAI API error details:", errData);
+          if (errData && errData.error) {
+            errorMsg = `OpenAI API error: ${errData.error.message || JSON.stringify(errData.error)}`;
           }
         } catch (parseError) {
           console.error("Error parsing error response:", parseError);
@@ -389,25 +329,25 @@ CONVERSATION STARTERS:
         throw new Error(errorMsg);
       }
 
-      const data = (await response.json()) as GeminiResponse;
-      console.warn("Received response from Gemini API");
+      const data = (await response.json()) as OpenAIResponse;
+      console.warn("Received response from OpenAI API");
 
       // Debug logging for full response
       if (this.debug) {
-        console.log("===== GEMINI RESPONSE =====");
+        console.log("===== OPENAI RESPONSE =====");
         console.log(JSON.stringify(data, null, 2));
         console.log("===========================");
       }
 
-      if (!data.candidates || data.candidates.length === 0) {
-        throw new Error("No response generated by Gemini API.");
+      if (!data.choices || data.choices.length === 0) {
+        throw new Error("No response generated by OpenAI API.");
       }
 
-      const generatedText = data.candidates[0].content.parts.map((part) => part.text).join("");
+      const generatedText = data.choices[0].message.content;
 
       // Store messages for conversation context
       this.previousMessages.push({ role: "user", content: message });
-      this.previousMessages.push({ role: "model-response", content: generatedText });
+      this.previousMessages.push({ role: "assistant", content: generatedText });
 
       // Limit conversation history to last 10 messages (5 exchanges)
       if (this.previousMessages.length > 10) {
@@ -416,13 +356,13 @@ CONVERSATION STARTERS:
 
       return generatedText;
     } catch (error: unknown) {
-      console.error("Error in Gemini service:", error);
+      console.error("Error in OpenAI service:", error);
 
       if (error instanceof Error) {
-        throw new Error(error.message || "Sorry, something went wrong while communicating with the Gemini API.");
+        throw new Error(error.message || "Sorry, something went wrong while communicating with the OpenAI API.");
       }
 
-      throw new Error("Sorry, something went wrong while communicating with the Gemini API.");
+      throw new Error("Sorry, something went wrong while communicating with the OpenAI API.");
     }
   }
 

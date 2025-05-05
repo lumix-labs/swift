@@ -13,11 +13,15 @@ import {
 import { REPO_DOWNLOAD_COMPLETE_EVENT } from "../../components/sections/shared/DownloadButton";
 
 export function useChatInputState() {
-  const { addMessage, isLoading, setIsLoading, selectedModelId, selectedRepositoryId, messages } = useChat();
+  const { addMessage, isLoading, setIsLoading, selectedAIAdvisorId, selectedModelId, selectedRepositoryId, messages } =
+    useChat();
+
+  // Use the appropriate model ID (prefer selectedAIAdvisorId, fall back to selectedModelId)
+  const currentSelectedModelId = selectedAIAdvisorId || selectedModelId || null;
 
   // Use custom hooks to manage component state
   const { currentModel, currentRepo, downloadedRepo, repositoryReady, setRepositoryReady, setDownloadedRepo } =
-    useEntitySelection(selectedModelId, selectedRepositoryId);
+    useEntitySelection(currentSelectedModelId, selectedRepositoryId);
 
   // Component state
   const [userCanSendMessage, setUserCanSendMessage] = useState<boolean>(true);

@@ -6,7 +6,7 @@ import { ThemeToggle } from "../theme/ThemeToggle";
 import { useChat } from "../../../context/ChatContext";
 import { useTheme } from "../../../context/ThemeContext";
 import { HeaderActionButton } from "./HeaderActionButton";
-import { ModelsDropdown } from "./ModelsDropdown";
+import { AIAdvisorsDropdown } from "./AIAdvisorsDropdown";
 import { RepositoriesDropdown } from "./RepositoriesDropdown";
 
 export function Header() {
@@ -87,9 +87,8 @@ export function Header() {
           className={buttonStyle}
         />
 
-        {/* Updated Dropdowns to use the new components */}
         <RepositoriesDropdown resolvedTheme={resolvedTheme} />
-        <ModelsDropdown resolvedTheme={resolvedTheme} />
+        <AIAdvisorsDropdown resolvedTheme={resolvedTheme} />
 
         <HeaderActionButton
           href="#"
