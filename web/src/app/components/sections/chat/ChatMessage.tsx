@@ -7,6 +7,8 @@ import Image from "next/image";
 import { Message, MessageArtifact, SenderType, THINKING_STATES } from "../../../lib/types/message";
 import { useTheme } from "../../../context/ThemeContext";
 import { formatModelResponse } from "../../../lib/utils/formatModelResponse";
+import hljs from "highlight.js";
+import "highlight.js/styles/github-dark.css";
 
 interface ChatMessageProps {
   message: Message;
@@ -21,7 +23,10 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
   // Determine message type for styling
   const isUserMessage = message.sender.type === SenderType.USER;
   const isInformationalMessage = message.sender.type === SenderType.SWIFT_ASSISTANT;
-  const isModelMessage = [SenderType.GEMINI, SenderType.CLAUDE, SenderType.OPENAI].includes(message.sender.type);
+  const isAdvisorMessage = message.sender.type === SenderType.AI_ADVISOR;
+
+  // For backward compatibility with old messages that might still have the old sender types
+  const isLegacyModelMessage = message.role === "model-response" && !isAdvisorMessage;
 
   // Setup thinking animation
   useEffect(() => {
@@ -41,14 +46,18 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
   // Parse markdown content for code blocks and links
   useEffect(() => {
     try {
-      // Only process markdown for messages that have it enabled
-      if (!message.isMarkdown && !isModelMessage) {
+      // Always enable markdown rendering for AI advisor messages
+      const shouldRenderMarkdown =
+        message.isMarkdown || isAdvisorMessage || isLegacyModelMessage || message.sender.type === SenderType.AI_ADVISOR;
+
+      if (!shouldRenderMarkdown) {
         setProcessedContent(message.content);
         return;
       }
 
       // Format model responses with Markdown
-      const contentToProcess = isModelMessage ? formatModelResponse(message.content) : message.content;
+      const contentToProcess =
+        isAdvisorMessage || isLegacyModelMessage ? formatModelResponse(message.content) : message.content;
 
       // Create a custom renderer for code blocks
       const customRenderer = {
@@ -80,11 +89,11 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
               language === "md");
 
           if (validLanguage) {
-            return `<pre><code class="language-${language}">${code}</code></pre>`;
+            return `<pre><code class="language-${language} hljs">${hljs.highlight(code, { language }).value}</code></pre>`;
           }
 
           // Fall back to default rendering if not using custom highlighting
-          return `<pre><code>${code}</code></pre>`;
+          return `<pre><code class="hljs">${hljs.highlight(code, { language: "plaintext" }).value}</code></pre>`;
         },
         paragraph(text: string): string {
           return `<p class="mb-4">${text}</p>`;
@@ -112,7 +121,13 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
         tablerow(content: string): string {
           return `<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">${content}</tr>`;
         },
-        tablecell(content: string, flags: { header: boolean; align: string | null }): string {
+        tablecell(
+          content: string,
+          flags: {
+            header: boolean;
+            align: "center" | "left" | "right" | null;
+          },
+        ): string {
           const tag = flags.header ? "th" : "td";
           const alignment = flags.align ? `text-${flags.align}` : "";
           const classes = flags.header
@@ -132,14 +147,22 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
         link(href: string, title: string | null, text: string): string {
           return `<a href="${href}" title="${title || ""}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">${text}</a>`;
         },
+        image(href: string, title: string | null, text: string): string {
+          return `<img src="${href}" alt="${text}" title="${title || ""}" class="max-w-full h-auto rounded" />`;
+        },
       };
 
-      // Configure marked options
+      // Configure highlight options
       const options = {
+        highlight: function (code: string, lang: string) {
+          const language = hljs.getLanguage(lang) ? lang : "plaintext";
+          return hljs.highlight(code, { language }).value;
+        },
+        renderer: customRenderer,
         breaks: true,
         gfm: true,
+        pedantic: false,
         headerIds: false,
-        renderer: customRenderer,
       };
 
       // Parse the markdown content
@@ -156,7 +179,7 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
       console.error("Error processing markdown:", error);
       setProcessedContent(message.content);
     }
-  }, [message.content, isModelMessage, message.isMarkdown]);
+  }, [message.content, isAdvisorMessage, isLegacyModelMessage, message.isMarkdown, message.role, message.sender.type]);
 
   // Render artifacts if present
   const renderArtifacts = (artifacts?: MessageArtifact[]) => {
@@ -172,7 +195,7 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
               return (
                 <div key={artifact.id} className="bg-gray-800 text-white p-4 rounded-md overflow-x-auto">
                   <pre>
-                    <code>{artifact.content}</code>
+                    <code className="hljs">{artifact.content}</code>
                   </pre>
                 </div>
               );
@@ -256,7 +279,7 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
       return "bg-white text-black dark:bg-gray-900 dark:text-white shadow-md";
     } else if (isInformationalMessage) {
       return "bg-blue-50 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50 text-sm";
-    } else if (isModelMessage) {
+    } else if (isAdvisorMessage || isLegacyModelMessage) {
       // Improved model response styling for better contrast
       return "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100 shadow-sm border border-gray-200 dark:border-gray-700";
     } else {
@@ -268,7 +291,7 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
   const getFontSizeClass = () => {
     if (isInformationalMessage) {
       return "text-sm";
-    } else if (isUserMessage || isModelMessage) {
+    } else if (isUserMessage || isAdvisorMessage || isLegacyModelMessage) {
       return "text-base";
     }
     return "text-base";
@@ -286,7 +309,7 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
   };
 
   // Render thinking animation if loading
-  if (isLoading && isModelMessage) {
+  if (isLoading && (isAdvisorMessage || isLegacyModelMessage)) {
     return (
       <div className="flex justify-start">
         <div className={`max-w-[85%] p-3 rounded-lg ${getMessageStyleClasses()} transition-all animate-pulse`}>
@@ -303,6 +326,11 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
             <div className="flex flex-col w-full">
               <div className="flex items-center">
                 <span className="font-medium text-sm text-gray-700 dark:text-gray-300">{message.sender.name}</span>
+                {message.sender.personalityType && (
+                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                    ({message.sender.personalityType})
+                  </span>
+                )}
               </div>
               <div className="mt-1.5 flex items-center space-x-2">
                 <div className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-bounce"></div>
@@ -336,6 +364,9 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
               className="rounded-full mr-2"
             />
             <span className="font-medium text-sm text-gray-700 dark:text-gray-300">{message.sender.name}</span>
+            {message.sender.personalityType && (
+              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">({message.sender.personalityType})</span>
+            )}
           </div>
         )}
 
@@ -347,7 +378,7 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
         ) : (
           // For regular and model messages with markdown
           <div
-            className={`prose dark:prose-invert max-w-none chat-message ${getFontSizeClass()}`}
+            className={`prose dark:prose-invert max-w-none chat-message markdown-content ${getFontSizeClass()}`}
             dangerouslySetInnerHTML={{ __html: processedContent }}
           />
         )}

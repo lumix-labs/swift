@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { Modal } from "./Modal";
 import { LLMProvider, PREDEFINED_MODELS } from "../../../lib/types/entities";
+import { Personality, PERSONALITY_PROFILES } from "../../../lib/types/personality";
+import { getModels } from "../../../lib/services/entity-service";
 
 interface AddRepositoryModalProps {
   isOpen: boolean;
@@ -14,7 +16,7 @@ interface AddRepositoryModalProps {
 interface AddAIAdvisorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (provider: LLMProvider, apiKey: string, modelId?: string, customName?: string) => void;
+  onSave: (provider: LLMProvider, apiKey: string, modelId?: string, personality?: Personality) => void;
 }
 
 export function AddRepositoryModal({ isOpen, onClose, onSave }: AddRepositoryModalProps) {
@@ -85,56 +87,63 @@ export const AddModelModal = AddAIAdvisorModal;
 
 export function AddAIAdvisorModal({ isOpen, onClose, onSave }: AddAIAdvisorModalProps) {
   const [provider, setProvider] = useState<LLMProvider>("gemini");
-  const [modelId, setModelId] = useState<string>("");
-  const [customName, setCustomName] = useState<string>("");
+  const [personality, setPersonality] = useState<Personality>(Personality.CTO);
   const [apiKey, setApiKey] = useState("");
   const [isValid, setIsValid] = useState(false);
+
+  // Function to find an unused personality
+  const findUnusedPersonality = () => {
+    // Get current AI advisors
+    const currentAdvisors = getModels();
+
+    // Extract all personalities that are already in use
+    const usedPersonalities = new Set(
+      currentAdvisors.filter((advisor) => advisor.personality).map((advisor) => advisor.personality),
+    );
+
+    // Find an unused personality from the available ones
+    const allPersonalities = Object.values(Personality);
+    const unusedPersonalities = allPersonalities.filter((p) => !usedPersonalities.has(p));
+
+    // If there are unused personalities, return the first one
+    // Otherwise, return a random personality
+    if (unusedPersonalities.length > 0) {
+      return unusedPersonalities[0];
+    } else {
+      return allPersonalities[Math.floor(Math.random() * allPersonalities.length)];
+    }
+  };
 
   // Reset form on open
   useEffect(() => {
     if (isOpen) {
       // Use Gemini as default
       setProvider("gemini");
-      // Set default modelId for the provider
-      const defaultModel = PREDEFINED_MODELS.find((m) => m.provider === "gemini" && m.isDefault);
-      setModelId(defaultModel?.modelId || "");
-      setCustomName("");
+      // Set a non-duplicate personality
+      setPersonality(findUnusedPersonality());
       setApiKey("");
       setIsValid(false);
     }
   }, [isOpen]);
 
-  // Filter models by selected provider
-  const providerModels = PREDEFINED_MODELS.filter((model) => model.provider === provider);
+  // Get the personalities as an array for dropdown options
+  const personalities = Object.values(Personality);
 
-  // Update modelId when provider changes
-  useEffect(() => {
-    const defaultModel = PREDEFINED_MODELS.find((m) => m.provider === provider && m.isDefault);
-    setModelId(defaultModel?.modelId || "");
-  }, [provider]);
+  // Update personality description when personality changes
+  const personalityProfile = PERSONALITY_PROFILES[personality];
 
   const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setProvider(e.target.value as LLMProvider);
   };
 
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setModelId(e.target.value);
-
-    // Update custom name based on selected model
-    const selectedModel = PREDEFINED_MODELS.find((m) => m.modelId === e.target.value);
-    if (selectedModel) {
-      setCustomName(selectedModel.name || "");
-    }
+  const handlePersonalityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setPersonality(e.target.value as Personality);
   };
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const key = e.target.value;
     setApiKey(key);
     validateApiKey(key);
-  };
-
-  const handleCustomNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCustomName(e.target.value);
   };
 
   const validateApiKey = (key: string) => {
@@ -189,9 +198,13 @@ export function AddAIAdvisorModal({ isOpen, onClose, onSave }: AddAIAdvisorModal
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isValid) {
-      onSave(provider, apiKey, modelId, customName);
+      // Find the latest/best model for this provider
+      const latestModel =
+        PREDEFINED_MODELS.find((model) => model.provider === provider && model.isDefault)?.modelId ||
+        PREDEFINED_MODELS.find((model) => model.provider === provider)?.modelId;
+
+      onSave(provider, apiKey, latestModel, personality);
       setApiKey("");
-      setCustomName("");
       onClose();
     }
   };
@@ -216,35 +229,24 @@ export function AddAIAdvisorModal({ isOpen, onClose, onSave }: AddAIAdvisorModal
         </div>
 
         <div className="mb-4">
-          <label htmlFor="modelId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            AI Advisor Type
+          <label htmlFor="personality" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Advisor Personality
           </label>
           <select
-            id="modelId"
-            value={modelId}
-            onChange={handleModelChange}
+            id="personality"
+            value={personality}
+            onChange={handlePersonalityChange}
             className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           >
-            {providerModels.map((model) => (
-              <option key={model.modelId} value={model.modelId}>
-                {model.name} {model.description ? `- ${model.description}` : ""}
+            {personalities.map((p) => (
+              <option key={p} value={p}>
+                {p}
               </option>
             ))}
           </select>
-        </div>
-
-        <div className="mb-4">
-          <label htmlFor="customName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Display Name (Optional)
-          </label>
-          <input
-            type="text"
-            id="customName"
-            value={customName}
-            onChange={handleCustomNameChange}
-            placeholder="Custom display name"
-            className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-          />
+          {personalityProfile && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{personalityProfile.tagline}</p>
+          )}
         </div>
 
         <div className="mb-4">

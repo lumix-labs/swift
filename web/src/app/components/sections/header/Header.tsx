@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useCallback } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "../theme/ThemeToggle";
 import { useChat } from "../../../context/ChatContext";
@@ -8,14 +8,30 @@ import { useTheme } from "../../../context/ThemeContext";
 import { HeaderActionButton } from "./HeaderActionButton";
 import { AIAdvisorsDropdown } from "./AIAdvisorsDropdown";
 import { RepositoriesDropdown } from "./RepositoriesDropdown";
+import { useRouter } from "next/navigation";
 
 export function Header() {
-  const { createNewSession } = useChat();
+  const { createNewSession, clearMessages } = useChat();
   const { resolvedTheme } = useTheme();
+  const router = useRouter();
 
-  const handleNewChat = () => {
-    createNewSession();
-  };
+  // Wrap in useCallback to prevent recreation on each render
+  const handleNewChat = useCallback(() => {
+    console.log("New Chat button clicked");
+    try {
+      // First clear the current messages to update the UI immediately
+      clearMessages();
+
+      // Then create a new session
+      createNewSession();
+      console.log("New chat session created successfully");
+
+      // We don't need to navigate or refresh the page anymore
+      // The UI will update automatically due to the clearMessages() call
+    } catch (error) {
+      console.error("Error creating new chat session:", error);
+    }
+  }, [createNewSession, clearMessages]);
 
   // Common button style for consistent appearance across all buttons
   const buttonStyle = `p-2 sm:px-3 sm:py-1.5 text-sm font-medium rounded-md transition-colors ${
@@ -25,7 +41,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between px-4 h-14 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black">
       <div className="flex items-center space-x-2">
-        <Link href="/" onClick={() => window.location.reload()}>
+        <Link href="/">
           <div className="flex items-center space-x-2 cursor-pointer">
             <div>
               <h1 className="font-semibold text-lg flex items-center">
@@ -90,15 +106,14 @@ export function Header() {
         <RepositoriesDropdown resolvedTheme={resolvedTheme} />
         <AIAdvisorsDropdown resolvedTheme={resolvedTheme} />
 
-        <HeaderActionButton
-          href="#"
-          label="New Chat"
-          ariaLabel="New Chat"
-          onClick={(e) => {
-            e.preventDefault();
-            handleNewChat();
-          }}
-          icon={
+        <button
+          type="button"
+          onClick={handleNewChat}
+          className={`${buttonStyle} flex items-center`}
+          aria-label="New Chat"
+        >
+          <span className="hidden sm:inline">New Chat</span>
+          <span className="sm:hidden">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path
                 fillRule="evenodd"
@@ -106,9 +121,8 @@ export function Header() {
                 clipRule="evenodd"
               />
             </svg>
-          }
-          className={buttonStyle}
-        />
+          </span>
+        </button>
         <ThemeToggle />
       </div>
     </header>

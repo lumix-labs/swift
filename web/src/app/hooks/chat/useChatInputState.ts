@@ -208,7 +208,7 @@ export function useChatInputState() {
     }
 
     if (!currentModel) {
-      return "Please select a model to start chatting";
+      return "Please select an AI Advisor to start chatting";
     }
 
     if (!currentRepo) {

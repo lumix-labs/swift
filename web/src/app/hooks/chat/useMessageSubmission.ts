@@ -11,7 +11,7 @@ import {
   getRepositoryStatus,
   isRepositoryReadyForChat,
 } from "../../lib/services/repo-download-service";
-import { getModelById } from "../../lib/services/entity-service";
+import { createAdvisorSender, getModelById } from "../../lib/services/entity-service";
 
 // Define the DownloadedRepository interface
 interface DownloadedRepository extends Repository {
@@ -28,6 +28,7 @@ interface UseMessageSubmissionProps {
   addMessage: (message: {
     role: "user" | "assistant" | "assistant-informational" | "model-response";
     content: string;
+    sender?: any; // Added to support sender property
   }) => void;
   setIsLoading: (loading: boolean) => void;
   currentModel: LLMModel | null;
@@ -146,14 +147,12 @@ export function useMessageSubmission({
 
       try {
         let response = "";
-        let modelSender = SENDERS[SenderType.GEMINI]; // Default to Gemini
 
-        // Set the appropriate model sender based on provider
-        if (currentModel.provider === "anthropic") {
-          modelSender = SENDERS[SenderType.CLAUDE];
-        } else if (currentModel.provider === "openai") {
-          modelSender = SENDERS[SenderType.OPENAI];
-        }
+        // Create a customized advisor sender using the current model details
+        const advisorSender = createAdvisorSender(currentModel);
+
+        // Set personality on the model service if applicable
+        const personality = currentModel.personality;
 
         // Prepare repository context data
         const contextData =
@@ -170,7 +169,7 @@ export function useMessageSubmission({
         // Use appropriate service based on selected model provider
         switch (currentModel.provider) {
           case "gemini": {
-            const geminiService = new GeminiService(currentModel.apiKey);
+            const geminiService = new GeminiService(currentModel.apiKey, personality);
 
             if (contextData) {
               // Use repository context when available with tree data
@@ -193,6 +192,7 @@ export function useMessageSubmission({
             const claudeService = new ClaudeService(
               currentModel.apiKey,
               currentModel.modelId || "claude-3-haiku-20240307",
+              personality,
             );
 
             if (contextData) {
@@ -213,7 +213,11 @@ export function useMessageSubmission({
           }
 
           case "openai": {
-            const openaiService = new OpenAIService(currentModel.apiKey, currentModel.modelId || "gpt-3.5-turbo");
+            const openaiService = new OpenAIService(
+              currentModel.apiKey,
+              currentModel.modelId || "gpt-3.5-turbo",
+              personality,
+            );
 
             if (contextData) {
               // Use repository context when available with tree data
@@ -237,10 +241,11 @@ export function useMessageSubmission({
             response = `Using ${currentModel.name} (${currentModel.provider}):\n\nThis model provider is not yet implemented.`;
         }
 
-        // Add the AI response to the chat with model-response role
+        // Add the AI response to the chat with the customized advisor sender
         addMessage({
           role: "model-response" as const,
           content: response,
+          sender: advisorSender, // Use the advisor sender to ensure correct display
         });
 
         // Clear the safety timeout

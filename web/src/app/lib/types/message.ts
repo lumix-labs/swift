@@ -2,9 +2,7 @@
 export enum SenderType {
   USER = "user",
   SWIFT_ASSISTANT = "swift-assistant",
-  GEMINI = "gemini",
-  CLAUDE = "claude",
-  OPENAI = "openai",
+  AI_ADVISOR = "ai-advisor",
 }
 
 export interface Sender {
@@ -13,6 +11,8 @@ export interface Sender {
   name: string;
   avatarUrl: string;
   includeInModelContext: boolean;
+  personalityType?: string;
+  advisorId?: string;
 }
 
 // Available senders in the system
@@ -21,35 +21,21 @@ export const SENDERS: Record<SenderType, Sender> = {
     id: "user",
     type: SenderType.USER,
     name: "You",
-    avatarUrl: "/avatars/user-avatar.png",
+    avatarUrl: "/avatars/four.png",
     includeInModelContext: true,
   },
   [SenderType.SWIFT_ASSISTANT]: {
     id: "swift-assistant",
     type: SenderType.SWIFT_ASSISTANT,
     name: "Swift Assistant",
-    avatarUrl: "/avatars/swift-avatar.png",
+    avatarUrl: "/avatars/five.png",
     includeInModelContext: false,
   },
-  [SenderType.GEMINI]: {
-    id: "gemini",
-    type: SenderType.GEMINI,
-    name: "Gemini",
-    avatarUrl: "/avatars/gemini-avatar.png",
-    includeInModelContext: true,
-  },
-  [SenderType.CLAUDE]: {
-    id: "claude",
-    type: SenderType.CLAUDE,
-    name: "Claude",
-    avatarUrl: "/avatars/claude-avatar.png",
-    includeInModelContext: true,
-  },
-  [SenderType.OPENAI]: {
-    id: "openai",
-    type: SenderType.OPENAI,
-    name: "GPT",
-    avatarUrl: "/avatars/openai-avatar.png",
+  [SenderType.AI_ADVISOR]: {
+    id: "ai-advisor",
+    type: SenderType.AI_ADVISOR,
+    name: "AI Advisor",
+    avatarUrl: "/avatars/two.png",
     includeInModelContext: true,
   },
 };
@@ -83,16 +69,14 @@ export const ROLE_TO_SENDER_TYPE: Record<string, SenderType> = {
   user: SenderType.USER,
   assistant: SenderType.SWIFT_ASSISTANT,
   "assistant-informational": SenderType.SWIFT_ASSISTANT,
-  "model-response": SenderType.GEMINI,
+  "model-response": SenderType.AI_ADVISOR,
 };
 
 // For backwards compatibility, sender type to role mapping
 export const SENDER_TYPE_TO_ROLE: Record<SenderType, MessageRole> = {
   [SenderType.USER]: "user",
   [SenderType.SWIFT_ASSISTANT]: "assistant",
-  [SenderType.GEMINI]: "model-response",
-  [SenderType.CLAUDE]: "model-response",
-  [SenderType.OPENAI]: "model-response",
+  [SenderType.AI_ADVISOR]: "model-response",
 };
 
 // Define thinking states for loading animation

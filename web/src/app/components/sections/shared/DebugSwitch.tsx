@@ -13,17 +13,17 @@ export function DebugSwitch({ onChange }: DebugSwitchProps) {
 
   // Toggle debug mode - wrap in useCallback to avoid dependency changes
   const toggleDebug = useCallback(() => {
-    setDebugEnabled(prevState => {
+    setDebugEnabled((prevState) => {
       const newState = !prevState;
-      
+
       // Update the debug mode state and dispatch event
       toggleDebugMode(newState);
-      
+
       // Call the onChange handler if provided
       if (onChange) {
         onChange(newState);
       }
-      
+
       return newState;
     });
   }, [onChange]);
@@ -71,11 +71,7 @@ export function DebugSwitch({ onChange }: DebugSwitchProps) {
         <div className="mr-2 text-xs font-mono">Debug</div>
         <div className="relative">
           <input type="checkbox" className="sr-only" checked={debugEnabled} onChange={toggleDebug} />
-          <div 
-            className={`block w-10 h-6 rounded-full ${
-              debugEnabled ? "bg-green-500" : "bg-gray-400"
-            }`}
-          ></div>
+          <div className={`block w-10 h-6 rounded-full ${debugEnabled ? "bg-green-500" : "bg-gray-400"}`}></div>
           <div
             className={`absolute left-1 top-1 w-4 h-4 rounded-full transition-transform duration-200 
               ease-in-out bg-white ${debugEnabled ? "transform translate-x-4" : ""}`}

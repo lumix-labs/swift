@@ -1,3 +1,5 @@
+import { Personality } from "./personality";
+
 export interface Repository {
   id: string;
   name: string;
@@ -17,6 +19,8 @@ export interface LLMModel {
   maxTokens?: number; // Maximum context length
   icon?: string; // Icon path for the model
   isDefault?: boolean; // Whether this is the default model
+  shortName?: string; // Short unisex name for the advisor
+  personality?: Personality; // Personality type for the advisor
 }
 
 // Predefined models to improve user experience

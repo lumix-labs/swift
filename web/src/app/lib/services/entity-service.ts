@@ -1,14 +1,9 @@
 "use client";
 
 import { Repository, LLMModel, LLMProvider, PREDEFINED_MODELS } from "../types/entities";
-import {
-  queueRepositoryForDownload,
-  downloadRepository,
-  RepositoryStatus,
-  updateRepositoryStatus,
-  startIngestion,
-  isRepositoryReadyForChat,
-} from "./repo-download-service";
+import { Personality, PERSONALITY_PROFILES, getRandomUnisexName } from "../types/personality";
+import { SenderType, SENDERS, Sender } from "../types/message";
+import { queueRepositoryForDownload, downloadRepository, isRepositoryReadyForChat } from "./repo-download-service";
 
 // Export the event name for repository download completion
 export const REPO_DOWNLOAD_COMPLETE_EVENT = "repoDownloadComplete";
@@ -147,22 +142,32 @@ export const getModels = (): LLMModel[] => {
 
 // Helper function to initialize default advisors
 function initializeDefaultAdvisors(): LLMModel[] {
-  const defaultAdvisors = PREDEFINED_MODELS.map((advisor) => ({
-    id: generateId(),
-    name: advisor.name || "Unknown AI Advisor",
-    provider: advisor.provider || "gemini",
-    apiKey: "",
-    modelId: advisor.modelId,
-    description: advisor.description,
-    maxTokens: advisor.maxTokens,
-    icon: advisor.icon,
-    isDefault: advisor.isDefault,
-  }));
+  // Create one advisor for each personality
+  const defaultAdvisors = Object.values(Personality).map((personality, index) => {
+    const shortName = getRandomUnisexName();
+    const personalityProfile = PERSONALITY_PROFILES[personality];
+    const provider = index % 3 === 0 ? "gemini" : index % 3 === 1 ? "anthropic" : "openai";
 
-  // Mark the first AI advisor as default if none is already marked
-  if (!defaultAdvisors.some((a) => a.isDefault)) {
-    defaultAdvisors[0].isDefault = true;
-  }
+    // Select a predefined model based on provider
+    const predefinedModel =
+      PREDEFINED_MODELS.find((m) => m.provider === provider && m.isDefault) ||
+      PREDEFINED_MODELS.find((m) => m.provider === provider) ||
+      PREDEFINED_MODELS[0];
+
+    return {
+      id: generateId(),
+      name: `${shortName} - ${personality}`,
+      shortName,
+      provider,
+      apiKey: "",
+      modelId: predefinedModel?.modelId,
+      description: personalityProfile.tagline,
+      maxTokens: predefinedModel?.maxTokens,
+      icon: personalityProfile.avatarPath,
+      personality,
+      isDefault: index === 0, // First one is default
+    } as LLMModel;
+  });
 
   // Save the default AI advisors to localStorage
   if (typeof window !== "undefined") {
@@ -172,27 +177,43 @@ function initializeDefaultAdvisors(): LLMModel[] {
   return defaultAdvisors;
 }
 
-export const addModel = (provider: LLMProvider, apiKey: string, modelId?: string, customName?: string): LLMModel => {
+export const addModel = (
+  provider: LLMProvider,
+  apiKey: string,
+  modelId?: string,
+  personality?: Personality,
+): LLMModel => {
+  // Generate a random short name for the advisor
+  const shortName = getRandomUnisexName();
+
+  // Get the personality profile if provided
+  const personalityProfile = personality ? PERSONALITY_PROFILES[personality] : null;
+
   // Find the predefined model to use as a template
   const predefinedModel = modelId
     ? PREDEFINED_MODELS.find((m) => m.modelId === modelId)
     : PREDEFINED_MODELS.find((m) => m.provider === provider && m.isDefault);
 
-  // Generate AI advisor name based on provider and modelId
-  const modelName =
-    customName ||
-    predefinedModel?.name ||
-    (provider === "gemini" ? "Gemini" : provider === "anthropic" ? "Claude" : "GPT");
+  // Generate AI advisor name based on personality or provider
+  const modelName = personality
+    ? `${shortName} - ${personality}`
+    : provider === "gemini"
+      ? "Gemini"
+      : provider === "anthropic"
+        ? "Claude"
+        : "GPT";
 
   const newModel: LLMModel = {
     id: generateId(),
     name: modelName,
+    shortName,
     provider,
     apiKey,
     modelId: modelId || predefinedModel?.modelId,
-    description: predefinedModel?.description,
+    description: personalityProfile?.tagline || predefinedModel?.description,
     maxTokens: predefinedModel?.maxTokens,
-    icon: predefinedModel?.icon || `/avatars/${provider}-avatar.png`,
+    icon: personalityProfile?.avatarPath || predefinedModel?.icon || `/avatars/${provider}-avatar.png`,
+    personality,
   };
 
   try {
@@ -200,7 +221,10 @@ export const addModel = (provider: LLMProvider, apiKey: string, modelId?: string
 
     // If an AI advisor already exists with the same provider and modelId, update it instead of adding new
     const existingAdvisorIndex = advisors.findIndex(
-      (advisor) => advisor.provider === provider && (modelId ? advisor.modelId === modelId : true),
+      (advisor) =>
+        advisor.provider === provider &&
+        (modelId ? advisor.modelId === modelId : true) &&
+        (personality ? advisor.personality === personality : true),
     );
 
     if (existingAdvisorIndex >= 0) {
@@ -208,7 +232,14 @@ export const addModel = (provider: LLMProvider, apiKey: string, modelId?: string
       advisors[existingAdvisorIndex] = {
         ...advisors[existingAdvisorIndex],
         apiKey,
-        name: customName || advisors[existingAdvisorIndex].name,
+        // Only update name if personality changed
+        name:
+          personality !== advisors[existingAdvisorIndex].personality
+            ? `${shortName} - ${personality}`
+            : advisors[existingAdvisorIndex].name,
+        personality,
+        icon: personalityProfile?.avatarPath || advisors[existingAdvisorIndex].icon,
+        description: personalityProfile?.tagline || advisors[existingAdvisorIndex].description,
       };
       localStorage.setItem(AI_ADVISORS_KEY, JSON.stringify(advisors));
       return advisors[existingAdvisorIndex];
@@ -231,6 +262,19 @@ export const updateModel = (id: string, updates: Partial<LLMModel>): LLMModel | 
     if (advisorIndex < 0) {
       console.error(`AI advisor with ID ${id} not found`);
       return null;
+    }
+
+    // If personality is being updated, update related fields
+    if (updates.personality && updates.personality !== advisors[advisorIndex].personality) {
+      const personalityProfile = PERSONALITY_PROFILES[updates.personality];
+      const shortName = advisors[advisorIndex].shortName || getRandomUnisexName();
+
+      updates = {
+        ...updates,
+        name: `${shortName} - ${updates.personality}`,
+        description: personalityProfile.tagline,
+        icon: personalityProfile.avatarPath,
+      };
     }
 
     // Update the AI advisor
@@ -306,4 +350,32 @@ export const setDefaultModel = (id: string): void => {
   } catch (error) {
     console.error("Error setting default AI advisor:", error);
   }
+};
+
+// Get a sender type for an AI advisor
+export const getSenderTypeForModel = (model: LLMModel | null): SenderType => {
+  if (!model) {
+    return SenderType.AI_ADVISOR; // Default
+  }
+
+  // All AI advisors now use the AI_ADVISOR sender type
+  return SenderType.AI_ADVISOR;
+};
+
+// Create a customized sender for an AI advisor
+export const createAdvisorSender = (advisor: LLMModel | null): Sender => {
+  if (!advisor) {
+    return SENDERS[SenderType.AI_ADVISOR];
+  }
+
+  // Create a customized sender based on the advisor properties
+  return {
+    id: advisor.id,
+    type: SenderType.AI_ADVISOR,
+    name: advisor.name || "AI Advisor",
+    avatarUrl: advisor.icon || SENDERS[SenderType.AI_ADVISOR].avatarUrl,
+    includeInModelContext: true,
+    personalityType: advisor.personality,
+    advisorId: advisor.id,
+  };
 };

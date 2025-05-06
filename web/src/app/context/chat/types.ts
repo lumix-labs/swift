@@ -32,6 +32,8 @@ export interface SavedSession {
       name: string;
       avatarUrl: string;
       includeInModelContext: boolean;
+      personalityType?: string;
+      advisorId?: string;
     };
     content: string;
     timestamp: string;

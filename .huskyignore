@@ -12,3 +12,6 @@
 .github/workflows/deploy-application-impl.yml
 .github/workflows/infrastructure-and-deploy.yml
 .github/workflows/terraform-workflow.yml
+
+# Ignore npm test warning when there are no tests
+web/package.json:test

@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Message, SenderType } from "../../../lib/types/message";
+import { Message, SenderType, SENDER_TYPE_TO_ROLE } from "../../../lib/types/message";
 import { ChatMessage } from "./ChatMessage";
 import { useChat } from "../../../context/ChatContext";
+import { EmptyChatView } from "./EmptyChatView";
+import { getModelById, createAdvisorSender } from "../../../lib/services/entity-service";
 
 interface ChatMessageListProps {
   messages: Message[];
 }
 
 export function ChatMessageList({ messages }: ChatMessageListProps) {
-  const { isLoading } = useChat();
+  const { isLoading, addMessage, selectedAIAdvisorId } = useChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom when messages change
@@ -19,6 +21,28 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isLoading]);
+
+  // Show empty state when there are no messages
+  if (messages.length === 0) {
+    return (
+      <EmptyChatView
+        onSelectPrompt={(prompt) =>
+          addMessage({
+            role: "user", // Add the required role property
+            content: prompt,
+            sender: {
+              id: "user",
+              type: SenderType.USER,
+              name: "You",
+              avatarUrl: "/avatars/user-avatar.png",
+              includeInModelContext: true,
+            },
+            // timestamp property is handled by addMessage function
+          })
+        }
+      />
+    );
+  }
 
   // Show loading indicator for model messages
   const renderLoadingIndicator = () => {
@@ -35,15 +59,17 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
       return null;
     }
 
-    const loadingSender = messages.find((m) =>
-      [SenderType.GEMINI, SenderType.CLAUDE, SenderType.OPENAI].includes(m.sender.type),
-    )?.sender || {
-      id: "model",
-      type: SenderType.GEMINI,
-      name: "AI Assistant",
-      avatarUrl: "/avatars/gemini-avatar.png",
-      includeInModelContext: true,
-    };
+    // Get the selected AI advisor to create a customized sender
+    const currentAdvisor = selectedAIAdvisorId ? getModelById(selectedAIAdvisorId) : null;
+    const loadingSender = currentAdvisor
+      ? createAdvisorSender(currentAdvisor)
+      : {
+          id: "ai-advisor",
+          type: SenderType.AI_ADVISOR,
+          name: "AI Advisor",
+          avatarUrl: "/avatars/two.png",
+          includeInModelContext: true,
+        };
 
     const loadingMessage: Message = {
       id: "loading",
@@ -53,7 +79,7 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
       isMarkdown: true,
     };
 
-    return <ChatMessage message={loadingMessage} isLoading={true} />;
+    return <ChatMessage key={loadingMessage.id} message={loadingMessage} isLoading={true} />;
   };
 
   return (

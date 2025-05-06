@@ -30,6 +30,9 @@ export function ChatInput() {
   // Get resize functionality for the textarea
   const { resetTextareaHeight, resizeTextarea } = useTextareaResize(textareaRef, message);
 
+  // Enhanced validation to ensure both AI advisor and repository are selected
+  const isChatEnabled = currentModel && currentRepo && repositoryReady;
+
   return (
     <div className="w-full max-w-4xl mx-auto">
       {/* Status and error messages */}
@@ -46,7 +49,7 @@ export function ChatInput() {
         {/* Text input area */}
         <MessageInput
           message={message}
-          isDisabled={isInputDisabled || !currentModel || !repositoryReady}
+          isDisabled={isInputDisabled || !isChatEnabled}
           placeholderMessage={getPlaceholderMessage()}
           handleMessageChange={handleMessageChange}
           handleKeyDown={handleKeyDown}
@@ -55,10 +58,7 @@ export function ChatInput() {
         />
 
         {/* Send button */}
-        <InputControls
-          isDisabled={isInputDisabled || !currentModel || !repositoryReady}
-          isInputEmpty={!message.trim()}
-        />
+        <InputControls isDisabled={isInputDisabled || !isChatEnabled} isInputEmpty={!message.trim()} />
       </form>
     </div>
   );

@@ -2,10 +2,18 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { LLMProvider } from "../../lib/types/entities";
-import { addModel, removeModel, getDefaultModel } from "../../lib/services/entity-service";
+import { Personality } from "../../lib/types/personality";
+import {
+  addModel,
+  removeModel,
+  getDefaultModel,
+  getSenderTypeForModel,
+  getModelById,
+  createAdvisorSender,
+} from "../../lib/services/entity-service";
 import { useChat } from "../../context/ChatContext";
 import { useAIAdvisors } from "../useModels";
-import { SENDERS, SenderType } from "../../lib/types/message";
+import { SenderType, SENDERS } from "../../lib/types/message";
 
 export function useAIAdvisorsDropdown() {
   const { selectedAIAdvisorId, setSelectedAIAdvisorId, addMessage } = useChat();
@@ -17,19 +25,24 @@ export function useAIAdvisorsDropdown() {
   // Ensure aiAdvisors is always an array (defensive programming)
   const safeAIAdvisors = Array.isArray(aiAdvisors) ? aiAdvisors : [];
 
+  // Filter only configured AI advisors (ones with API keys)
+  const configuredAIAdvisors = safeAIAdvisors.filter((advisor) => advisor.apiKey && advisor.apiKey.length > 0);
+
   // Auto-select the first AI advisor when they are loaded and none is selected
   useEffect(() => {
-    if (safeAIAdvisors.length > 0 && !selectedAIAdvisorId) {
-      // First try to select the default AI advisor
+    if (configuredAIAdvisors.length > 0 && !selectedAIAdvisorId) {
+      // First try to select the default AI advisor or one with a valid API key
       const defaultAIAdvisor = getDefaultModel();
-      if (defaultAIAdvisor) {
+      const advisorWithApiKey = configuredAIAdvisors.find((advisor) => advisor.apiKey && advisor.apiKey.length > 0);
+
+      if (defaultAIAdvisor && defaultAIAdvisor.apiKey && defaultAIAdvisor.apiKey.length > 0) {
         setSelectedAIAdvisorId(defaultAIAdvisor.id);
-      } else {
-        // Fallback to the first AI advisor
-        setSelectedAIAdvisorId(safeAIAdvisors[0].id);
+      } else if (advisorWithApiKey) {
+        setSelectedAIAdvisorId(advisorWithApiKey.id);
       }
+      // Don't auto-select if no advisor has a valid API key to prevent warning messages
     }
-  }, [safeAIAdvisors, selectedAIAdvisorId, setSelectedAIAdvisorId]);
+  }, [configuredAIAdvisors, selectedAIAdvisorId, setSelectedAIAdvisorId]);
 
   // Set UI update lock to prevent component re-rendering during actions
   const lockUIUpdates = useCallback(() => {
@@ -47,7 +60,7 @@ export function useAIAdvisorsDropdown() {
   }, []);
 
   const handleAIAdvisorSave = useCallback(
-    (provider: LLMProvider, apiKey: string, modelId?: string, customName?: string) => {
+    (provider: LLMProvider, apiKey: string, modelId?: string, personality?: Personality) => {
       if (isActionInProgress) {
         return;
       }
@@ -58,14 +71,14 @@ export function useAIAdvisorsDropdown() {
       // Set updating flag to prevent UI flickering
       setIsUpdating(true);
 
-      // Check if AI advisor with the same provider and modelId already exists
+      // Check if AI advisor with the same provider and personality already exists
       const existingAIAdvisor = safeAIAdvisors.find(
-        (advisor) => advisor.provider === provider && (modelId ? advisor.modelId === modelId : true),
+        (advisor) => advisor.provider === provider && (personality ? advisor.personality === personality : true),
       );
 
       if (existingAIAdvisor) {
         // Update the existing AI advisor instead of adding a new one
-        const updatedAIAdvisor = addModel(provider, apiKey, modelId, customName);
+        const updatedAIAdvisor = addModel(provider, apiKey, modelId, personality);
         setSelectedAIAdvisorId(updatedAIAdvisor.id);
 
         // Add a notification message after a short delay to ensure proper sequencing
@@ -90,32 +103,19 @@ export function useAIAdvisorsDropdown() {
 
       try {
         // Add new AI advisor
-        const newAIAdvisor = addModel(provider, apiKey, modelId, customName);
+        const newAIAdvisor = addModel(provider, apiKey, modelId, personality);
 
         // Automatically select the newly added AI advisor
         setSelectedAIAdvisorId(newAIAdvisor.id);
 
-        // Determine appropriate sender based on provider
-        let senderType: SenderType;
-        switch (provider) {
-          case "anthropic":
-            senderType = SenderType.CLAUDE;
-            break;
-          case "openai":
-            senderType = SenderType.OPENAI;
-            break;
-          default:
-            senderType = SenderType.GEMINI;
-        }
-
         // Get sender for notification
-        const sender = SENDERS[senderType];
+        const sender = SENDERS[SenderType.SWIFT_ASSISTANT];
 
         // Add a notification message after a short delay to ensure proper sequencing
         setTimeout(() => {
           addMessage({
             content: `${newAIAdvisor.name} has been added and selected as the active AI advisor.`,
-            sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+            sender: sender,
             role: "assistant-informational",
           });
 
@@ -142,7 +142,7 @@ export function useAIAdvisorsDropdown() {
       }
 
       // Don't allow removing the last AI advisor
-      if (safeAIAdvisors.length <= 1) {
+      if (configuredAIAdvisors.length <= 1) {
         addMessage({
           content: "At least one AI advisor must be available. You cannot remove the only AI advisor.",
           sender: SENDERS[SenderType.SWIFT_ASSISTANT],
@@ -166,8 +166,10 @@ export function useAIAdvisorsDropdown() {
 
         // If the removed AI advisor was selected, select another AI advisor
         if (id === selectedAIAdvisorId) {
-          // Find another AI advisor to select
-          const nextAIAdvisor = safeAIAdvisors.find((m) => m.id !== id);
+          // Find another AI advisor to select preferring ones with valid API keys
+          const nextAIAdvisor =
+            configuredAIAdvisors.find((m) => m.id !== id && m.apiKey && m.apiKey.length > 0) ||
+            configuredAIAdvisors.find((m) => m.id !== id);
           if (nextAIAdvisor) {
             setSelectedAIAdvisorId(nextAIAdvisor.id);
           }
@@ -211,6 +213,7 @@ export function useAIAdvisorsDropdown() {
       setSelectedAIAdvisorId,
       triggerAIAdvisorChange,
       safeAIAdvisors,
+      configuredAIAdvisors,
       addMessage,
       isActionInProgress,
       lockUIUpdates,
@@ -261,7 +264,7 @@ export function useAIAdvisorsDropdown() {
 
   return {
     selectedAIAdvisorId,
-    aiAdvisors: safeAIAdvisors, // Always return a safe array
+    aiAdvisors: configuredAIAdvisors, // Only return configured advisors
     isUpdating,
     isActionInProgress,
     showAddModal,

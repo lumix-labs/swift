@@ -71,7 +71,9 @@ export function SuggestedPrompts({ onSelectPrompt }: SuggestedPromptsProps) {
       } else {
         // If not ready, show feedback to user
         const event = new CustomEvent("suggestedPromptError", {
-          detail: { message: "Please select a model and repository first" },
+          detail: {
+            message: "Please select an AI Advisor and repository first",
+          },
         });
         window.dispatchEvent(event);
       }

@@ -93,7 +93,7 @@ check_module() {
   
   if git diff --cached --name-only | grep -q "$module_path/"; then
     echo -e "${BLUE}🔍 Checking $module_name files...${NC}"
-    cd "$ROOT_DIR/$module_path" && npm run lint
+    cd "$ROOT_DIR/$module_path" && npm run lint --passWithNoTests
     local exit_code=$?
     if [ $exit_code -ne 0 ]; then
       echo -e "${RED}❌ $module_name linting failed with code $exit_code.${NC}"
@@ -111,9 +111,25 @@ check_module "api" "API"
 API_EXIT_CODE=$?
 [ $API_EXIT_CODE -ne 0 ] && EXIT_CODE=$API_EXIT_CODE
 
-check_module "web" "Web"
-WEB_EXIT_CODE=$?
-[ $WEB_EXIT_CODE -ne 0 ] && EXIT_CODE=$WEB_EXIT_CODE
+# Check web module with the custom fix script
+if git diff --cached --name-only | grep -q "web/"; then
+  echo -e "${BLUE}🔍 Checking Web files...${NC}"
+  if [ -f "$ROOT_DIR/.husky/fix-web-eslint.sh" ]; then
+    chmod +x "$ROOT_DIR/.husky/fix-web-eslint.sh"
+    "$ROOT_DIR/.husky/fix-web-eslint.sh"
+    WEB_EXIT_CODE=$?
+  else
+    cd "$ROOT_DIR/web" && npm run lint
+    WEB_EXIT_CODE=$?
+  fi
+  
+  if [ $WEB_EXIT_CODE -ne 0 ]; then
+    echo -e "${RED}❌ Web linting failed with code $WEB_EXIT_CODE.${NC}"
+    EXIT_CODE=$WEB_EXIT_CODE
+  else
+    echo -e "${GREEN}✅ Web linting passed.${NC}"
+  fi
+fi
 
 check_module "mcp-server" "MCP-Server"
 MCP_EXIT_CODE=$?

@@ -30,9 +30,7 @@ export function AIAdvisorsDropdown({ resolvedTheme }: AIAdvisorsDropdownProps) {
   } = useAIAdvisorsDropdown();
 
   // Ensure aiAdvisors is always an array - wrapped in useMemo to avoid dependency changes
-  const safeAIAdvisors = useMemo(() => 
-    Array.isArray(aiAdvisors) ? aiAdvisors : []
-  , [aiAdvisors]);
+  const safeAIAdvisors = useMemo(() => (Array.isArray(aiAdvisors) ? aiAdvisors : []), [aiAdvisors]);
 
   // Auto-select first AI advisor if none is selected
   useEffect(() => {
@@ -61,42 +59,7 @@ export function AIAdvisorsDropdown({ resolvedTheme }: AIAdvisorsDropdownProps) {
     [handleAIAdvisorSelect, setShow],
   );
 
-  // Group AI advisors by provider for better organization
-  const groupedAIAdvisors = useMemo(() => {
-    const grouped: Record<LLMProvider, typeof safeAIAdvisors> = {
-      gemini: [],
-      anthropic: [],
-      openai: [],
-    };
-
-    if (safeAIAdvisors.length > 0) {
-      safeAIAdvisors.forEach((advisor) => {
-        if (advisor && advisor.provider && advisor.provider in grouped) {
-          grouped[advisor.provider].push(advisor);
-        }
-      });
-    }
-
-    return grouped;
-  }, [safeAIAdvisors]);
-
-  // Get provider display names
-  const getProviderName = (provider: LLMProvider): string => {
-    switch (provider) {
-      case "gemini":
-        return "Google AI";
-      case "anthropic":
-        return "Anthropic";
-      case "openai":
-        return "OpenAI";
-      default:
-        // Use safe string operations with type assertion to string
-        const providerStr = String(provider);
-        return providerStr.length > 0 ? providerStr.charAt(0).toUpperCase() + providerStr.slice(1) : "Unknown";
-    }
-  };
-
-  // Memoized AI advisors list to prevent unnecessary re-renders
+  // Group AI advisors by personality type for better organization
   const aiAdvisorsList = useMemo(() => {
     if (isUpdating) {
       return (
@@ -116,106 +79,80 @@ export function AIAdvisorsDropdown({ resolvedTheme }: AIAdvisorsDropdownProps) {
       return <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">No AI advisors added yet</div>;
     }
 
-    // Render grouped AI advisor sections
+    // Just show a flat list of AI advisors with their personalities
     return (
-      <>
-        {Object.entries(groupedAIAdvisors).map(
-          ([provider, providerAdvisors]) =>
-            providerAdvisors &&
-            providerAdvisors.length > 0 && (
-              <div 
-                key={provider} 
-                className="border-b border-gray-200 dark:border-gray-700 last:border-b-0"
-              >
-                <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800 font-medium text-sm text-gray-700 dark:text-gray-300">
-                  {getProviderName(provider as LLMProvider)}
-                </div>
-                <div>
-                  {providerAdvisors.map((advisor) => {
-                    const isSelected = advisor.id === selectedAIAdvisorId;
-                    const hasApiKey = advisor.apiKey && advisor.apiKey.length > 0;
+      <div className="max-h-[50vh] overflow-y-auto">
+        {safeAIAdvisors.map((advisor) => {
+          const isSelected = advisor.id === selectedAIAdvisorId;
+          const hasApiKey = advisor.apiKey && advisor.apiKey.length > 0;
 
-                    return (
-                      <div
-                        key={advisor.id}
-                        className={`p-2 border-b border-gray-100 dark:border-gray-800 last:border-0 ${
-                          isSelected
-                            ? "bg-gray-100 dark:bg-gray-800 border-l-4 border-l-blue-500 dark:border-l-blue-400"
-                            : ""
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div
-                            className={`flex-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 rounded-md p-1.5 
-                              transition-colors duration-200 ${!hasApiKey ? "opacity-60" : ""}`}
-                            onClick={() => hasApiKey && onAIAdvisorSelect(advisor.id)}
-                          >
-                            <div className="flex items-center">
-                              {advisor.icon && (
-                                <div className="mr-2 flex-shrink-0">
-                                  <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center">
-                                    {advisor.icon ? (
-                                      <Image
-                                        src={advisor.icon}
-                                        alt={advisor.name || "AI Advisor"}
-                                        width={24}
-                                        height={24}
-                                        className="object-cover"
-                                      />
-                                    ) : (
-                                      <span className="text-xs font-bold">{(advisor.name || "A").charAt(0)}</span>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                              <div>
-                                <div className="font-medium text-gray-800 dark:text-gray-200">
-                                  {advisor.name || "AI Advisor"}
-                                </div>
-                                {advisor.description && (
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">{advisor.description}</div>
-                                )}
-                                {!hasApiKey && (
-                                  <div className="text-xs mt-1 text-amber-600 dark:text-amber-400 font-medium">
-                                    API key needed
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          {/* Use the RemoveButton component */}
-                          <div className="ml-2">
-                            <RemoveButton
-                              onClick={() => handleAIAdvisorRemove(advisor.id)}
-                              disabled={isActionInProgress || safeAIAdvisors.length <= 1}
+          return (
+            <div
+              key={advisor.id}
+              className={`p-2 border-b border-gray-100 dark:border-gray-800 last:border-0 ${
+                isSelected ? "bg-gray-100 dark:bg-gray-800 border-l-4 border-l-blue-500 dark:border-l-blue-400" : ""
+              }`}
+            >
+              <div className="flex justify-between items-center">
+                <div
+                  className={`flex-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 rounded-md p-1.5 
+                    transition-colors duration-200 ${!hasApiKey ? "opacity-60" : ""}`}
+                  onClick={() => hasApiKey && onAIAdvisorSelect(advisor.id)}
+                >
+                  <div className="flex items-center">
+                    {advisor.icon && (
+                      <div className="mr-2 flex-shrink-0">
+                        <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center">
+                          {advisor.icon ? (
+                            <Image
+                              src={advisor.icon}
+                              alt={advisor.name || "AI Advisor"}
+                              width={24}
+                              height={24}
+                              className="object-cover"
                             />
-                          </div>
+                          ) : (
+                            <span className="text-xs font-bold">{(advisor.name || "A").charAt(0)}</span>
+                          )}
                         </div>
                       </div>
-                    );
-                  })}
+                    )}
+                    <div>
+                      <div className="font-medium text-gray-800 dark:text-gray-200">{advisor.name || "AI Advisor"}</div>
+                      {advisor.description && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{advisor.description}</div>
+                      )}
+                      {!hasApiKey && (
+                        <div className="text-xs mt-1 text-amber-600 dark:text-amber-400 font-medium">
+                          API key needed
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {/* Use the RemoveButton component */}
+                <div className="ml-2">
+                  <RemoveButton
+                    onClick={() => handleAIAdvisorRemove(advisor.id)}
+                    disabled={isActionInProgress || safeAIAdvisors.length <= 1}
+                  />
                 </div>
               </div>
-            ),
-        )}
-      </>
+            </div>
+          );
+        })}
+      </div>
     );
-  }, [
-    safeAIAdvisors,
-    selectedAIAdvisorId,
-    isUpdating,
-    isActionInProgress,
-    onAIAdvisorSelect,
-    handleAIAdvisorRemove,
-    groupedAIAdvisors,
-  ]);
+  }, [safeAIAdvisors, selectedAIAdvisorId, isUpdating, isActionInProgress, onAIAdvisorSelect, handleAIAdvisorRemove]);
 
   // Get currently selected AI advisor for display
-  const selectedAIAdvisor = useMemo(() => 
-    selectedAIAdvisorId && safeAIAdvisors.length > 0
-      ? safeAIAdvisors.find((m) => m.id === selectedAIAdvisorId) || null
-      : null
-  , [selectedAIAdvisorId, safeAIAdvisors]);
+  const selectedAIAdvisor = useMemo(
+    () =>
+      selectedAIAdvisorId && safeAIAdvisors.length > 0
+        ? safeAIAdvisors.find((m) => m.id === selectedAIAdvisorId) || null
+        : null,
+    [selectedAIAdvisorId, safeAIAdvisors],
+  );
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -226,36 +163,26 @@ export function AIAdvisorsDropdown({ resolvedTheme }: AIAdvisorsDropdownProps) {
         onClick={toggleDropdown}
         disabled={isActionInProgress}
       >
-        {selectedAIAdvisor ? (
-          <div className="flex items-center">
-            {selectedAIAdvisor.icon && (
-              <Image
-                src={selectedAIAdvisor.icon}
-                alt={selectedAIAdvisor.name || "AI Advisor"}
-                width={16}
-                height={16}
-                className="mr-1.5 rounded-full"
-              />
-            )}
-            <span className="hidden sm:inline">{selectedAIAdvisor.name || "AI Advisor"}</span>
-            <span className="sm:hidden">AI</span>
-          </div>
-        ) : (
-          <>
-            <span className="hidden sm:inline">Select AI</span>
-            <span className="sm:hidden">AI</span>
-          </>
-        )}
+        <div className="flex items-center">
+          {selectedAIAdvisor?.icon && (
+            <Image
+              src={selectedAIAdvisor.icon}
+              alt={selectedAIAdvisor?.name || "AI Advisor"}
+              width={16}
+              height={16}
+              className="mr-1.5 rounded-full"
+            />
+          )}
+          <span className="hidden sm:inline">AI Advisor {selectedAIAdvisor?.name}</span>
+          <span className="sm:hidden">{selectedAIAdvisor?.icon ? "" : "AI"}</span>
+        </div>
       </button>
 
       {show && (
         <div
           className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 
-                      rounded-md shadow-lg z-10 overflow-hidden max-h-[80vh] overflow-y-auto"
+                      rounded-md shadow-lg z-10 overflow-hidden"
         >
-          <div className="px-3 py-2 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 font-medium text-sm">
-            Select Your AI Advisor
-          </div>
           {aiAdvisorsList}
 
           <div className="p-2 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 gap-2">
@@ -285,7 +212,7 @@ export function AIAdvisorsDropdown({ resolvedTheme }: AIAdvisorsDropdownProps) {
                   />
                 </svg>
               )}
-              Add or Configure AI Advisors
+              Add AI Advisor
             </button>
           </div>
         </div>
