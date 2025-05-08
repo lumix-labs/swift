@@ -144,13 +144,13 @@ export function formatGithubUrl(url: string): string {
     url = url.replace(/\/$/, "");
 
     // Parse URL to extract username and repo name
-    const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/i);
+    const match = url.match(/github\.com\/([^/]+)\/([^/]+)/i);
 
     if (!match) {
       return url;
     }
 
-    const [_, username, repoName] = match;
+    const [, username, repoName] = match;
 
     // Return standardized format
     return `https://github.com/${username}/${repoName}`;
@@ -167,7 +167,7 @@ export function formatGithubUrl(url: string): string {
  */
 export function extractRepoName(url: string): string {
   try {
-    const match = url.match(/github\.com\/[^\/]+\/([^\/]+)/i);
+    const match = url.match(/github\.com\/[^/]+\/([^/]+)/i);
     return match ? match[1] : "Repository";
   } catch (error) {
     console.error("Error extracting repo name:", error);

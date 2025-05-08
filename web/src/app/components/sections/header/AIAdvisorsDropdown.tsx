@@ -2,7 +2,7 @@
 
 import React, { useMemo, useCallback, useEffect } from "react";
 import Image from "next/image";
-import { LLMProvider } from "../../../lib/types/entities";
+// Removed unused import: LLMProvider
 import { AddAIAdvisorModal } from "../shared/AddEntityModal";
 import { useDropdown } from "../../../hooks/header/useDropdown";
 import { useAIAdvisorsDropdown } from "../../../hooks/header/useAIAdvisorsDropdown";
@@ -98,6 +98,13 @@ export function AIAdvisorsDropdown({ resolvedTheme }: AIAdvisorsDropdownProps) {
                   className={`flex-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 rounded-md p-1.5 
                     transition-colors duration-200 ${!hasApiKey ? "opacity-60" : ""}`}
                   onClick={() => hasApiKey && onAIAdvisorSelect(advisor.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if ((e.key === "Enter" || e.key === " ") && hasApiKey) {
+                      onAIAdvisorSelect(advisor.id);
+                    }
+                  }}
                 >
                   <div className="flex items-center">
                     {advisor.icon && (

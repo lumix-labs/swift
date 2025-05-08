@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
+// Removed unused Image import
 import { Modal } from "./Modal";
 import { LLMProvider, PREDEFINED_MODELS } from "../../../lib/types/entities";
 import { Personality, PERSONALITY_PROFILES } from "../../../lib/types/personality";
@@ -149,21 +149,25 @@ export function AddAIAdvisorModal({ isOpen, onClose, onSave }: AddAIAdvisorModal
   const validateApiKey = (key: string) => {
     // Different validation for different providers
     switch (provider) {
-      case "gemini":
+      case "gemini": {
         // Gemini API key validation (starts with 'AIza' followed by 35 characters)
         setIsValid(/^AIza[0-9A-Za-z-_]{35}$/.test(key));
         break;
-      case "anthropic":
+      }
+      case "anthropic": {
         // Claude API key validation (starts with 'sk-ant-' followed by characters)
         setIsValid(/^sk-ant-[0-9A-Za-z-_]{24,}$/.test(key));
         break;
-      case "openai":
+      }
+      case "openai": {
         // OpenAI API key validation (starts with 'sk-' followed by characters)
         setIsValid(/^sk-[0-9A-Za-z-_]{24,}$/.test(key));
         break;
-      default:
+      }
+      default: {
         // Generic validation - at least 20 chars
         setIsValid(key.length >= 20);
+      }
     }
   };
 

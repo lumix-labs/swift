@@ -1,0 +1,7 @@
+node_modules/
+.next/
+out/
+dist/
+public/
+coverage/
+*.d.ts

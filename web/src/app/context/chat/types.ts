@@ -47,6 +47,25 @@ export interface SavedSession {
   modelId?: string; // Add modelId for backward compatibility
 }
 
+// Define the chat state interface
+export interface ChatState {
+  messages: Message[];
+  sessions: ChatSession[];
+  currentSessionId: string | null;
+  selectedAIAdvisorId: string | null;
+  selectedRepositoryId: string | null;
+  isLoading: boolean;
+}
+
+// Define message context type
+export interface MessageContextType {
+  messages: Message[];
+  addMessage: (message: { content: string; sender: Sender; isMarkdown?: boolean }) => void;
+  clearMessages: () => void;
+  isLoading: boolean;
+  setIsLoading: (loading: boolean) => void;
+}
+
 // Define the context type
 export interface ChatContextType {
   messages: Message[];

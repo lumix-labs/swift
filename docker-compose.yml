@@ -6,8 +6,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      # Comment out this volume mount that's overriding the build
-      # - ./web:/app
+      # Important: do not override node_modules
       - /app/node_modules
     environment:
       - NODE_ENV=development
@@ -30,7 +29,6 @@ services:
     ports:
       - "4000:4000"
     volumes:
-      - ./logs/api-server:/logs
       - /app/node_modules
     environment:
       - NODE_ENV=development

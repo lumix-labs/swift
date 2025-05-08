@@ -37,7 +37,10 @@ class ChatService {
           if (errData && errData.error) {
             errorMsg = errData.error;
           }
-        } catch {}
+        } catch (error) {
+          // Log the error or handle it as needed
+          console.error("Error parsing JSON response:", error);
+        }
         throw new Error(errorMsg);
       }
 

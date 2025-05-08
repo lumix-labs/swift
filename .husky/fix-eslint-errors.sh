@@ -32,19 +32,13 @@ if [ -d "$ROOT_DIR/web/src" ]; then
   # Run ESLint with auto-fix
   if [ -f "$ROOT_DIR/web/package.json" ]; then
     echo -e "${YELLOW}Running ESLint auto-fix for Web...${NC}"
-    cd "$ROOT_DIR/web" && npx eslint --fix 'src/**/*.{js,ts,jsx,tsx}'
+    cd "$ROOT_DIR/web" && npx eslint --fix 'src'
   fi
   
   # Run Prettier to fix formatting including line length
   if [ -f "$ROOT_DIR/web/package.json" ]; then
     echo -e "${YELLOW}Running Prettier for Web to fix formatting and line length...${NC}"
     cd "$ROOT_DIR/web" && npx prettier --write --print-width 120 'src/**/*.{js,ts,jsx,tsx,json}'
-  fi
-  
-  # Fix React hook dependencies issues
-  if [ -f "$ROOT_DIR/web/package.json" ]; then
-    echo -e "${YELLOW}Checking React hook dependencies in Web...${NC}"
-    cd "$ROOT_DIR/web" && npx eslint --fix 'src/**/*.{jsx,tsx}' --rule 'react-hooks/exhaustive-deps: error'
   fi
 fi
 

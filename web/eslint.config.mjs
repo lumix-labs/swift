@@ -1,63 +1,81 @@
-import eslint from '@eslint/js';
-import tseslint from 'typescript-eslint';
-import reactRecommended from 'eslint-plugin-react/configs/recommended.js';
-import reactHooks from 'eslint-plugin-react-hooks';
-import nextPlugin from 'eslint-config-next';
-import testingLibrary from 'eslint-plugin-testing-library';
-// import jest from 'eslint-plugin-jest';
+// Modern ESLint flat config (ESLint v8+)
+import js from '@eslint/js';
+import { FlatCompat } from '@eslint/eslintrc';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-export default tseslint.config(
-  eslint.configs.recommended,
-  ...tseslint.configs.recommended,
+// Convert __dirname equivalent for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Create compat layer to use plugins and configs from eslintrc
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+  recommendedConfig: js.configs.recommended,
+});
+
+export default [
+  // Apply TypeScript configuration to all JS/TS files
   {
-    languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: 'module',
-      parser: tseslint.parser,
-      parserOptions: {
-        ecmaFeatures: {
-          jsx: true,
-        },
-      },
-    },
-    files: ['**/*.{js,mjs,cjs,jsx,ts,tsx}'],
-    plugins: {
-      'react-hooks': reactHooks,
-      'testing-library': testingLibrary,
-      // 'jest': jest,
-    },
+    ignores: [
+      '**/node_modules/**',
+      '.next/**',
+      'out/**',
+      'dist/**',
+      'public/**',
+      '**/coverage/**',
+      '**/*.d.ts',
+    ],
+  },
+  
+  // Core JS/TS configuration
+  js.configs.recommended,
+  ...compat.extends(
+    'plugin:@typescript-eslint/recommended',
+    'plugin:react/recommended',
+    'plugin:react-hooks/recommended',
+    'plugin:jsx-a11y/recommended',
+    'next/core-web-vitals'
+  ),
+  
+  // Source files configuration
+  {
+    files: ['src/**/*.{js,jsx,ts,tsx}'],
     rules: {
-      // React 18 rules
-      'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
+      // Base rules
+      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
+      'no-unused-vars': 'off', // Handled by TypeScript plugin
+      'no-empty': ['error', { 'allowEmptyCatch': true }],
+      'no-useless-escape': 'off', // This can be too strict at times
+      'no-case-declarations': 'warn', // Allow declarations in case blocks but warn
       
-      // React best practices
-      'react/jsx-uses-react': 'off',
-      'react/react-in-jsx-scope': 'off', // Not needed in React 18
-      'react/prop-types': 'off', // Use TypeScript instead
-      
-      // TypeScript best practices
+      // TypeScript rules
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['warn', { 
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-      }],
       
-      // Testing best practices
-      'testing-library/await-async-queries': 'error',
-      'testing-library/no-await-sync-queries': 'error',
-      'testing-library/prefer-screen-queries': 'warn',
-      // 'jest/no-disabled-tests': 'warn',
-      // 'jest/no-focused-tests': 'error',
-      // 'jest/valid-expect': 'error',
-    },
-    settings: {
-      react: {
-        version: 'detect',
-      },
+      // React rules
+      'react/prop-types': 'off', // Not needed with TypeScript
+      'react/react-in-jsx-scope': 'off', // Not needed in Next.js
+      'react/jsx-filename-extension': ['warn', { extensions: ['.tsx'] }],
+      
+      // React Hooks rules
+      'react-hooks/rules-of-hooks': 'error', 
+      'react-hooks/exhaustive-deps': 'warn',
+      
+      // A11y rules
+      'jsx-a11y/no-autofocus': 'off', // Sometimes needed for UX
+      'jsx-a11y/click-events-have-key-events': 'warn', // Warning instead of error
+      'jsx-a11y/no-static-element-interactions': 'warn', // Warning instead of error
     },
   },
-  // Apply Next.js specific rules
-  nextPlugin,
-);
+  
+  // Test files with relaxed rules
+  {
+    files: ['**/*.test.{js,jsx,ts,tsx}', '**/__tests__/**/*.{js,jsx,ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'react-hooks/exhaustive-deps': 'off',
+    },
+  },
+];

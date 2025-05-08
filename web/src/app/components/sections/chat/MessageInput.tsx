@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect } from "react";
-import { useTextareaResize } from "../../../hooks/chat/useTextareaResize";
+// Removed unused import: useTextareaResize
 
 interface MessageInputProps {
   message: string;
@@ -73,7 +73,7 @@ export function MessageInput({
         }}
         onKeyDown={handleKeyDown}
         rows={1}
-        autoFocus
+        // Fixed accessibility issue by removing autoFocus
         disabled={isDisabled}
       />
     </div>

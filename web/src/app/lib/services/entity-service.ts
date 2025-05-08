@@ -42,7 +42,7 @@ export const addRepository = (url: string): Repository => {
   const normalizedUrl = url.trim().replace(/\.git$/, "");
 
   // Extract org and repo name using regex
-  const match = normalizedUrl.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/]+)\/([^\/]+)/i);
+  const match = normalizedUrl.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+)/i);
 
   if (!match || !match[1] || !match[2]) {
     throw new Error("Invalid GitHub repository URL. Please use format: github.com/organization/repository");
@@ -67,8 +67,8 @@ export const addRepository = (url: string): Repository => {
     const repos = getRepositories();
     localStorage.setItem(REPOSITORIES_KEY, JSON.stringify([...repos, newRepo]));
 
-    // Auto-queue the repository for download
-    const queuedRepo = queueRepositoryForDownload(newRepo.id, newRepo.name, newRepo.url);
+    // Auto-queue the repository for download - removing unused variable assignment
+    queueRepositoryForDownload(newRepo.id, newRepo.name, newRepo.url);
 
     // Trigger immediate download
     setTimeout(() => {

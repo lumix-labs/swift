@@ -36,20 +36,6 @@ if [ -f "$ROOT_DIR/.husky/detect-secrets.sh" ]; then
   fi
 fi
 
-# Fix long lines (>120 characters) 
-# if [ -f "$ROOT_DIR/.husky/fix-long-lines.sh" ]; then
-#   echo -e "${BLUE}🧹 Fixing lines longer than 120 characters...${NC}"
-#   chmod +x "$ROOT_DIR/.husky/fix-long-lines.sh"
-#   "$ROOT_DIR/.husky/fix-long-lines.sh"
-#   LONG_LINES_EXIT_CODE=$?
-#   if [ $LONG_LINES_EXIT_CODE -ne 0 ]; then
-#     echo -e "${YELLOW}⚠️ Some long lines could not be automatically fixed.${NC}"
-#     echo "Please review and fix them manually."
-#   else
-#     echo -e "${GREEN}✅ Long lines fixed successfully.${NC}"
-#   fi
-# fi
-
 # Fix known ESLint errors
 if [ -f "$ROOT_DIR/.husky/fix-eslint-errors.sh" ]; then
   echo -e "${BLUE}🛠️ Applying automated ESLint fixes...${NC}"
@@ -111,17 +97,11 @@ check_module "api" "API"
 API_EXIT_CODE=$?
 [ $API_EXIT_CODE -ne 0 ] && EXIT_CODE=$API_EXIT_CODE
 
-# Check web module with the custom fix script
+# Check web module directly
 if git diff --cached --name-only | grep -q "web/"; then
   echo -e "${BLUE}🔍 Checking Web files...${NC}"
-  if [ -f "$ROOT_DIR/.husky/fix-web-eslint.sh" ]; then
-    chmod +x "$ROOT_DIR/.husky/fix-web-eslint.sh"
-    "$ROOT_DIR/.husky/fix-web-eslint.sh"
-    WEB_EXIT_CODE=$?
-  else
-    cd "$ROOT_DIR/web" && npm run lint
-    WEB_EXIT_CODE=$?
-  fi
+  cd "$ROOT_DIR/web" && npm run lint
+  WEB_EXIT_CODE=$?
   
   if [ $WEB_EXIT_CODE -ne 0 ]; then
     echo -e "${RED}❌ Web linting failed with code $WEB_EXIT_CODE.${NC}"
