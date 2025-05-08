@@ -55,3 +55,62 @@ export function removeFromStorage(key: string): boolean {
     return false;
   }
 }
+
+/**
+ * Get all localStorage keys used by the application
+ * @returns Array of storage keys
+ */
+export function getStorageKeys(): string[] {
+  return [
+    "chatSessions",
+    "currentSessionId",
+    "selectedAIAdvisorId",
+    "selectedModelId", // Legacy key
+    "selectedRepositoryId",
+    // Add any other application storage keys here
+  ];
+}
+
+/**
+ * Central function to clear all local storage data and refresh user state
+ * Call this function when storage-related errors occur
+ * @param refreshPage Whether to refresh the page after clearing data (default: true)
+ * @returns True if successful, false if error occurred
+ */
+export function clearStorageAndRefreshState(refreshPage: boolean = true): boolean {
+  try {
+    // Get all application-specific keys
+    const storageKeys = getStorageKeys();
+
+    // Clear each key
+    storageKeys.forEach((key) => {
+      localStorage.removeItem(key);
+    });
+
+    // Log the action
+    console.info("Local storage data cleared due to detected corruption");
+
+    // Refresh the page if requested
+    if (refreshPage) {
+      window.location.reload();
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Failed to clear local storage:", error);
+
+    // Attempt more aggressive clear as fallback
+    try {
+      localStorage.clear();
+
+      if (refreshPage) {
+        window.location.reload();
+      }
+
+      return true;
+    } catch (secondError) {
+      console.error("Critical failure: Could not clear localStorage:", secondError);
+      return false;
+    }
+  }
+}

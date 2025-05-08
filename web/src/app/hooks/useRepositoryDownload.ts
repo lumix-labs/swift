@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { REPO_DOWNLOAD_COMPLETE_EVENT } from "../components/sections/shared/DownloadButton";
+import { REPO_DOWNLOAD_COMPLETE_EVENT, REPO_STATE_CHANGE_EVENT } from "../components/sections/shared/DownloadButton";
 import { Repository } from "../lib/types/entities";
 import { getRepositories } from "../lib/services/entity-service";
 import { useChat } from "../context/ChatContext";
 import { useDebounce } from "./useDebounce";
 import { SENDERS, SenderType } from "../lib/types/message";
+import { RepositoryStatus } from "../lib/services/repo-download-service";
 
 // Store repository state globally to persist between component unmounts
 const repositoriesCache = {
@@ -122,21 +123,6 @@ export function useRepositoryDownload() {
         // Update the selected repository
         setSelectedRepositoryId(downloadedRepo.id);
 
-        // Add message for repository download (if not already added by DownloadButton)
-        if (action === "download") {
-          // Note: Message is now handled in DownloadButton.tsx
-          console.warn("Repository download notification handled by DownloadButton");
-        } else if (action === "add") {
-          // Notify for repository addition
-          setTimeout(() => {
-            addMessage({
-              content: `Repository ${downloadedRepo.name} has been added. You can download it using the download button in the repositories dropdown.`,
-              sender: SENDERS[SenderType.SWIFT_ASSISTANT],
-              role: "assistant",
-            });
-          }, 500);
-        }
-
         // Use a longer delay before updating repositories to prevent UI flickering
         setTimeout(() => {
           if (isMountedRef.current) {
@@ -146,22 +132,43 @@ export function useRepositoryDownload() {
         }, 800);
       }
     },
-    [setSelectedRepositoryId, updateRepositories, addMessage],
+    [setSelectedRepositoryId, updateRepositories],
   );
 
-  // Set up and tear down event listener
+  // Event handler for repository state changes
+  const handleRepoStateChange = useCallback(
+    (event: Event) => {
+      // Get the repository state change details from the event
+      const customEvent = event as CustomEvent;
+      const repository = customEvent.detail?.repository;
+      const oldStatus = customEvent.detail?.oldStatus;
+      const newStatus = customEvent.detail?.newStatus;
+
+      if (repository?.id) {
+        console.warn(`Repository state changed for ${repository.id}:`, oldStatus, "->", newStatus);
+
+        // Update repositories to reflect the new state
+        updateRepositories();
+      }
+    },
+    [updateRepositories],
+  );
+
+  // Set up and tear down event listeners
   useEffect(() => {
-    console.warn("Setting up repository download event listener");
+    console.warn("Setting up repository event listeners");
 
-    // Add event listener for repository download completion
+    // Add event listeners
     window.addEventListener(REPO_DOWNLOAD_COMPLETE_EVENT, handleRepoDownloadComplete);
+    window.addEventListener(REPO_STATE_CHANGE_EVENT, handleRepoStateChange);
 
-    // Clean up event listener on unmount
+    // Clean up event listeners on unmount
     return () => {
-      console.warn("Removing repository download event listener");
+      console.warn("Removing repository event listeners");
       window.removeEventListener(REPO_DOWNLOAD_COMPLETE_EVENT, handleRepoDownloadComplete);
+      window.removeEventListener(REPO_STATE_CHANGE_EVENT, handleRepoStateChange);
     };
-  }, [handleRepoDownloadComplete]);
+  }, [handleRepoDownloadComplete, handleRepoStateChange]);
 
   return {
     repositories: debouncedRepositories, // Return debounced repositories to prevent UI flickering

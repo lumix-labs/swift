@@ -19,6 +19,8 @@ import { SenderType, SENDERS } from "../../../lib/types/message";
 const downloadingRepos = new Map<string, boolean>();
 // Create a custom event for repository downloads
 export const REPO_DOWNLOAD_COMPLETE_EVENT = "repoDownloadComplete";
+// Create an event for repository state changes
+export const REPO_STATE_CHANGE_EVENT = "repoStateChange";
 
 interface DownloadButtonProps {
   repository: Repository;
@@ -29,6 +31,7 @@ interface DownloadButtonProps {
 export function DownloadButton({ repository, className = "", isSmooth = false }: DownloadButtonProps) {
   const { addMessage } = useChat();
   const [repoStatus, setRepoStatus] = useState<RepositoryStatus>(RepositoryStatus.PENDING);
+  const [prevStatus, setPrevStatus] = useState<RepositoryStatus>(RepositoryStatus.PENDING);
   const [isDownloading, setIsDownloading] = useState(downloadingRepos.get(repository.id) || false);
   const [actionInProgress, setActionInProgress] = useState(false);
   const [transitionState, setTransitionState] = useState<"idle" | "start" | "downloading" | "ingesting" | "complete">(
@@ -65,12 +68,65 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
     }
   }, [debouncedRepoStatus, isSmooth]);
 
+  // Function to notify state change
+  const notifyStateChange = useCallback(
+    (oldStatus: RepositoryStatus, newStatus: RepositoryStatus) => {
+      // Only dispatch state change event if the status has actually changed
+      if (oldStatus !== newStatus) {
+        // Dispatch the state change event
+        const event = new CustomEvent(REPO_STATE_CHANGE_EVENT, {
+          detail: {
+            repository,
+            oldStatus,
+            newStatus,
+          },
+        });
+        window.dispatchEvent(event);
+
+        // Add appropriate user messages based on the status change
+        switch (newStatus) {
+          case RepositoryStatus.PENDING:
+            if (oldStatus !== RepositoryStatus.PENDING) {
+              addMessage({
+                content: `Repository ${repository.name} is now in a pending state.`,
+                sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+                role: "assistant-informational",
+              });
+            }
+            break;
+          case RepositoryStatus.READY:
+          case RepositoryStatus.INGESTED:
+            addMessage({
+              content: `Repository ${repository.name} has been successfully ingested and is ready to chat!`,
+              sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+              role: "assistant",
+            });
+            break;
+          case RepositoryStatus.INGESTING:
+            addMessage({
+              content: `Processing repository ${repository.name}. Creating repository tree (respecting .gitignore)...`,
+              sender: SENDERS[SenderType.SWIFT_ASSISTANT],
+              role: "assistant-informational",
+            });
+            break;
+        }
+      }
+    },
+    [addMessage, repository],
+  );
+
   // Check repository status when the component mounts
   useEffect(() => {
     const checkStatus = () => {
       try {
         const status = getRepositoryStatus(repository.id);
-        setRepoStatus(status);
+
+        // If status is changing, trigger the state change notification
+        if (repoStatus !== status) {
+          notifyStateChange(repoStatus, status);
+          setPrevStatus(repoStatus);
+          setRepoStatus(status);
+        }
 
         // If status is downloading or processing, update the local isDownloading state
         if (
@@ -94,7 +150,7 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
     // Set up an interval to periodically check status
     const intervalId = setInterval(checkStatus, 2000);
     return () => clearInterval(intervalId);
-  }, [repository.id]);
+  }, [repository.id, repoStatus, notifyStateChange]);
 
   const handleDownload = useCallback(async () => {
     if (
@@ -116,6 +172,7 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
 
     // Update status to downloading
     updateRepositoryStatus(repository.id, RepositoryStatus.DOWNLOADING);
+    setPrevStatus(repoStatus);
     setRepoStatus(RepositoryStatus.DOWNLOADING);
 
     // Add downloading message
@@ -131,38 +188,23 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
 
       console.warn("Repository downloaded successfully:", repository.id);
 
-      // Add a message about ingestion starting
-      addMessage({
-        content: `Processing repository ${repository.name}. Creating repository tree (respecting .gitignore)...`,
-        sender: SENDERS[SenderType.SWIFT_ASSISTANT],
-        role: "assistant-informational",
-      });
-
-      // Set status to ingested/ready
+      // Update status
+      setPrevStatus(repoStatus);
       setRepoStatus(downloadedRepo.status);
 
-      // Add a longer delay before sending events to ensure UI updates properly
-      setTimeout(() => {
-        // Dispatch custom event for repository download completion
-        const event = new CustomEvent(REPO_DOWNLOAD_COMPLETE_EVENT, {
-          detail: { repository: downloadedRepo, action: "download" },
-        });
-        window.dispatchEvent(event);
+      // Dispatch custom event for repository download completion
+      const event = new CustomEvent(REPO_DOWNLOAD_COMPLETE_EVENT, {
+        detail: { repository: downloadedRepo, action: "download" },
+      });
+      window.dispatchEvent(event);
 
-        // Notify user when download is complete
-        addMessage({
-          content: `Repository ${repository.name} has been successfully ingested and is ready to chat!`,
-          sender: SENDERS[SenderType.SWIFT_ASSISTANT],
-          role: "assistant-informational",
-        });
-
-        console.warn("Repository download events dispatched:", repository.id);
-      }, 800); // Increased delay for stability
+      console.warn("Repository download events dispatched:", repository.id);
     } catch (error) {
       console.error("Error downloading repository:", error);
 
       // Set status back to pending
       updateRepositoryStatus(repository.id, RepositoryStatus.PENDING);
+      setPrevStatus(repoStatus);
       setRepoStatus(RepositoryStatus.PENDING);
 
       // Notify user of the error

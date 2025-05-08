@@ -1,12 +1,17 @@
 "use client";
 
 import { ChatProvider } from "../../../context/ChatContext";
-import { ChatLayout } from "./ChatLayout";
+import { Chat } from "./Chat";
+import { ErrorBoundary } from "../../shared/ErrorBoundary";
+import StorageChecker from "../../shared/StorageChecker";
 
 export function ClientChatWrapper() {
   return (
-    <ChatProvider>
-      <ChatLayout />
-    </ChatProvider>
+    <ErrorBoundary>
+      <ChatProvider>
+        <StorageChecker />
+        <Chat />
+      </ChatProvider>
+    </ErrorBoundary>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useEffect } from "react";
-import { saveSelectedModelId } from "./storage-service";
+import { saveSelectedAIAdvisorId } from "./storage-service";
 import { useSessionManagement } from "./useSessionManagement";
 
 export interface ModelSelectionContextType {
@@ -33,7 +33,7 @@ export function ModelSelectionProvider({ children }: { children: ReactNode }) {
   const setSelectedAIAdvisorId = useCallback(
     (aiAdvisorId: string | null) => {
       setSelectedAIAdvisorIdRaw(aiAdvisorId);
-      saveSelectedModelId(aiAdvisorId);
+      saveSelectedAIAdvisorId(aiAdvisorId);
 
       // Update current session with selected AI advisor
       if (currentSessionId) {

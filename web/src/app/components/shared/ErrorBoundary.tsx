@@ -1,58 +1,99 @@
 "use client";
 
 import React, { Component, ErrorInfo, ReactNode } from "react";
+import { clearStorageAndRefreshState } from "../../lib/utils/storage";
+import { handleStorageError } from "../../lib/utils/errorHandling";
 
-interface ErrorBoundaryProps {
+interface Props {
   children: ReactNode;
   fallback?: ReactNode;
 }
 
-interface ErrorBoundaryState {
+interface State {
   hasError: boolean;
-  error?: Error;
+  error: Error | null;
 }
 
 /**
- * Error boundary component to catch and handle errors in child components
- * Can be used with any component that might throw errors during rendering
+ * Error boundary component that catches errors in child components
+ * and handles storage-related errors appropriately
  */
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+export class ErrorBoundary extends Component<Props, State> {
+  public state: State = {
+    hasError: false,
+    error: null,
+  };
 
-  static getDerivedStateFromError(error: Error) {
+  static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("ErrorBoundary caught error:", error);
-    console.error("Component stack:", info.componentStack);
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+
+    // Check if error is likely related to localStorage
+    const errorString = error.toString().toLowerCase();
+    const isStorageError =
+      errorString.includes("localstorage") ||
+      errorString.includes("storage") ||
+      errorString.includes("quota") ||
+      errorString.includes("corrupted") ||
+      (errorString.includes("json") && errorString.includes("parse")) ||
+      errorString.includes("serialized");
+
+    if (isStorageError) {
+      // Handle as storage error with automatic recovery
+      handleStorageError(error, undefined, true);
+    }
   }
 
-  render() {
+  public render() {
     if (this.state.hasError) {
-      // If a custom fallback is provided, use it
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
-
-      // Default fallback UI
+      // You can render any custom fallback UI
       return (
-        <div className="flex flex-col h-screen items-center justify-center bg-white dark:bg-black text-black dark:text-white">
-          <h1 className="text-2xl font-bold mb-2">Something went wrong.</h1>
-          <p className="mb-4">Please refresh the page or try again later.</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700"
-          >
-            Refresh Page
-          </button>
-        </div>
+        this.props.fallback || (
+          <div className="flex flex-col items-center justify-center min-h-screen p-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
+              <h2 className="text-xl font-semibold text-red-700 mb-2">Something went wrong</h2>
+              <p className="text-gray-700 mb-4">
+                We encountered an issue with your session data. The application will automatically recover by clearing
+                stored data.
+              </p>
+              <button
+                onClick={() => {
+                  clearStorageAndRefreshState();
+                }}
+                className="py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+              >
+                Reset & Refresh
+              </button>
+            </div>
+          </div>
+        )
       );
     }
 
     return this.props.children;
   }
+}
+
+/**
+ * HOC wrapper for ErrorBoundary
+ * @param Component The component to wrap with error boundary
+ * @returns Wrapped component with error handling
+ */
+export function withErrorBoundary<P extends object>(
+  Component: React.ComponentType<P>,
+  fallback?: ReactNode,
+): React.FC<P> {
+  const WithErrorBoundary: React.FC<P> = (props: P) => (
+    <ErrorBoundary fallback={fallback}>
+      <Component {...props} />
+    </ErrorBoundary>
+  );
+
+  // Set display name for the HOC
+  WithErrorBoundary.displayName = `WithErrorBoundary(${Component.displayName || Component.name || "Component"})`;
+
+  return WithErrorBoundary;
 }

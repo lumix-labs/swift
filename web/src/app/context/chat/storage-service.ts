@@ -1,10 +1,22 @@
 "use client";
 
-import { ChatSession, SavedSession } from "./types";
+import { ChatSession } from "./types";
+import {
+  saveToStorage,
+  loadFromStorage,
+  removeFromStorage,
+  clearStorageAndRefreshState,
+} from "../../lib/utils/storage";
+import { safeStorageOperation, handleStorageError } from "../../lib/utils/errorHandling";
 
-// Save sessions to localStorage
-export const saveSessions = (sessions: ChatSession[], currentSessionId: string | null): void => {
-  try {
+/**
+ * Save sessions to localStorage with error handling
+ * @param sessions Array of chat sessions
+ * @param currentSessionId Current active session ID
+ * @returns True if successful, false if error occurred
+ */
+export function saveSessions(sessions: ChatSession[], currentSessionId: string | null): boolean {
+  return safeStorageOperation(() => {
     // Convert dates to strings for storage
     const sessionsToStore = sessions.map((session) => ({
       ...session,
@@ -16,105 +28,146 @@ export const saveSessions = (sessions: ChatSession[], currentSessionId: string |
       })),
     }));
 
-    localStorage.setItem("chatSessions", JSON.stringify(sessionsToStore));
+    const sessionsStored = saveToStorage("chatSessions", sessionsToStore);
+    let currentSessionStored = true;
 
     if (currentSessionId) {
-      localStorage.setItem("currentSessionId", currentSessionId);
+      currentSessionStored = saveToStorage("currentSessionId", currentSessionId);
     }
-  } catch (error) {
-    console.error("Error saving to localStorage:", error);
-  }
-};
 
-// Load sessions from localStorage
-export const loadSessions = (): {
+    // If either storage operation failed, consider it a failure
+    return sessionsStored && currentSessionStored;
+  }, false);
+}
+
+/**
+ * Load sessions from localStorage with error handling
+ * @returns Object containing sessions and related state
+ */
+export function loadSessions(): {
   sessions: ChatSession[];
   currentSessionId: string | null;
   selectedAIAdvisorId: string | null;
   selectedRepositoryId: string | null;
-} => {
-  try {
-    // Try to load from both new and old storage keys for backward compatibility
-    const savedSessions = localStorage.getItem("chatSessions");
-    const savedCurrentSessionId = localStorage.getItem("currentSessionId");
-    const savedAIAdvisorId = localStorage.getItem("selectedAIAdvisorId");
-    const savedModelId = localStorage.getItem("selectedModelId"); // Legacy key
-    const savedRepositoryId = localStorage.getItem("selectedRepositoryId");
+} {
+  return safeStorageOperation(
+    () => {
+      // Try to load from both new and old storage keys for backward compatibility
+      const savedSessions = loadFromStorage("chatSessions", []);
+      const savedCurrentSessionId = loadFromStorage("currentSessionId", null);
+      const savedAIAdvisorId = loadFromStorage("selectedAIAdvisorId", null);
+      const savedModelId = loadFromStorage("selectedModelId", null); // Legacy key
+      const savedRepositoryId = loadFromStorage("selectedRepositoryId", null);
 
-    let sessions: ChatSession[] = [];
+      let sessions: ChatSession[] = [];
 
-    if (savedSessions) {
-      const parsedSessions = JSON.parse(savedSessions).map((session: SavedSession) => {
-        // If the session has modelId but not aiAdvisorId, use the modelId value for aiAdvisorId
-        if (session.modelId && !session.aiAdvisorId) {
-          session.aiAdvisorId = session.modelId;
+      if (savedSessions.length > 0) {
+        try {
+          sessions = savedSessions.map((session: any) => {
+            // If the session has modelId but not aiAdvisorId, use the modelId value for aiAdvisorId
+            if (session.modelId && !session.aiAdvisorId) {
+              session.aiAdvisorId = session.modelId;
+            }
+
+            // Validate date fields to catch corrupted data
+            const createdAt = new Date(session.createdAt);
+            const updatedAt = new Date(session.updatedAt);
+
+            // Check for invalid dates
+            if (isNaN(createdAt.getTime()) || isNaN(updatedAt.getTime())) {
+              throw new Error("Invalid date format in session data");
+            }
+
+            // Validate message timestamp fields
+            const messages = session.messages.map((msg: any) => {
+              const timestamp = new Date(msg.timestamp);
+              if (isNaN(timestamp.getTime())) {
+                throw new Error("Invalid timestamp format in message");
+              }
+              return {
+                ...msg,
+                timestamp,
+              };
+            });
+
+            return {
+              ...session,
+              createdAt,
+              updatedAt,
+              messages,
+            };
+          });
+        } catch (parseError) {
+          // Handle specifically corrupted session data
+          handleStorageError(parseError, "chatSessions", true);
+          return {
+            sessions: [],
+            currentSessionId: null,
+            selectedAIAdvisorId: null,
+            selectedRepositoryId: null,
+          };
         }
+      }
 
-        return {
-          ...session,
-          createdAt: new Date(session.createdAt),
-          updatedAt: new Date(session.updatedAt),
-          messages: session.messages.map((msg) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp),
-          })),
-        };
-      });
+      // Prefer aiAdvisorId, fall back to modelId for backward compatibility
+      const effectiveAIAdvisorId = savedAIAdvisorId || savedModelId;
 
-      sessions = parsedSessions;
-    }
+      // Clear old storage key if we're migrating
+      if (savedModelId && !savedAIAdvisorId) {
+        saveToStorage("selectedAIAdvisorId", savedModelId);
+        removeFromStorage("selectedModelId");
+      }
 
-    // Prefer aiAdvisorId, fall back to modelId for backward compatibility
-    const effectiveAIAdvisorId = savedAIAdvisorId || savedModelId;
-
-    // Clear old storage key if we're migrating
-    if (savedModelId && !savedAIAdvisorId) {
-      localStorage.setItem("selectedAIAdvisorId", savedModelId);
-      localStorage.removeItem("selectedModelId");
-    }
-
-    return {
-      sessions,
-      currentSessionId: savedCurrentSessionId,
-      selectedAIAdvisorId: effectiveAIAdvisorId,
-      selectedRepositoryId: savedRepositoryId,
-    };
-  } catch (error) {
-    console.error("Error loading from localStorage:", error);
-    return {
+      return {
+        sessions,
+        currentSessionId: savedCurrentSessionId,
+        selectedAIAdvisorId: effectiveAIAdvisorId,
+        selectedRepositoryId: savedRepositoryId,
+      };
+    },
+    {
       sessions: [],
       currentSessionId: null,
       selectedAIAdvisorId: null,
       selectedRepositoryId: null,
-    };
-  }
-};
+    },
+  );
+}
 
-// Save selected AI advisor ID
-export const saveSelectedAIAdvisorId = (aiAdvisorId: string | null): void => {
-  try {
+/**
+ * Save selected AI advisor ID with error handling
+ * @param aiAdvisorId AI advisor ID to save
+ * @returns True if successful, false if error occurred
+ */
+export function saveSelectedAIAdvisorId(aiAdvisorId: string | null): boolean {
+  return safeStorageOperation(() => {
     if (aiAdvisorId !== null) {
-      localStorage.setItem("selectedAIAdvisorId", aiAdvisorId);
+      return saveToStorage("selectedAIAdvisorId", aiAdvisorId);
     } else {
-      localStorage.removeItem("selectedAIAdvisorId");
+      return removeFromStorage("selectedAIAdvisorId");
     }
-  } catch (error) {
-    console.error("Error saving AI advisor ID to localStorage:", error);
-  }
-};
+  }, false);
+}
 
-// For backward compatibility, use the same function with the old name
-export const saveSelectedModelId = saveSelectedAIAdvisorId;
-
-// Save selected repository ID
-export const saveSelectedRepositoryId = (repositoryId: string | null): void => {
-  try {
+/**
+ * Save selected repository ID with error handling
+ * @param repositoryId Repository ID to save
+ * @returns True if successful, false if error occurred
+ */
+export function saveSelectedRepositoryId(repositoryId: string | null): boolean {
+  return safeStorageOperation(() => {
     if (repositoryId !== null) {
-      localStorage.setItem("selectedRepositoryId", repositoryId);
+      return saveToStorage("selectedRepositoryId", repositoryId);
     } else {
-      localStorage.removeItem("selectedRepositoryId");
+      return removeFromStorage("selectedRepositoryId");
     }
-  } catch (error) {
-    console.error("Error saving repository ID to localStorage:", error);
-  }
-};
+  }, false);
+}
+
+/**
+ * Reset all storage data and refresh application state
+ * Call this when corruption is detected or recovery is needed
+ */
+export function resetApplicationState(): void {
+  clearStorageAndRefreshState(true);
+}

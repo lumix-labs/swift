@@ -1,5 +1,8 @@
 "use client";
 
+import { githubApiService } from "./github-api-service";
+import { fileProcessorService } from "./file-processor-service";
+
 export enum RepositoryStatus {
   PENDING = "pending", // Initial state, not yet processed
   QUEUED = "queued", // In download queue
@@ -18,6 +21,7 @@ export interface DownloadedRepository {
   status: RepositoryStatus;
   downloadDate?: number;
   repoTree?: string; // Added to store repository tree for context
+  dirs?: string[]; // List of directories in the repository
 }
 
 // Local storage key for downloaded repositories
@@ -72,7 +76,7 @@ export const queueRepositoryForDownload = (repoId: string, repoName: string, rep
   return queuedRepo;
 };
 
-// Download repository (simulated)
+// Download repository (actual implementation)
 export const downloadRepository = async (
   repoId: string,
   repoName: string,
@@ -89,34 +93,46 @@ export const downloadRepository = async (
   // Save the downloading state
   saveDownloadedRepository(updatingRepo);
 
-  // In a real implementation, this would actually download the repo
-  // For now, we'll simulate it with a mock README content
+  try {
+    // Download the repository as a ZIP file
+    const zipData = await githubApiService.downloadRepositoryZip(repoUrl);
 
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+    // Update status to DOWNLOADED
+    const downloadedRepo: DownloadedRepository = {
+      id: repoId,
+      name: repoName,
+      url: repoUrl,
+      status: RepositoryStatus.DOWNLOADED,
+      downloadDate: Date.now(),
+    };
 
-  // Mock README content
-  const mockReadme = `# ${repoName}\n\nThis is a sample README for the ${repoName} repository.\n\nThe repository URL is ${repoUrl}.\n\n## Features\n\n- Feature 1\n- Feature 2\n- Feature 3\n\n## Installation\n\n\`\`\`bash\nnpm install ${repoName.toLowerCase()}\n\`\`\`\n\n## Usage\n\n\`\`\`javascript\nimport { something } from '${repoName.toLowerCase()}';\n\n// Use it somehow\n\`\`\`\n\n## Contributing\n\nContributions are welcome!\n\n## License\n\nMIT`;
+    // Save to local storage
+    saveDownloadedRepository(downloadedRepo);
 
-  // Update status to DOWNLOADED
-  const downloadedRepo: DownloadedRepository = {
-    id: repoId,
-    name: repoName,
-    url: repoUrl,
-    readmeContent: mockReadme,
-    status: RepositoryStatus.DOWNLOADED,
-    downloadDate: Date.now(),
-  };
+    // Now start the ingestion process
+    return startIngestion(downloadedRepo, zipData);
+  } catch (error) {
+    console.error("Error downloading repository:", error);
 
-  // Save to local storage
-  saveDownloadedRepository(downloadedRepo);
+    // Update status to error
+    const errorRepo: DownloadedRepository = {
+      id: repoId,
+      name: repoName,
+      url: repoUrl,
+      status: RepositoryStatus.PENDING,
+      downloadDate: Date.now(),
+    };
 
-  // Now start the ingestion process
-  return startIngestion(downloadedRepo);
+    saveDownloadedRepository(errorRepo);
+    throw error;
+  }
 };
 
-// Ingest repository data (simulated)
-export const startIngestion = async (repo: DownloadedRepository): Promise<DownloadedRepository> => {
+// Process repository data (actual implementation)
+export const startIngestion = async (
+  repo: DownloadedRepository,
+  zipData: ArrayBuffer,
+): Promise<DownloadedRepository> => {
   // Update status to INGESTING
   const ingestingRepo: DownloadedRepository = {
     ...repo,
@@ -126,53 +142,120 @@ export const startIngestion = async (repo: DownloadedRepository): Promise<Downlo
   // Save the ingesting state
   saveDownloadedRepository(ingestingRepo);
 
-  // Simulate ingestion delay
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  try {
+    // Process the ZIP file
+    const { rootDirName, files, metadata, dirtextFiles, dirmetaFiles } =
+      await fileProcessorService.processRepositoryZip(zipData);
 
-  // Generate a mock repository tree (respecting .gitignore)
-  const mockRepoTree = generateMockRepoTree(repo.name);
+    // Store dirtext and dirmeta files in localStorage or IndexedDB
+    // (Due to size limitations, these might need to be stored in IndexedDB in a real implementation)
+    await storeProcessedFiles(repo.id, dirtextFiles, dirmetaFiles);
 
-  // Update status to INGESTED and set as READY
-  const ingestedRepo: DownloadedRepository = {
-    ...ingestingRepo,
-    status: RepositoryStatus.INGESTED,
-    repoTree: mockRepoTree,
-  };
+    // Generate repository tree structure
+    const repoTree = generateRepoTree(metadata);
 
-  // Save to local storage
-  saveDownloadedRepository(ingestedRepo);
+    // Find README content if available
+    const readmeContent = findReadmeContent(files);
 
-  return ingestedRepo;
+    // List of directories for navigation
+    const dirs = Object.keys(metadata).sort();
+
+    // Update status to INGESTED and set as READY
+    const ingestedRepo: DownloadedRepository = {
+      ...ingestingRepo,
+      status: RepositoryStatus.INGESTED,
+      repoTree,
+      readmeContent,
+      dirs,
+    };
+
+    // Save to local storage
+    saveDownloadedRepository(ingestedRepo);
+
+    return ingestedRepo;
+  } catch (error) {
+    console.error("Error ingesting repository:", error);
+
+    // Update status to error/pending
+    const errorRepo: DownloadedRepository = {
+      ...repo,
+      status: RepositoryStatus.PENDING,
+    };
+
+    saveDownloadedRepository(errorRepo);
+    throw error;
+  }
 };
 
-// Generate a mock repository tree
-const generateMockRepoTree = (repoName: string): string => {
-  // This would be generated from the actual repo in a real implementation
-  // respecting .gitignore patterns
-  return `
-  ${repoName}/
-  ├── src/
-  │   ├── components/
-  │   │   ├── Button.tsx
-  │   │   ├── Header.tsx
-  │   │   └── Footer.tsx
-  │   ├── pages/
-  │   │   ├── index.tsx
-  │   │   ├── about.tsx
-  │   │   └── contact.tsx
-  │   ├── utils/
-  │   │   ├── api.ts
-  │   │   └── helpers.ts
-  │   └── index.ts
-  ├── public/
-  │   ├── images/
-  │   └── favicon.ico
-  ├── package.json
-  ├── tsconfig.json
-  ├── README.md
-  └── .gitignore
-  `;
-};
+// Store processed files (would use IndexedDB in production)
+async function storeProcessedFiles(
+  repoId: string,
+  dirtextFiles: { [dirPath: string]: string },
+  dirmetaFiles: { [dirPath: string]: string },
+): Promise<void> {
+  try {
+    // In a production implementation, we would use IndexedDB
+    // For this demo, we'll store in localStorage with a prefix
+
+    // Store dirtext files
+    for (const [dirPath, content] of Object.entries(dirtextFiles)) {
+      const key = `${repoId}_dirtext_${dirPath || "root"}`;
+      localStorage.setItem(key, content);
+    }
+
+    // Store dirmeta files
+    for (const [dirPath, content] of Object.entries(dirmetaFiles)) {
+      const key = `${repoId}_dirmeta_${dirPath || "root"}`;
+      localStorage.setItem(key, content);
+    }
+
+    // Store directory list
+    localStorage.setItem(`${repoId}_dirs`, JSON.stringify(Object.keys(dirtextFiles)));
+  } catch (error) {
+    console.error("Error storing processed files:", error);
+    throw error;
+  }
+}
+
+// Find README content in the repository files
+function findReadmeContent(files: { [path: string]: Uint8Array | string }): string {
+  const readmeRegex = /readme\.md$/i;
+
+  for (const [path, content] of Object.entries(files)) {
+    if (readmeRegex.test(path) && typeof content === "string") {
+      return content;
+    }
+  }
+
+  return "No README found in this repository.";
+}
+
+// Generate a repository tree structure
+function generateRepoTree(metadata: { [path: string]: any[] }): string {
+  let tree = "Repository Structure:\n";
+
+  // Sort directories for consistent output
+  const directories = Object.keys(metadata).sort();
+
+  // Build tree structure
+  for (const dir of directories) {
+    const level = dir ? dir.split("/").length : 0;
+    const indent = "  ".repeat(level);
+    const dirName = dir.split("/").pop() || "root";
+
+    tree += `${indent}/${dirName}/\n`;
+
+    // Add files in this directory
+    const files = metadata[dir] || [];
+    files.sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const file of files) {
+      tree += `${indent}  ${file.name}\n`;
+    }
+  }
+
+  return tree;
+}
 
 // Check if a repository is downloaded and ready
 export const isRepositoryReady = (repoId: string): boolean => {
@@ -215,4 +298,37 @@ export const getRepositoryStatus = (repoId: string): RepositoryStatus => {
 // Check if repository is ready for chat based on status
 export const isRepositoryReadyForChat = (status: RepositoryStatus | null): boolean => {
   return status === RepositoryStatus.READY || status === RepositoryStatus.INGESTED;
+};
+
+// Get dirtext content for a specific directory in a repository
+export const getDirtextContent = (repoId: string, dirPath: string = ""): string => {
+  try {
+    const key = `${repoId}_dirtext_${dirPath || "root"}`;
+    return localStorage.getItem(key) || "";
+  } catch (error) {
+    console.error("Error getting dirtext content:", error);
+    return "";
+  }
+};
+
+// Get dirmeta content for a specific directory in a repository
+export const getDirmetaContent = (repoId: string, dirPath: string = ""): string => {
+  try {
+    const key = `${repoId}_dirmeta_${dirPath || "root"}`;
+    return localStorage.getItem(key) || "";
+  } catch (error) {
+    console.error("Error getting dirmeta content:", error);
+    return "";
+  }
+};
+
+// Get list of directories in a repository
+export const getRepositoryDirectories = (repoId: string): string[] => {
+  try {
+    const dirsJson = localStorage.getItem(`${repoId}_dirs`);
+    return dirsJson ? JSON.parse(dirsJson) : [];
+  } catch (error) {
+    console.error("Error getting repository directories:", error);
+    return [];
+  }
 };

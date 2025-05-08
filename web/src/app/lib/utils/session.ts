@@ -1,14 +1,15 @@
 "use client";
 
 import { ChatSession } from "../../context/chat/types";
-import { saveToStorage, loadFromStorage, removeFromStorage } from "./storage";
+import { saveToStorage, loadFromStorage, removeFromStorage, clearStorageAndRefreshState } from "./storage";
 
 /**
  * Save sessions to localStorage
  * @param sessions Array of chat sessions
  * @param currentSessionId Current active session ID
+ * @returns True if successful, false if error occurred
  */
-export function saveSessions(sessions: ChatSession[], currentSessionId: string | null): void {
+export function saveSessions(sessions: ChatSession[], currentSessionId: string | null): boolean {
   try {
     // Convert dates to strings for storage
     const sessionsToStore = sessions.map((session) => ({
@@ -21,13 +22,20 @@ export function saveSessions(sessions: ChatSession[], currentSessionId: string |
       })),
     }));
 
-    saveToStorage("chatSessions", sessionsToStore);
+    const sessionsStored = saveToStorage("chatSessions", sessionsToStore);
+    let currentSessionStored = true;
 
     if (currentSessionId) {
-      saveToStorage("currentSessionId", currentSessionId);
+      currentSessionStored = saveToStorage("currentSessionId", currentSessionId);
     }
+
+    // If either storage operation failed, consider it a failure
+    return sessionsStored && currentSessionStored;
   } catch (error) {
     console.error("Error saving to localStorage:", error);
+    // Handle corruption by clearing storage and refreshing
+    clearStorageAndRefreshState();
+    return false;
   }
 }
 
@@ -52,22 +60,52 @@ export function loadSessions(): {
     let sessions: ChatSession[] = [];
 
     if (savedSessions.length > 0) {
-      sessions = savedSessions.map((session: any) => {
-        // If the session has modelId but not aiAdvisorId, use the modelId value for aiAdvisorId
-        if (session.modelId && !session.aiAdvisorId) {
-          session.aiAdvisorId = session.modelId;
-        }
+      try {
+        sessions = savedSessions.map((session: any) => {
+          // If the session has modelId but not aiAdvisorId, use the modelId value for aiAdvisorId
+          if (session.modelId && !session.aiAdvisorId) {
+            session.aiAdvisorId = session.modelId;
+          }
 
+          // Validate date fields to catch corrupted data
+          const createdAt = new Date(session.createdAt);
+          const updatedAt = new Date(session.updatedAt);
+
+          // Check for invalid dates
+          if (isNaN(createdAt.getTime()) || isNaN(updatedAt.getTime())) {
+            throw new Error("Invalid date format in session data");
+          }
+
+          // Validate message timestamp fields
+          const messages = session.messages.map((msg: any) => {
+            const timestamp = new Date(msg.timestamp);
+            if (isNaN(timestamp.getTime())) {
+              throw new Error("Invalid timestamp format in message");
+            }
+            return {
+              ...msg,
+              timestamp,
+            };
+          });
+
+          return {
+            ...session,
+            createdAt,
+            updatedAt,
+            messages,
+          };
+        });
+      } catch (parseError) {
+        console.error("Error parsing session data:", parseError);
+        // Handle data corruption by clearing storage and refreshing
+        clearStorageAndRefreshState();
         return {
-          ...session,
-          createdAt: new Date(session.createdAt),
-          updatedAt: new Date(session.updatedAt),
-          messages: session.messages.map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp),
-          })),
+          sessions: [],
+          currentSessionId: null,
+          selectedAIAdvisorId: null,
+          selectedRepositoryId: null,
         };
-      });
+      }
     }
 
     // Prefer aiAdvisorId, fall back to modelId for backward compatibility
@@ -87,6 +125,8 @@ export function loadSessions(): {
     };
   } catch (error) {
     console.error("Error loading from localStorage:", error);
+    // Handle corruption by clearing storage and refreshing
+    clearStorageAndRefreshState();
     return {
       sessions: [],
       currentSessionId: null,
@@ -99,31 +139,39 @@ export function loadSessions(): {
 /**
  * Save selected AI advisor ID
  * @param aiAdvisorId AI advisor ID to save
+ * @returns True if successful, false if error occurred
  */
-export function saveSelectedAIAdvisorId(aiAdvisorId: string | null): void {
+export function saveSelectedAIAdvisorId(aiAdvisorId: string | null): boolean {
   try {
     if (aiAdvisorId !== null) {
-      saveToStorage("selectedAIAdvisorId", aiAdvisorId);
+      return saveToStorage("selectedAIAdvisorId", aiAdvisorId);
     } else {
-      removeFromStorage("selectedAIAdvisorId");
+      return removeFromStorage("selectedAIAdvisorId");
     }
   } catch (error) {
     console.error("Error saving AI advisor ID to localStorage:", error);
+    // Handle corruption by clearing storage and refreshing
+    clearStorageAndRefreshState();
+    return false;
   }
 }
 
 /**
  * Save selected repository ID
  * @param repositoryId Repository ID to save
+ * @returns True if successful, false if error occurred
  */
-export function saveSelectedRepositoryId(repositoryId: string | null): void {
+export function saveSelectedRepositoryId(repositoryId: string | null): boolean {
   try {
     if (repositoryId !== null) {
-      saveToStorage("selectedRepositoryId", repositoryId);
+      return saveToStorage("selectedRepositoryId", repositoryId);
     } else {
-      removeFromStorage("selectedRepositoryId");
+      return removeFromStorage("selectedRepositoryId");
     }
   } catch (error) {
     console.error("Error saving repository ID to localStorage:", error);
+    // Handle corruption by clearing storage and refreshing
+    clearStorageAndRefreshState();
+    return false;
   }
 }
