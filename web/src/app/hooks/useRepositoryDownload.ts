@@ -15,13 +15,16 @@ const repositoriesCache = {
   lastUpdated: 0,
 };
 
+// Track processed repository events to prevent duplicate handling
+const processedRepoEvents = new Map<string, number>();
+
 /**
  * Custom hook to listen for repository download completion events
  * and update UI accordingly with improved debouncing to prevent flickering
  */
 export function useRepositoryDownload() {
   const [repositories, setRepositories] = useState<Repository[]>(repositoriesCache.data);
-  const { setSelectedRepositoryId, addMessage } = useChat();
+  const { setSelectedRepositoryId } = useChat();
   const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef<boolean>(true);
 
@@ -37,6 +40,23 @@ export function useRepositoryDownload() {
         updateTimerRef.current = null;
       }
     };
+  }, []);
+
+  // Helper to check if we should process an event
+  const shouldProcessEvent = useCallback((eventType: string, repoId: string): boolean => {
+    const eventKey = `${eventType}-${repoId}`;
+    const now = Date.now();
+    const lastTime = processedRepoEvents.get(eventKey) || 0;
+
+    // Skip if processed recently (within 5 seconds)
+    if (now - lastTime < 5000) {
+      console.warn(`Skipping recently processed event: ${eventKey}`);
+      return false;
+    }
+
+    // Mark as processed
+    processedRepoEvents.set(eventKey, now);
+    return true;
   }, []);
 
   // Throttled update function to prevent multiple rapid updates
@@ -55,8 +75,8 @@ export function useRepositoryDownload() {
 
       const now = Date.now();
 
-      // Only fetch repositories if it's been at least 800ms since the last update
-      if (now - repositoriesCache.lastUpdated > 800) {
+      // Only fetch repositories if it's been at least 1000ms since the last update
+      if (now - repositoriesCache.lastUpdated > 1000) {
         try {
           const updatedRepositories = getRepositories();
           console.warn("Updating repositories with throttle:", updatedRepositories.length);
@@ -74,7 +94,7 @@ export function useRepositoryDownload() {
 
       // Clear the reference after execution
       updateTimerRef.current = null;
-    }, 800); // Increased from 500ms for better stability
+    }, 1000); // Increased from 800ms for better stability
   }, []);
 
   // Load repositories initially
@@ -117,6 +137,11 @@ export function useRepositoryDownload() {
       const action = customEvent.detail?.action || "download";
 
       if (downloadedRepo?.id) {
+        // Skip if already processed recently
+        if (!shouldProcessEvent(REPO_DOWNLOAD_COMPLETE_EVENT, downloadedRepo.id)) {
+          return;
+        }
+
         // Log the download/add completion
         console.warn(`Repository ${action} complete:`, downloadedRepo.id);
 
@@ -129,10 +154,10 @@ export function useRepositoryDownload() {
             // Update repositories with throttling
             updateRepositories();
           }
-        }, 800);
+        }, 1000);
       }
     },
-    [setSelectedRepositoryId, updateRepositories],
+    [setSelectedRepositoryId, updateRepositories, shouldProcessEvent],
   );
 
   // Event handler for repository state changes
@@ -145,13 +170,23 @@ export function useRepositoryDownload() {
       const newStatus = customEvent.detail?.newStatus;
 
       if (repository?.id) {
+        // Skip if already processed recently
+        if (!shouldProcessEvent(REPO_STATE_CHANGE_EVENT, repository.id)) {
+          return;
+        }
+
         console.warn(`Repository state changed for ${repository.id}:`, oldStatus, "->", newStatus);
 
         // Update repositories to reflect the new state
-        updateRepositories();
+        // Use a delay to prevent frequent updates
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            updateRepositories();
+          }
+        }, 1000);
       }
     },
-    [updateRepositories],
+    [updateRepositories, shouldProcessEvent],
   );
 
   // Set up and tear down event listeners

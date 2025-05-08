@@ -24,8 +24,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Convert from a regular GitHub URL to a ZIP download URL
-    const zipUrl = convertToZipUrl(repoUrl);
+    // Extract owner and repo
+    const { owner, repo } = extractOwnerAndRepo(repoUrl);
+
+    // Attempt to detect the default branch
+    const defaultBranch = await detectDefaultBranch(owner, repo);
+
+    // Convert from a regular GitHub URL to a ZIP download URL with detected branch
+    const zipUrl = convertToZipUrl(repoUrl, defaultBranch);
 
     console.log(`Converting ${repoUrl} to ${zipUrl}`);
 
@@ -155,7 +161,7 @@ function extractOwnerAndRepo(url: string): { owner: string; repo: string } {
 /**
  * Converts a GitHub repository URL to a ZIP download URL
  */
-function convertToZipUrl(repoUrl: string): string {
+function convertToZipUrl(repoUrl: string, defaultBranch: string = "main"): string {
   try {
     // Handle various GitHub URL formats
     // Remove trailing slash if present
@@ -181,9 +187,8 @@ function convertToZipUrl(repoUrl: string): string {
         }
       }
 
-      // Default branch (main or master)
-      // Try both main and master branches
-      return `https://github.com/${owner}/${repo}/archive/refs/heads/main.zip`;
+      // Use the detected default branch
+      return `https://github.com/${owner}/${repo}/archive/refs/heads/${defaultBranch}.zip`;
     }
 
     // Return the original URL if it doesn't match known patterns

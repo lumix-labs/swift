@@ -26,8 +26,19 @@ export class GitHubApiService {
       const response = await fetch(zipUrl);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to download repository: ${errorText}`);
+        let errorMessage = "Unknown error occurred while downloading repository";
+
+        try {
+          // Try to parse error message from the response
+          const errorData = await response.json();
+          errorMessage = errorData.error || `Failed to download repository (${response.status})`;
+        } catch (e) {
+          // If parsing fails, use generic message with status
+          errorMessage = `Failed to download repository: ${response.statusText || response.status}`;
+        }
+
+        // Throw error with specific message
+        throw new Error(errorMessage);
       }
 
       return await response.arrayBuffer();

@@ -69,8 +69,8 @@ export interface MessageContextType {
 // Define the context type
 export interface ChatContextType {
   messages: Message[];
-  // Update the addMessage interface to include sender property
-  addMessage: (message: { role: string; content: string; sender?: Sender }) => void;
+  // Update the addMessage interface to include role, content, and sender
+  addMessage: (message: { role: string; content: string; sender?: Sender; id?: string; timestamp?: Date }) => void;
   clearMessages: () => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
@@ -84,6 +84,7 @@ export interface ChatContextType {
   selectedRepositoryId: string | null;
   setSelectedRepositoryId: (repoId: string | null) => void;
   selectedModelId?: string | null; // Add for backward compatibility
+  setCurrentSessionMessages?: (sessionId: string, messages: Message[]) => void;
 }
 
 // Maximum number of sessions to keep in storage

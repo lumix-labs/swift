@@ -64,6 +64,31 @@ export function useSessionManagement() {
     }
   }, [sessions, currentSessionId]);
 
+  // Update messages for a specific session
+  const setCurrentSessionMessages = useCallback(
+    (sessionId: string, newMessages: Message[]) => {
+      // Update the session with new messages
+      const updatedSessions = sessions.map((session) => {
+        if (session.id === sessionId) {
+          return {
+            ...session,
+            messages: newMessages,
+            updatedAt: new Date(),
+          };
+        }
+        return session;
+      });
+
+      setSessions(updatedSessions);
+
+      // If this is the current session, also update the messages state
+      if (sessionId === currentSessionId) {
+        setMessages(newMessages);
+      }
+    },
+    [sessions, currentSessionId],
+  );
+
   // Create a new chat session and set it as the current session
   const createNewSession = useCallback(() => {
     const newSession = createDefaultSession(generateId);
@@ -193,6 +218,7 @@ export function useSessionManagement() {
     setSelectedRepositoryId,
     messages,
     setMessages,
+    setCurrentSessionMessages,
     createNewSession,
     switchSession,
     deleteSession,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Repository } from "../../../lib/types/entities";
 import { useChat } from "../../../context/ChatContext";
 import {
@@ -17,10 +17,14 @@ import { SenderType, SENDERS } from "../../../lib/types/message";
 
 // Store download status globally to persist between component unmounts
 const downloadingRepos = new Map<string, boolean>();
+// Map to track the last time a notification was sent for a repository status
+const lastNotificationTime = new Map<string, number>();
 // Create a custom event for repository downloads
 export const REPO_DOWNLOAD_COMPLETE_EVENT = "repoDownloadComplete";
 // Create an event for repository state changes
 export const REPO_STATE_CHANGE_EVENT = "repoStateChange";
+// Create an event for repository errors
+export const REPO_ERROR_EVENT = "repoErrorEvent";
 
 interface DownloadButtonProps {
   repository: Repository;
@@ -37,6 +41,7 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
   const [transitionState, setTransitionState] = useState<"idle" | "start" | "downloading" | "ingesting" | "complete">(
     "idle",
   );
+  const statusChangeNotified = useRef<Record<string, boolean>>({});
 
   // Use debounced state to prevent flickering with longer delay
   const debouncedIsDownloading = useDebounce(isDownloading, 500);
@@ -45,10 +50,19 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
   // Set UI update lock to prevent component re-rendering during actions
   const lockUIUpdates = useCallback(() => {
     setActionInProgress(true);
+    
+    // Create a unique identifier for this lock
+    const lockId = Date.now().toString();
+    
     // Release lock after a timeout to ensure UI stability
     setTimeout(() => {
       setActionInProgress(false);
     }, 800); // 0.8 second lock
+    
+    // Emergency release after a longer timeout to prevent permanent locks
+    setTimeout(() => {
+      setActionInProgress(false);
+    }, 5000); // 5 second emergency timeout
   }, []);
 
   // Animate status transitions for smooth UI
@@ -68,12 +82,59 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
     }
   }, [debouncedRepoStatus, isSmooth]);
 
-  // Function to notify state change
+  // Function to check if we should notify about a state change
+  const shouldNotifyStateChange = useCallback(
+    (repoId: string, oldStatus: RepositoryStatus, newStatus: RepositoryStatus): boolean => {
+      // Skip if status hasn't changed
+      if (oldStatus === newStatus) {
+        console.debug(`Skipping notification for ${repoId}: status unchanged (${oldStatus})`);
+        return false;
+      }
+
+      // Create a unique key for this repository and status transition
+      const notificationKey = `${repoId}-${oldStatus}-${newStatus}`;
+
+      // Check if this specific transition has been notified recently
+      if (statusChangeNotified.current[notificationKey]) {
+        console.debug(`Skipping notification for ${repoId}: already notified this transition`);
+        return false;
+      }
+
+      // Check if enough time has passed since the last notification for this repo
+      const lastTime = lastNotificationTime.get(repoId) || 0;
+      const now = Date.now();
+      const timeSinceLastNotification = now - lastTime;
+
+      // Only allow notification if 10 seconds have passed since the last one for this repo
+      if (timeSinceLastNotification < 10000) {
+        console.debug(`Skipping notification for ${repoId}: too soon (${timeSinceLastNotification}ms)`);
+        return false;
+      }
+
+      // Update timestamps and mark as notified
+      lastNotificationTime.set(repoId, now);
+      statusChangeNotified.current[notificationKey] = true;
+
+      // Clear the notification flag after a delay to allow future notifications of the same type
+      setTimeout(() => {
+        statusChangeNotified.current[notificationKey] = false;
+      }, 15000);
+
+      console.info(`Allowing notification for ${repoId}: ${oldStatus} -> ${newStatus}`);
+      return true;
+    },
+    [],
+  );
+
+  // Function to notify state change - MODIFIED to remove chat messages
   const notifyStateChange = useCallback(
     (oldStatus: RepositoryStatus, newStatus: RepositoryStatus) => {
       // Only dispatch state change event if the status has actually changed
-      if (oldStatus !== newStatus) {
-        // Dispatch the state change event
+      // and we should notify about this change
+      if (oldStatus !== newStatus && shouldNotifyStateChange(repository.id, oldStatus, newStatus)) {
+        console.warn(`Notifying state change for ${repository.id}: ${oldStatus} -> ${newStatus}`);
+
+        // Dispatch the state change event without adding chat messages
         const event = new CustomEvent(REPO_STATE_CHANGE_EVENT, {
           detail: {
             repository,
@@ -82,53 +143,50 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
           },
         });
         window.dispatchEvent(event);
-
-        // Add appropriate user messages based on the status change
-        switch (newStatus) {
-          case RepositoryStatus.PENDING:
-            if (oldStatus !== RepositoryStatus.PENDING) {
-              addMessage({
-                content: `Repository ${repository.name} is now in a pending state.`,
-                sender: SENDERS[SenderType.SWIFT_ASSISTANT],
-                role: "assistant-informational",
-              });
-            }
-            break;
-          case RepositoryStatus.READY:
-          case RepositoryStatus.INGESTED:
-            addMessage({
-              content: `Repository ${repository.name} has been successfully ingested and is ready to chat!`,
-              sender: SENDERS[SenderType.SWIFT_ASSISTANT],
-              role: "assistant",
-            });
-            break;
-          case RepositoryStatus.INGESTING:
-            addMessage({
-              content: `Processing repository ${repository.name}. Creating repository tree (respecting .gitignore)...`,
-              sender: SENDERS[SenderType.SWIFT_ASSISTANT],
-              role: "assistant-informational",
-            });
-            break;
-        }
       }
     },
-    [addMessage, repository],
+    [repository, shouldNotifyStateChange],
+  );
+
+  // Function to notify error - MODIFIED to remove chat messages
+  const notifyError = useCallback(
+    (error: Error) => {
+      // Only notify errors if we haven't recently sent an error for this repo
+      if (!shouldNotifyStateChange(repository.id, RepositoryStatus.PENDING, RepositoryStatus.PENDING)) {
+        return;
+      }
+
+      // Dispatch the error event without adding chat messages
+      const event = new CustomEvent(REPO_ERROR_EVENT, {
+        detail: {
+          repository,
+          error,
+        },
+      });
+      window.dispatchEvent(event);
+    },
+    [repository, shouldNotifyStateChange],
   );
 
   // Check repository status when the component mounts
   useEffect(() => {
+    // Keep track of the last status to avoid unnecessary updates
+    let lastCheckedStatus = repoStatus;
+
     const checkStatus = () => {
       try {
         const status = getRepositoryStatus(repository.id);
 
-        // If status is changing, trigger the state change notification
-        if (repoStatus !== status) {
-          notifyStateChange(repoStatus, status);
-          setPrevStatus(repoStatus);
+        // Only update if the status has actually changed from the last check
+        if (lastCheckedStatus !== status) {
+          console.warn(`Status changed for ${repository.id}: ${lastCheckedStatus} -> ${status}`);
+          notifyStateChange(lastCheckedStatus, status);
+          setPrevStatus(lastCheckedStatus);
           setRepoStatus(status);
+          lastCheckedStatus = status;
         }
 
-        // If status is downloading or processing, update the local isDownloading state
+        // Update downloading state based on status
         if (
           status === RepositoryStatus.DOWNLOADING ||
           status === RepositoryStatus.QUEUED ||
@@ -145,12 +203,14 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
       }
     };
 
+    // Initial check
     checkStatus();
 
-    // Set up an interval to periodically check status
-    const intervalId = setInterval(checkStatus, 2000);
+    // Set up an interval to periodically check status with a longer interval
+    // to reduce the frequency of status checks
+    const intervalId = setInterval(checkStatus, 3000);
     return () => clearInterval(intervalId);
-  }, [repository.id, repoStatus, notifyStateChange]);
+  }, [repository.id, notifyStateChange]);
 
   const handleDownload = useCallback(async () => {
     if (
@@ -193,12 +253,22 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
       setRepoStatus(downloadedRepo.status);
 
       // Dispatch custom event for repository download completion
-      const event = new CustomEvent(REPO_DOWNLOAD_COMPLETE_EVENT, {
-        detail: { repository: downloadedRepo, action: "download" },
-      });
-      window.dispatchEvent(event);
+      // but only dispatch once to prevent duplication
+      const key = `${repository.id}-download-complete`;
+      if (!statusChangeNotified.current[key]) {
+        statusChangeNotified.current[key] = true;
 
-      console.warn("Repository download events dispatched:", repository.id);
+        const event = new CustomEvent(REPO_DOWNLOAD_COMPLETE_EVENT, {
+          detail: { repository: downloadedRepo, action: "download" },
+        });
+        window.dispatchEvent(event);
+
+        setTimeout(() => {
+          statusChangeNotified.current[key] = false;
+        }, 10000);
+
+        console.warn("Repository download event dispatched:", repository.id);
+      }
     } catch (error) {
       console.error("Error downloading repository:", error);
 
@@ -208,11 +278,11 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
       setRepoStatus(RepositoryStatus.PENDING);
 
       // Notify user of the error
-      addMessage({
-        content: `Error downloading repository ${repository.name}: ${error instanceof Error ? error.message : "Unknown error"}`,
-        sender: SENDERS[SenderType.SWIFT_ASSISTANT],
-        role: "assistant-informational",
-      });
+      if (error instanceof Error) {
+        notifyError(error);
+      } else {
+        notifyError(new Error("Unknown error occurred while downloading repository"));
+      }
     } finally {
       // Even in error case, ensure we reset state properly
       setTimeout(() => {
@@ -220,7 +290,7 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
         downloadingRepos.set(repository.id, false);
       }, 500);
     }
-  }, [isDownloading, repoStatus, repository, addMessage, actionInProgress, lockUIUpdates]);
+  }, [isDownloading, repoStatus, repository, addMessage, actionInProgress, lockUIUpdates, notifyError]);
 
   // Get button appearance based on repository status
   const getButtonAppearance = () => {
