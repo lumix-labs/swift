@@ -341,7 +341,7 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
   };
 
   // Process according to file type
-  if (['js', 'ts', 'jsx', 'tsx'].includes(fileExtension || '')) {
+  if (["js", "ts", "jsx", "tsx"].includes(fileExtension || "")) {
     // JavaScript/TypeScript processing
     fileStructure.members = [];
 
@@ -356,7 +356,7 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
         type: "class",
         name: className,
         extends: extendsClass,
-        methods: []
+        methods: [],
       };
 
       // Get approximate class content to extract methods
@@ -365,8 +365,8 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
       let classEndIndex = classStartIndex + classMatch[0].length;
 
       while (braceCount > 0 && classEndIndex < fileContent.length) {
-        if (fileContent[classEndIndex] === '{') braceCount++;
-        if (fileContent[classEndIndex] === '}') braceCount--;
+        if (fileContent[classEndIndex] === "{") braceCount++;
+        if (fileContent[classEndIndex] === "}") braceCount--;
         classEndIndex++;
       }
 
@@ -382,9 +382,12 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
           type: "method",
           name: methodName,
           // Extract visibility
-          visibility: methodMatch[0].includes("private") ? "private" :
-            methodMatch[0].includes("protected") ? "protected" : "public",
-          isAsync: methodMatch[0].includes("async")
+          visibility: methodMatch[0].includes("private")
+            ? "private"
+            : methodMatch[0].includes("protected")
+              ? "protected"
+              : "public",
+          isAsync: methodMatch[0].includes("async"),
         });
       }
 
@@ -401,7 +404,7 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
         type: "function",
         name: functionName,
         isAsync: functionMatch[0].includes("async"),
-        isExported: functionMatch[0].includes("export")
+        isExported: functionMatch[0].includes("export"),
       });
     }
 
@@ -416,11 +419,10 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
         name: functionName,
         isArrowFunction: true,
         isAsync: arrowFunctionMatch[0].includes("async"),
-        isExported: arrowFunctionMatch[0].includes("export")
+        isExported: arrowFunctionMatch[0].includes("export"),
       });
     }
-  }
-  else if (['py'].includes(fileExtension || '')) {
+  } else if (["py"].includes(fileExtension || "")) {
     // Python processing
     fileStructure.members = [];
 
@@ -436,7 +438,7 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
         type: "class",
         name: className,
         inherits: inherits,
-        methods: []
+        methods: [],
       };
 
       // Extract methods within the class
@@ -464,7 +466,7 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
         classInfo.methods.push({
           type: "method",
           name: methodName,
-          visibility: isPrivate ? "private" : "public"
+          visibility: isPrivate ? "private" : "public",
         });
       }
 
@@ -474,7 +476,7 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
     // Extract top-level functions
     const functionRegex = /def\s+(\w+)\s*\([^)]*\):/g;
     let functionMatch: RegExpExecArray | null;
-    let classIndices: number[] = [];
+    const classIndices: number[] = [];
 
     // Find all class indices to avoid extracting class methods as top-level functions
     const classStartRegex = /class\s+\w+(?:\([^)]+\))?:/g;
@@ -486,12 +488,14 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
 
     while ((functionMatch = functionRegex.exec(fileContent)) !== null) {
       // Check if this function is inside a class
-      const isInsideClass = classIndices.some(index => {
+      const isInsideClass = classIndices.some((index) => {
         // Fixed: Added null check for functionMatch
-        return functionMatch !== null &&
+        return (
+          functionMatch !== null &&
           functionMatch.index > index &&
           (functionMatch.index < fileContent.indexOf("class ", index + 1) ||
-            fileContent.indexOf("class ", index + 1) === -1);
+            fileContent.indexOf("class ", index + 1) === -1)
+        );
       });
 
       if (!isInsideClass) {
@@ -499,17 +503,17 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
         fileStructure.members.push({
           type: "function",
           name: functionName,
-          visibility: functionName.startsWith("_") ? "private" : "public"
+          visibility: functionName.startsWith("_") ? "private" : "public",
         });
       }
     }
-  }
-  else if (['java', 'kt', 'scala'].includes(fileExtension || '')) {
+  } else if (["java", "kt", "scala"].includes(fileExtension || "")) {
     // Java/Kotlin/Scala processing
     fileStructure.members = [];
 
     // Extract classes and interfaces
-    const classRegex = /(?:public|private|protected)?\s*(?:abstract\s+)?(?:class|interface)\s+(\w+)(?:\s+(?:extends|implements)\s+([^{]+))?/g;
+    const classRegex =
+      /(?:public|private|protected)?\s*(?:abstract\s+)?(?:class|interface)\s+(\w+)(?:\s+(?:extends|implements)\s+([^{]+))?/g;
     let classMatch: RegExpExecArray | null;
 
     while ((classMatch = classRegex.exec(fileContent)) !== null) {
@@ -520,7 +524,7 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
         type: classMatch[0].includes("interface") ? "interface" : "class",
         name: className,
         extendsImplements: extendsImplements,
-        methods: []
+        methods: [],
       };
 
       // Get approximate class content
@@ -530,7 +534,7 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
 
       // Find the opening brace
       while (classEndIndex < fileContent.length) {
-        if (fileContent[classEndIndex] === '{') {
+        if (fileContent[classEndIndex] === "{") {
           braceCount = 1;
           break;
         }
@@ -540,15 +544,16 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
       // Find the closing brace
       classEndIndex++;
       while (braceCount > 0 && classEndIndex < fileContent.length) {
-        if (fileContent[classEndIndex] === '{') braceCount++;
-        if (fileContent[classEndIndex] === '}') braceCount--;
+        if (fileContent[classEndIndex] === "{") braceCount++;
+        if (fileContent[classEndIndex] === "}") braceCount--;
         classEndIndex++;
       }
 
       const classContent = fileContent.substring(classStartIndex, classEndIndex);
 
       // Extract methods
-      const methodRegex = /(?:public|private|protected|default)?\s*(?:static\s+)?(?:final\s+)?(?:abstract\s+)?(?:<[^>]+>\s+)?(\w+)\s+(\w+)\s*\([^)]*\)/g;
+      const methodRegex =
+        /(?:public|private|protected|default)?\s*(?:static\s+)?(?:final\s+)?(?:abstract\s+)?(?:<[^>]+>\s+)?(\w+)\s+(\w+)\s*\([^)]*\)/g;
       let methodMatch: RegExpExecArray | null;
 
       while ((methodMatch = methodRegex.exec(classContent)) !== null) {
@@ -561,20 +566,27 @@ const extractCodeStructure = (filePath: string, content: Uint8Array): any => {
             type: "method",
             name: methodName,
             returnType: returnType,
-            visibility: methodMatch[0].includes("private") ? "private" :
-              methodMatch[0].includes("protected") ? "protected" :
-                methodMatch[0].includes("default") ? "default" : "public",
+            visibility: methodMatch[0].includes("private")
+              ? "private"
+              : methodMatch[0].includes("protected")
+                ? "protected"
+                : methodMatch[0].includes("default")
+                  ? "default"
+                  : "public",
             isStatic: methodMatch[0].includes("static"),
             isFinal: methodMatch[0].includes("final"),
-            isAbstract: methodMatch[0].includes("abstract")
+            isAbstract: methodMatch[0].includes("abstract"),
           });
         } else {
           classInfo.constructors = classInfo.constructors || [];
           classInfo.constructors.push({
             type: "constructor",
             name: methodName,
-            visibility: methodMatch[0].includes("private") ? "private" :
-              methodMatch[0].includes("protected") ? "protected" : "public"
+            visibility: methodMatch[0].includes("private")
+              ? "private"
+              : methodMatch[0].includes("protected")
+                ? "protected"
+                : "public",
           });
         }
       }
@@ -591,7 +603,7 @@ const generateDetailedTree = (files: { [path: string]: Uint8Array }): any => {
   const detailedTree: any = {
     type: "root",
     name: "repository",
-    children: {}
+    children: {},
   };
 
   // Get all file paths and filter out ignored ones
@@ -631,7 +643,7 @@ const generateDetailedTree = (files: { [path: string]: Uint8Array }): any => {
         currentNode[part] = {
           type: "directory",
           name: part,
-          children: {}
+          children: {},
         };
       }
       currentNode = currentNode[part].children;
@@ -642,7 +654,26 @@ const generateDetailedTree = (files: { [path: string]: Uint8Array }): any => {
     const fileExtension = fileName.split(".").pop()?.toLowerCase();
 
     // Only extract code structure for code files
-    const codeFileExtensions = ['js', 'ts', 'jsx', 'tsx', 'py', 'java', 'kt', 'scala', 'c', 'cpp', 'h', 'hpp', 'cs', 'php', 'rb', 'go', 'rs', 'swift'];
+    const codeFileExtensions = [
+      "js",
+      "ts",
+      "jsx",
+      "tsx",
+      "py",
+      "java",
+      "kt",
+      "scala",
+      "c",
+      "cpp",
+      "h",
+      "hpp",
+      "cs",
+      "php",
+      "rb",
+      "go",
+      "rs",
+      "swift",
+    ];
 
     if (fileExtension && codeFileExtensions.includes(fileExtension)) {
       currentNode[fileName] = extractCodeStructure(path, files[path]);
@@ -651,7 +682,7 @@ const generateDetailedTree = (files: { [path: string]: Uint8Array }): any => {
       currentNode[fileName] = {
         type: "file",
         name: fileName,
-        extension: fileExtension || "unknown"
+        extension: fileExtension || "unknown",
       };
     }
   }
@@ -670,19 +701,22 @@ const postMessageToChat = async (content: string): Promise<void> => {
         message: {
           content,
           sender: SENDERS[SenderType.SWIFT_ASSISTANT],
-          role: "assistant"
-        }
-      }
+          role: "assistant",
+        },
+      },
     });
 
-    console.log("[REPO-READY] Event object created:", JSON.stringify({
-      type: event.type,
-      detail: {
-        content: event.detail.message.content,
-        sender: event.detail.message.sender,
-        role: event.detail.message.role
-      }
-    }));
+    console.log(
+      "[REPO-READY] Event object created:",
+      JSON.stringify({
+        type: event.type,
+        detail: {
+          content: event.detail.message.content,
+          sender: event.detail.message.sender,
+          role: event.detail.message.role,
+        },
+      }),
+    );
 
     // Dispatch the event
     window.dispatchEvent(event);
@@ -690,7 +724,6 @@ const postMessageToChat = async (content: string): Promise<void> => {
 
     // Check if there's a way to debug event listeners
     console.log("[REPO-READY] Check for active repository-ready-message listeners in browser devtools");
-
   } catch (error) {
     console.error("[REPO-READY] Error posting message to chat:", error);
   }
