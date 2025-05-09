@@ -33,6 +33,7 @@ export class ClaudeService extends BaseModelService {
     readmeContent?: string,
     repoTree?: string,
     repoLocalPath?: string,
+    detailedTree?: any, // Added detailed tree parameter
   ): Promise<string> {
     try {
       console.warn("Sending message to Claude API:", {
@@ -40,6 +41,7 @@ export class ClaudeService extends BaseModelService {
         hasRepoContext: Boolean(repoName && repoUrl),
         readmeContentLength: readmeContent?.length || 0,
         hasRepoTree: Boolean(repoTree),
+        hasDetailedTree: Boolean(detailedTree),
         hasPersonalityPrompt: Boolean(this.personalityPrompt),
       });
 
@@ -52,7 +54,7 @@ export class ClaudeService extends BaseModelService {
           configFiles = await this.extractConfigFiles(repoTree, repoLocalPath);
         }
 
-        repoContext = this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, configFiles);
+        repoContext = this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, configFiles, detailedTree);
       }
 
       const requestBody = {

@@ -125,6 +125,7 @@ export class GeminiService extends BaseModelService {
     readmeContent?: string,
     repoTree?: string,
     repoLocalPath?: string,
+    detailedTree?: any, // Added detailed tree parameter
   ): Promise<string> {
     try {
       console.warn("Sending message to Gemini API:", {
@@ -132,6 +133,7 @@ export class GeminiService extends BaseModelService {
         hasRepoContext: Boolean(repoName && repoUrl),
         readmeContentLength: readmeContent?.length || 0,
         hasRepoTree: Boolean(repoTree),
+        hasDetailedTree: Boolean(detailedTree),
         hasPersonalityPrompt: Boolean(this.personalityPrompt),
       });
 
@@ -146,7 +148,7 @@ export class GeminiService extends BaseModelService {
         }
 
         // Generate new repository context if repository parameters are provided
-        repoContext = this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, configFiles);
+        repoContext = this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, configFiles, detailedTree);
       }
 
       // Add conversation context to the message

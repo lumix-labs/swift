@@ -21,6 +21,7 @@ interface DownloadedRepository extends Repository {
   size?: number;
   readmeContent?: string;
   repoTree?: string;
+  detailedTree?: any; // Added to support detailed tree data
   status?: RepositoryStatus;
 }
 
@@ -162,9 +163,17 @@ export function useMessageSubmission({
                 repoUrl: currentRepo.url,
                 readmeContent: downloadedRepo.readmeContent || "",
                 repoTree: downloadedRepo.repoTree || "",
+                detailedTree: downloadedRepo.detailedTree || undefined,
                 localPath: downloadedRepo.localPath || "",
               }
             : undefined;
+
+        console.log("[MESSAGE-SUBMISSION] Sending message with context data:", {
+          hasContext: Boolean(contextData),
+          repoName: contextData?.repoName,
+          hasDetailedTree: Boolean(contextData?.detailedTree),
+          detailedTreeSize: contextData?.detailedTree ? JSON.stringify(contextData.detailedTree).length : 0,
+        });
 
         // Use appropriate service based on selected model provider
         switch (currentModel.provider) {
@@ -180,6 +189,7 @@ export function useMessageSubmission({
                 contextData.readmeContent,
                 contextData.repoTree,
                 contextData.localPath,
+                contextData.detailedTree, // Added detailed tree
               );
             } else {
               // No repository context
@@ -204,6 +214,7 @@ export function useMessageSubmission({
                 contextData.readmeContent,
                 contextData.repoTree,
                 contextData.localPath,
+                contextData.detailedTree, // Added detailed tree
               );
             } else {
               // No repository context
@@ -228,6 +239,7 @@ export function useMessageSubmission({
                 contextData.readmeContent,
                 contextData.repoTree,
                 contextData.localPath,
+                contextData.detailedTree, // Added detailed tree
               );
             } else {
               // No repository context

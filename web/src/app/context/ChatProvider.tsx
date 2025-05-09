@@ -11,8 +11,32 @@ import { MessageRole } from "../lib/types/message";
 const ChatStateContext = createContext<ChatState | undefined>(undefined);
 const ChatDispatchContext = createContext<React.Dispatch<ChatAction> | undefined>(undefined);
 
+// Singleton for global access to chat context
+let globalDispatch: React.Dispatch<ChatAction> | null = null;
+
+// Function to get chat context from outside the React component tree
+export const getChatContext = () => {
+  if (!globalDispatch) {
+    console.warn("Chat context accessed before initialization");
+    return { addMessage: null };
+  }
+
+  return {
+    addMessage: (message: Omit<any, "id" | "timestamp">) =>
+      globalDispatch && globalDispatch({ type: "ADD_MESSAGE", payload: { message } }),
+  };
+};
+
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(chatReducer, initialState);
+
+  // Set global dispatch reference for external access
+  useEffect(() => {
+    globalDispatch = dispatch;
+    return () => {
+      globalDispatch = null;
+    };
+  }, [dispatch]);
 
   // Load sessions from localStorage on mount
   useEffect(() => {
@@ -74,6 +98,45 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     saveSelectedRepositoryId(state.selectedRepositoryId);
   }, [state.selectedRepositoryId]);
+
+  // Listen for repository ready messages
+  useEffect(() => {
+    const handleRepositoryReadyMessage = (event: CustomEvent) => {
+      console.log("[CHAT-PROVIDER] Received repository-ready-message event:", {
+        eventType: event.type,
+        detail: event.detail,
+        message: event.detail?.message
+          ? {
+              content: event.detail.message.content,
+              sender: event.detail.message.sender ? event.detail.message.sender.name : undefined,
+              role: event.detail.message.role,
+            }
+          : undefined,
+      });
+
+      const message = event.detail?.message;
+      if (message) {
+        console.log("[CHAT-PROVIDER] Adding repository ready message to chat");
+        dispatch({
+          type: "ADD_MESSAGE",
+          payload: { message },
+        });
+        console.log("[CHAT-PROVIDER] Repository ready message added to chat");
+      } else {
+        console.warn("[CHAT-PROVIDER] Repository ready message event had no message data");
+      }
+    };
+
+    // Add event listener for repository ready messages
+    window.addEventListener("repository-ready-message", handleRepositoryReadyMessage as EventListener);
+    console.log("[CHAT-PROVIDER] Added repository-ready-message event listener");
+
+    // Clean up event listener on unmount
+    return () => {
+      window.removeEventListener("repository-ready-message", handleRepositoryReadyMessage as EventListener);
+      console.log("[CHAT-PROVIDER] Removed repository-ready-message event listener");
+    };
+  }, []);
 
   return (
     <ChatStateContext.Provider value={state}>

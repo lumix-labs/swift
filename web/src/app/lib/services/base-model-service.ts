@@ -24,6 +24,7 @@ export interface RepositoryContext {
   readmeContent?: string;
   repoTree?: string;
   repoLocalPath?: string;
+  detailedTree?: any; // Added to support detailed repository data
   configFiles?: Record<string, string>;
 }
 
@@ -136,6 +137,7 @@ RESPONSE GUIDELINES:
     readmeContent?: string,
     repoTree?: string,
     configFiles?: Record<string, string>,
+    detailedTree?: any, // Added detailed tree parameter
   ): string {
     let context = `You are assisting with a code repository: ${repoName} (${repoUrl}).\n\n`;
 
@@ -153,6 +155,22 @@ RESPONSE GUIDELINES:
           : readmeContent;
 
       context += `Repository README content:\n\`\`\`markdown\n${truncatedReadme}\n\`\`\`\n\n`;
+    }
+
+    // Add detailed tree if available - include only a summary to avoid token limits
+    if (detailedTree) {
+      let detailedTreeSummary = "Repository detailed structure available with code organization information including:";
+
+      // Add a summary of what's in the detailed tree
+      detailedTreeSummary += "\n- Class and method hierarchies";
+      detailedTreeSummary += "\n- Function definitions";
+      detailedTreeSummary += "\n- Code organization by file and folder";
+      detailedTreeSummary += "\n- Language-specific parsing of code structures";
+
+      context += `\n${detailedTreeSummary}\n\n`;
+
+      // Log the size of the detailed tree for debugging
+      console.log(`[${this.getProviderName()}] Detailed tree size: ${JSON.stringify(detailedTree).length} characters`);
     }
 
     // Add important config files if available
@@ -263,23 +281,24 @@ RESPONSE GUIDELINES:
     readmeContent?: string,
     repoTree?: string,
     repoLocalPath?: string,
+    detailedTree?: any, // Added detailed tree parameter
   ): void {
     if (repoLocalPath) {
       // If local path is provided, try to extract config files
       this.extractConfigFiles(repoTree || "", repoLocalPath)
         .then((configFiles) => {
-          this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, configFiles);
+          this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, configFiles, detailedTree);
           console.warn("Repository context updated for:", repoName);
         })
         .catch((error) => {
           console.error("Error extracting config files:", error);
           // Fall back to basic context if extraction fails
-          this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree);
+          this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, undefined, detailedTree);
           console.warn("Repository context updated for:", repoName);
         });
     } else {
       // Basic context without config files
-      this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree);
+      this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, undefined, detailedTree);
       console.warn("Repository context updated for:", repoName);
     }
   }
@@ -294,5 +313,6 @@ RESPONSE GUIDELINES:
     readmeContent?: string,
     repoTree?: string,
     repoLocalPath?: string,
+    detailedTree?: any, // Added detailed tree parameter
   ): Promise<string>;
 }
