@@ -10,7 +10,7 @@ import {
   getRepositoryStatus,
   RepositoryStatus,
   updateRepositoryStatus,
-  startIngestion,
+  getStatusMessage,
 } from "../../../lib/services/repo-download-service";
 import { useDebounce } from "../../../hooks/useDebounce";
 import { SenderType, SENDERS } from "../../../lib/types/message";
@@ -31,9 +31,9 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
   const [repoStatus, setRepoStatus] = useState<RepositoryStatus>(RepositoryStatus.PENDING);
   const [isDownloading, setIsDownloading] = useState(downloadingRepos.get(repository.id) || false);
   const [actionInProgress, setActionInProgress] = useState(false);
-  const [transitionState, setTransitionState] = useState<"idle" | "start" | "downloading" | "ingesting" | "complete">(
-    "idle",
-  );
+  const [transitionState, setTransitionState] = useState<
+    "idle" | "start" | "downloading" | "ingesting" | "complete" | "error"
+  >("idle");
 
   // Use debounced state to prevent flickering with longer delay
   const debouncedIsDownloading = useDebounce(isDownloading, 500);
@@ -59,6 +59,8 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
         setTransitionState("ingesting");
       } else if (debouncedRepoStatus === RepositoryStatus.INGESTED || debouncedRepoStatus === RepositoryStatus.READY) {
         setTransitionState("complete");
+      } else if (debouncedRepoStatus === RepositoryStatus.ERROR) {
+        setTransitionState("error");
       } else {
         setTransitionState("idle");
       }
@@ -80,7 +82,11 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
         ) {
           setIsDownloading(true);
           downloadingRepos.set(repository.id, true);
-        } else if (status === RepositoryStatus.READY || status === RepositoryStatus.INGESTED) {
+        } else if (
+          status === RepositoryStatus.READY ||
+          status === RepositoryStatus.INGESTED ||
+          status === RepositoryStatus.ERROR
+        ) {
           setIsDownloading(false);
           downloadingRepos.set(repository.id, false);
         }
@@ -110,7 +116,7 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
     // Lock UI updates to prevent flickering
     lockUIUpdates();
 
-    console.warn("Starting repository download:", repository.id);
+    console.log("Starting repository download:", repository.id);
     setIsDownloading(true);
     downloadingRepos.set(repository.id, true);
 
@@ -120,7 +126,7 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
 
     // Add downloading message
     addMessage({
-      content: `Downloading repository ${repository.name}. Please wait...`,
+      content: `Downloading repository ${repository.name} from GitHub. Please wait...`,
       sender: SENDERS[SenderType.SWIFT_ASSISTANT],
       role: "assistant-informational",
     });
@@ -129,11 +135,15 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
       // Start the download
       const downloadedRepo = await downloadRepository(repository.id, repository.name, repository.url);
 
-      console.warn("Repository downloaded successfully:", repository.id);
+      if (downloadedRepo.status === RepositoryStatus.ERROR) {
+        throw new Error(downloadedRepo.error || "Unknown error during download");
+      }
+
+      console.log("Repository downloaded successfully:", repository.id);
 
       // Add a message about ingestion starting
       addMessage({
-        content: `Processing repository ${repository.name}. Creating repository tree (respecting .gitignore)...`,
+        content: `Processing repository ${repository.name}. Creating repository tree...`,
         sender: SENDERS[SenderType.SWIFT_ASSISTANT],
         role: "assistant-informational",
       });
@@ -151,19 +161,19 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
 
         // Notify user when download is complete
         addMessage({
-          content: `Repository ${repository.name} has been successfully ingested and is ready to chat!`,
+          content: `Repository ${repository.name} has been successfully processed and is ready to chat!`,
           sender: SENDERS[SenderType.SWIFT_ASSISTANT],
           role: "assistant-informational",
         });
 
-        console.warn("Repository download events dispatched:", repository.id);
+        console.log("Repository download events dispatched:", repository.id);
       }, 800); // Increased delay for stability
     } catch (error) {
       console.error("Error downloading repository:", error);
 
-      // Set status back to pending
-      updateRepositoryStatus(repository.id, RepositoryStatus.PENDING);
-      setRepoStatus(RepositoryStatus.PENDING);
+      // Set status to error
+      updateRepositoryStatus(repository.id, RepositoryStatus.ERROR);
+      setRepoStatus(RepositoryStatus.ERROR);
 
       // Notify user of the error
       addMessage({
@@ -241,6 +251,23 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
           text: "In Queue",
           disabled: true,
         };
+      case RepositoryStatus.ERROR:
+        return {
+          bgClass:
+            baseClasses +
+            "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                clipRule="evenodd"
+              />
+            </svg>
+          ),
+          text: "Retry Download",
+          disabled: false,
+        };
       default:
         return {
           bgClass:
@@ -277,6 +304,8 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
         return "opacity-100 scale-100";
       case "complete":
         return "opacity-100 scale-100 transform-gpu";
+      case "error":
+        return "opacity-100 scale-100";
       default:
         return "";
     }
@@ -289,6 +318,12 @@ export function DownloadButton({ repository, className = "", isSmooth = false }:
       className={`flex items-center justify-center space-x-1.5 
         ${buttonAppearance.bgClass} 
         ${getTransitionClasses()} ${className}`}
+      aria-label={`${buttonAppearance.text} repository ${repository.name}`}
+      title={
+        repoStatus === RepositoryStatus.ERROR
+          ? getDownloadedRepository(repository.id)?.error || "Error downloading repository"
+          : buttonAppearance.text
+      }
     >
       {buttonAppearance.icon}
       <span>{buttonAppearance.text}</span>

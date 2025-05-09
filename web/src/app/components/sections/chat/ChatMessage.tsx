@@ -15,6 +15,34 @@ interface ChatMessageProps {
   isLoading?: boolean;
 }
 
+// Create type definitions for marked renderer callbacks
+interface MarkedRenderer {
+  code(code: string, language: string | undefined): string;
+  paragraph(text: string): string;
+  heading(text: string, level: number): string;
+  list(body: string, ordered: boolean): string;
+  listitem(text: string): string;
+  blockquote(quote: string): string;
+  table(header: string, body: string): string;
+  tablerow(content: string): string;
+  tablecell(content: string, flags: { header?: boolean; align?: string }): string;
+  codespan(text: string): string;
+  strong(text: string): string;
+  em(text: string): string;
+  link(href: string, title: string | null, text: string): string;
+  image(href: string, title: string | null, text: string): string;
+}
+
+// Extend the marked type to include use and parse methods
+interface MarkedExtended {
+  (src: string, options?: Record<string, unknown>): string;
+  use(options: { renderer: Partial<MarkedRenderer>; gfm?: boolean; breaks?: boolean; pedantic?: boolean }): void;
+  parse(src: string): string;
+}
+
+// Cast marked to our extended type
+const markedExtended = marked as unknown as MarkedExtended;
+
 export function ChatMessage({ message, isLoading }: ChatMessageProps) {
   const { theme } = useTheme();
   const [processedContent, setProcessedContent] = useState<string>(message.content);
@@ -59,114 +87,100 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
       const contentToProcess =
         isAdvisorMessage || isLegacyModelMessage ? formatModelResponse(message.content) : message.content;
 
-      // Create a custom renderer for code blocks
-      const customRenderer = {
-        code(code: string, language?: string): string {
-          // Use language for syntax highlighting if provided
-          const validLanguage =
-            language &&
-            (language === "js" ||
-              language === "javascript" ||
-              language === "ts" ||
-              language === "typescript" ||
-              language === "jsx" ||
-              language === "tsx" ||
-              language === "html" ||
-              language === "css" ||
-              language === "json" ||
-              language === "python" ||
-              language === "bash" ||
-              language === "sh" ||
-              language === "java" ||
-              language === "go" ||
-              language === "c" ||
-              language === "cpp" ||
-              language === "csharp" ||
-              language === "ruby" ||
-              language === "sql" ||
-              language === "yaml" ||
-              language === "markdown" ||
-              language === "md");
+      // Configure marked with an extension to fix the t.text error
+      markedExtended.use({
+        renderer: {
+          code(code: string, language: string | undefined) {
+            // Use language for syntax highlighting if provided
+            const validLanguage =
+              language &&
+              (language === "js" ||
+                language === "javascript" ||
+                language === "ts" ||
+                language === "typescript" ||
+                language === "jsx" ||
+                language === "tsx" ||
+                language === "html" ||
+                language === "css" ||
+                language === "json" ||
+                language === "python" ||
+                language === "bash" ||
+                language === "sh" ||
+                language === "java" ||
+                language === "go" ||
+                language === "c" ||
+                language === "cpp" ||
+                language === "csharp" ||
+                language === "ruby" ||
+                language === "sql" ||
+                language === "yaml" ||
+                language === "markdown" ||
+                language === "md");
 
-          if (validLanguage) {
-            return `<pre><code class="language-${language} hljs">${hljs.highlight(code, { language }).value}</code></pre>`;
-          }
+            if (validLanguage) {
+              return `<pre><code class="language-${language} hljs">${hljs.highlight(code, { language }).value}</code></pre>`;
+            }
 
-          // Fall back to default rendering if not using custom highlighting
-          return `<pre><code class="hljs">${hljs.highlight(code, { language: "plaintext" }).value}</code></pre>`;
-        },
-        paragraph(text: string): string {
-          return `<p class="mb-4">${text}</p>`;
-        },
-        heading(text: string, level: number): string {
-          return `<h${level} class="font-bold text-lg mb-2">${text}</h${level}>`;
-        },
-        list(body: string, ordered: boolean): string {
-          const tag = ordered ? "ol" : "ul";
-          const className = ordered ? "list-decimal pl-5 mb-4" : "list-disc pl-5 mb-4";
-          return `<${tag} class="${className}">${body}</${tag}>`;
-        },
-        listitem(text: string): string {
-          return `<li class="mb-1">${text}</li>`;
-        },
-        blockquote(quote: string): string {
-          return `<blockquote class="border-l-4 border-gray-300 dark:border-gray-600 pl-4 italic my-4">${quote}</blockquote>`;
-        },
-        table(header: string, body: string): string {
-          return `<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 my-4">
-            <thead>${header}</thead>
-            <tbody>${body}</tbody>
-          </table>`;
-        },
-        tablerow(content: string): string {
-          return `<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">${content}</tr>`;
-        },
-        tablecell(
-          content: string,
-          flags: {
-            header: boolean;
-            align: "center" | "left" | "right" | null;
+            // Fall back to default rendering if not using custom highlighting
+            return `<pre><code class="hljs">${hljs.highlight(code, { language: "plaintext" }).value}</code></pre>`;
           },
-        ): string {
-          const tag = flags.header ? "th" : "td";
-          const alignment = flags.align ? `text-${flags.align}` : "";
-          const classes = flags.header
-            ? `px-6 py-3 bg-gray-50 dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 ${alignment}`
-            : `px-6 py-4 text-sm text-gray-500 dark:text-gray-400 ${alignment}`;
-          return `<${tag} class="${classes}">${content}</${tag}>`;
+          paragraph(text: string) {
+            return `<p class="mb-4">${text}</p>`;
+          },
+          heading(text: string, level: number) {
+            return `<h${level} class="font-bold text-lg mb-2">${text}</h${level}>`;
+          },
+          list(body: string, ordered: boolean) {
+            const tag = ordered ? "ol" : "ul";
+            const className = ordered ? "list-decimal pl-5 mb-4" : "list-disc pl-5 mb-4";
+            return `<${tag} class="${className}">${body}</${tag}>`;
+          },
+          listitem(text: string) {
+            return `<li class="mb-1">${text}</li>`;
+          },
+          blockquote(quote: string) {
+            return `<blockquote class="border-l-4 border-gray-300 dark:border-gray-600 pl-4 italic my-4">${quote}</blockquote>`;
+          },
+          table(header: string, body: string) {
+            return `<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 my-4">
+              <thead>${header}</thead>
+              <tbody>${body}</tbody>
+            </table>`;
+          },
+          tablerow(content: string) {
+            return `<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">${content}</tr>`;
+          },
+          tablecell(content: string, flags: { header?: boolean; align?: string }) {
+            const tag = flags.header ? "th" : "td";
+            const alignment = flags.align ? `text-${flags.align}` : "";
+            const classes = flags.header
+              ? `px-6 py-3 bg-gray-50 dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 ${alignment}`
+              : `px-6 py-4 text-sm text-gray-500 dark:text-gray-400 ${alignment}`;
+            return `<${tag} class="${classes}">${content}</${tag}>`;
+          },
+          codespan(text: string) {
+            return `<code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm">${text}</code>`;
+          },
+          strong(text: string) {
+            return `<strong class="font-bold">${text}</strong>`;
+          },
+          em(text: string) {
+            return `<em class="italic">${text}</em>`;
+          },
+          link(href: string, title: string | null, text: string) {
+            return `<a href="${href}" title="${title || ""}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">${text}</a>`;
+          },
+          image(href: string, title: string | null, text: string) {
+            return `<img src="${href}" alt="${text}" title="${title || ""}" class="max-w-full h-auto rounded" />`;
+          },
         },
-        codespan(text: string): string {
-          return `<code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm">${text}</code>`;
-        },
-        strong(text: string): string {
-          return `<strong class="font-bold">${text}</strong>`;
-        },
-        em(text: string): string {
-          return `<em class="italic">${text}</em>`;
-        },
-        link(href: string, title: string | null, text: string): string {
-          return `<a href="${href}" title="${title || ""}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">${text}</a>`;
-        },
-        image(href: string, title: string | null, text: string): string {
-          return `<img src="${href}" alt="${text}" title="${title || ""}" class="max-w-full h-auto rounded" />`;
-        },
-      };
-
-      // Configure highlight options
-      const options = {
-        highlight: function (code: string, lang: string) {
-          const language = hljs.getLanguage(lang) ? lang : "plaintext";
-          return hljs.highlight(code, { language }).value;
-        },
-        renderer: customRenderer,
-        breaks: true,
         gfm: true,
+        breaks: true,
         pedantic: false,
-        headerIds: false,
-      };
+      });
 
       // Parse the markdown content
-      const rawHtml = marked(contentToProcess, options);
+      const rawHtml = markedExtended.parse(contentToProcess);
 
       // Sanitize HTML to prevent XSS attacks
       const sanitizedHtml = DOMPurify(window).sanitize(rawHtml, {

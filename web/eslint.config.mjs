@@ -15,19 +15,22 @@ const compat = new FlatCompat({
 });
 
 export default [
-  // Apply TypeScript configuration to all JS/TS files
+  // Apply ignore patterns (migrated from .eslintignore)
   {
     ignores: [
       '**/node_modules/**',
+      '**/\.next/**',
+      '**/\.next/types/**',
       '.next/**',
       'out/**',
       'dist/**',
       'public/**',
       '**/coverage/**',
       '**/*.d.ts',
+      '.next/types/app/api/repos/download/route.ts',
     ],
   },
-  
+
   // Core JS/TS configuration
   js.configs.recommended,
   ...compat.extends(
@@ -37,7 +40,7 @@ export default [
     'plugin:jsx-a11y/recommended',
     'next/core-web-vitals'
   ),
-  
+
   // Source files configuration
   {
     files: ['src/**/*.{js,jsx,ts,tsx}'],
@@ -48,28 +51,28 @@ export default [
       'no-empty': ['error', { 'allowEmptyCatch': true }],
       'no-useless-escape': 'off', // This can be too strict at times
       'no-case-declarations': 'warn', // Allow declarations in case blocks but warn
-      
+
       // TypeScript rules
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
-      
+
       // React rules
       'react/prop-types': 'off', // Not needed with TypeScript
       'react/react-in-jsx-scope': 'off', // Not needed in Next.js
       'react/jsx-filename-extension': ['warn', { extensions: ['.tsx'] }],
-      
+
       // React Hooks rules
-      'react-hooks/rules-of-hooks': 'error', 
+      'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
-      
+
       // A11y rules
       'jsx-a11y/no-autofocus': 'off', // Sometimes needed for UX
       'jsx-a11y/click-events-have-key-events': 'warn', // Warning instead of error
       'jsx-a11y/no-static-element-interactions': 'warn', // Warning instead of error
     },
   },
-  
+
   // Test files with relaxed rules
   {
     files: ['**/*.test.{js,jsx,ts,tsx}', '**/__tests__/**/*.{js,jsx,ts,tsx}'],
