@@ -3,6 +3,7 @@
 import JSZip from "jszip";
 import { SenderType, SENDERS } from "../types/message";
 import { generateDependencyGraph, analyzeApiSurface, DependencyGraph, ApiSurface } from "./repo-analysis-service";
+import { FileMetadata } from "../../types/repository";
 
 // Update the interface to include the detailed tree structure
 export enum RepositoryStatus {
@@ -27,6 +28,8 @@ export interface DownloadedRepository {
   detailedTree?: any; // Added to store detailed code structure tree
   dependencyGraph?: DependencyGraph; // Added to store dependency graph
   apiSurface?: ApiSurface; // Added to store API surface analysis
+  fileMetadata?: Record<string, FileMetadata>; // Map of file paths to metadata
+  directoryMetadata?: Record<string, FileMetadata>; // Aggregated metadata for directories
   error?: string; // Error message if download or ingestion failed
 }
 
@@ -732,6 +735,157 @@ const postMessageToChat = async (content: string): Promise<void> => {
   }
 };
 
+/**
+ * Map of file extensions to language names
+ */
+const LANGUAGE_MAP: Record<string, string> = {
+  js: "JavaScript",
+  ts: "TypeScript",
+  jsx: "JavaScript/React",
+  tsx: "TypeScript/React",
+  py: "Python",
+  java: "Java",
+  rb: "Ruby",
+  go: "Go",
+  php: "PHP",
+  c: "C",
+  cpp: "C++",
+  h: "C/C++ Header",
+  hpp: "C++ Header",
+  cs: "C#",
+  html: "HTML",
+  css: "CSS",
+  scss: "SCSS",
+  less: "Less",
+  md: "Markdown",
+  json: "JSON",
+  xml: "XML",
+  yaml: "YAML",
+  yml: "YAML",
+  sql: "SQL",
+  sh: "Shell",
+  bash: "Shell",
+  swift: "Swift",
+  kt: "Kotlin",
+  rs: "Rust",
+  dart: "Dart",
+  lua: "Lua",
+  scala: "Scala",
+  vue: "Vue",
+};
+
+/**
+ * Calculate file metadata and directory aggregates
+ */
+const generateFileMetadata = (files: {
+  [path: string]: Uint8Array;
+}): {
+  fileMetadata: Record<string, FileMetadata>;
+  directoryMetadata: Record<string, FileMetadata>;
+} => {
+  console.log("[REPO-INGESTION] Generating file and directory metadata...");
+
+  const fileMetadata: Record<string, FileMetadata> = {};
+  const directoryMetadata: Record<string, FileMetadata> = {};
+  const textDecoder = new TextDecoder("utf-8");
+
+  // Get all file paths and filter out ignored ones
+  const paths = Object.keys(files)
+    .filter((path) => !shouldIgnoreFile(path))
+    .sort();
+
+  if (paths.length === 0) {
+    console.log("[REPO-INGESTION] No valid files found for metadata extraction");
+    return { fileMetadata, directoryMetadata };
+  }
+
+  // Find the root folder name
+  const rootFolder = paths[0].split("/")[0];
+
+  // Process each file
+  for (const path of paths) {
+    try {
+      // Skip the root folder itself
+      if (path === rootFolder + "/" || path === rootFolder) {
+        continue;
+      }
+
+      // Get relative path from root
+      const relativePath = path.startsWith(rootFolder + "/") ? path.substring(rootFolder.length + 1) : path;
+
+      if (!relativePath) continue;
+
+      // Extract file extension and determine language
+      const fileExtension = path.split(".").pop()?.toLowerCase() || "";
+      const language = LANGUAGE_MAP[fileExtension] || "Unknown";
+
+      // Get content and calculate metrics
+      let lineCount = 0;
+      let wordCount = 0;
+
+      try {
+        const content = textDecoder.decode(files[path]);
+        const lines = content.split("\n");
+        const words = content.match(/\S+/g) || [];
+
+        lineCount = lines.length;
+        wordCount = words.length;
+      } catch (error) {
+        console.error(`Error decoding file ${path} for metadata:`, error);
+      }
+
+      // Create file metadata
+      fileMetadata[relativePath] = {
+        path: relativePath,
+        language,
+        lineCount,
+        wordCount,
+        byteSize: files[path].byteLength,
+        lastModified: Date.now(), // We don't have actual timestamps from the zip
+      };
+
+      // Update directory metadata - process each directory in the path
+      const parts = relativePath.split("/");
+      let dirPath = "";
+
+      for (let i = 0; i < parts.length - 1; i++) {
+        dirPath = i === 0 ? parts[0] : `${dirPath}/${parts[i]}`;
+
+        if (!directoryMetadata[dirPath]) {
+          // Initialize directory metadata with an empty set for languages
+          directoryMetadata[dirPath] = {
+            path: dirPath,
+            language: [],
+            lineCount: 0,
+            wordCount: 0,
+            byteSize: 0,
+            lastModified: Date.now(),
+          };
+        }
+
+        // Update metrics
+        directoryMetadata[dirPath].lineCount += lineCount;
+        directoryMetadata[dirPath].wordCount += wordCount;
+        directoryMetadata[dirPath].byteSize += files[path].byteLength;
+
+        // Add language to the directory's language set
+        const dirLanguages = directoryMetadata[dirPath].language as string[];
+        if (language !== "Unknown" && !dirLanguages.includes(language)) {
+          dirLanguages.push(language);
+        }
+      }
+    } catch (error) {
+      console.error(`Error processing metadata for ${path}:`, error);
+    }
+  }
+
+  console.log(
+    `[REPO-INGESTION] Generated metadata for ${Object.keys(fileMetadata).length} files and ${Object.keys(directoryMetadata).length} directories`,
+  );
+
+  return { fileMetadata, directoryMetadata };
+};
+
 // Ingest repository data
 export const startIngestion = async (
   repo: DownloadedRepository,
@@ -771,7 +925,16 @@ export const startIngestion = async (
     // Analyze API surface
     console.log("[REPO-INGESTION] Analyzing API surface...");
     const apiSurface = analyzeApiSurface(files);
-    console.log(`[REPO-INGESTION] API surface analyzed with ${apiSurface.endpoints.length} endpoints and ${apiSurface.libraries.length} libraries`);
+    console.log(
+      `[REPO-INGESTION] API surface analyzed with ${apiSurface.endpoints.length} endpoints and ${apiSurface.libraries.length} libraries`,
+    );
+
+    // Generate file and directory metadata
+    console.log("[REPO-INGESTION] Generating file and directory metadata...");
+    const { fileMetadata, directoryMetadata } = generateFileMetadata(files);
+    console.log(
+      `[REPO-INGESTION] Metadata generated for ${Object.keys(fileMetadata).length} files and ${Object.keys(directoryMetadata).length} directories`,
+    );
 
     // Log the size of the generated tree
     const treeSize = new Blob([JSON.stringify(treeWithData)]).size;
@@ -791,7 +954,9 @@ export const startIngestion = async (
       repoTree: repoTree,
       detailedTree: treeWithData,
       dependencyGraph: dependencyGraph,
-      apiSurface: apiSurface
+      apiSurface: apiSurface,
+      fileMetadata: fileMetadata,
+      directoryMetadata: directoryMetadata,
     };
 
     console.log(`[REPO-INGESTION] Repository ingestion completed for ${repo.name}`);

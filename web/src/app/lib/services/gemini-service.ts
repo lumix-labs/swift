@@ -4,6 +4,7 @@ import { EXCLUDED_MESSAGE_ROLES, EXCLUDED_MESSAGE_SENDERS } from "../../context/
 import { BaseModelService } from "./base-model-service";
 import { Personality } from "../types/personality";
 import { DependencyGraph, ApiSurface } from "./repo-analysis-service";
+import { FileMetadata } from "../../types/repository";
 
 /**
  * Gemini service for handling communication with Google's Gemini API
@@ -128,7 +129,9 @@ export class GeminiService extends BaseModelService {
     repoLocalPath?: string,
     detailedTree?: any,
     dependencyGraph?: DependencyGraph,
-    apiSurface?: ApiSurface
+    apiSurface?: ApiSurface,
+    fileMetadata?: Record<string, FileMetadata>,
+    directoryMetadata?: Record<string, FileMetadata>,
   ): Promise<string> {
     try {
       console.warn("Sending message to Gemini API:", {
@@ -139,6 +142,8 @@ export class GeminiService extends BaseModelService {
         hasDetailedTree: Boolean(detailedTree),
         hasDependencyGraph: Boolean(dependencyGraph),
         hasApiSurface: Boolean(apiSurface),
+        hasFileMetadata: Boolean(fileMetadata),
+        hasDirectoryMetadata: Boolean(directoryMetadata),
         hasPersonalityPrompt: Boolean(this.personalityPrompt),
       });
 
@@ -154,14 +159,16 @@ export class GeminiService extends BaseModelService {
 
         // Generate new repository context if repository parameters are provided
         repoContext = this.formatRepoContext(
-          repoName, 
-          repoUrl, 
-          readmeContent, 
-          repoTree, 
-          configFiles, 
+          repoName,
+          repoUrl,
+          readmeContent,
+          repoTree,
+          configFiles,
           detailedTree,
           dependencyGraph,
-          apiSurface
+          apiSurface,
+          fileMetadata,
+          directoryMetadata,
         );
       }
 
@@ -232,7 +239,7 @@ export class GeminiService extends BaseModelService {
       }
 
       let generatedText = data.candidates[0].content.parts.map((part) => part.text).join("");
-      
+
       // Process the response to ensure brevity if needed
       generatedText = this.ensureBriefResponse(generatedText);
 

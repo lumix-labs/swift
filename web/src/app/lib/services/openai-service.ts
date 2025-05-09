@@ -3,6 +3,7 @@
 import { BaseModelService } from "./base-model-service";
 import { Personality } from "../types/personality";
 import { DependencyGraph, ApiSurface } from "./repo-analysis-service";
+import { FileMetadata } from "../../types/repository";
 
 /**
  * OpenAI service for handling communication with OpenAI's API
@@ -37,6 +38,8 @@ export class OpenAIService extends BaseModelService {
     detailedTree?: any,
     dependencyGraph?: DependencyGraph,
     apiSurface?: ApiSurface,
+    fileMetadata?: Record<string, FileMetadata>,
+    directoryMetadata?: Record<string, FileMetadata>,
   ): Promise<string> {
     try {
       console.warn("Sending message to OpenAI API:", {
@@ -47,6 +50,8 @@ export class OpenAIService extends BaseModelService {
         hasDetailedTree: Boolean(detailedTree),
         hasDependencyGraph: Boolean(dependencyGraph),
         hasApiSurface: Boolean(apiSurface),
+        hasFileMetadata: Boolean(fileMetadata),
+        hasDirectoryMetadata: Boolean(directoryMetadata),
         hasPersonalityPrompt: Boolean(this.personalityPrompt),
       });
 
@@ -60,14 +65,16 @@ export class OpenAIService extends BaseModelService {
         }
 
         repoContext = this.formatRepoContext(
-          repoName, 
-          repoUrl, 
-          readmeContent, 
-          repoTree, 
-          configFiles, 
+          repoName,
+          repoUrl,
+          readmeContent,
+          repoTree,
+          configFiles,
           detailedTree,
           dependencyGraph,
-          apiSurface
+          apiSurface,
+          fileMetadata,
+          directoryMetadata,
         );
       }
 
@@ -141,7 +148,7 @@ export class OpenAIService extends BaseModelService {
       }
 
       let generatedText = data?.choices?.[0]?.message?.content || "No response generated.";
-      
+
       // Process the response to ensure brevity if needed
       generatedText = this.ensureBriefResponse(generatedText);
 

@@ -3,6 +3,7 @@
 import { Message } from "../types/message";
 import { Personality, PERSONALITY_PROFILES } from "../types/personality";
 import { DependencyGraph, ApiSurface } from "./repo-analysis-service";
+import { FileMetadata } from "../../types/repository";
 
 /**
  * Response types for various model providers
@@ -28,6 +29,8 @@ export interface RepositoryContext {
   detailedTree?: any; // Added to support detailed repository data
   dependencyGraph?: DependencyGraph; // Added dependency graph
   apiSurface?: ApiSurface; // Added API surface analysis
+  fileMetadata?: Record<string, FileMetadata>; // Added file metrics
+  directoryMetadata?: Record<string, FileMetadata>; // Added directory metrics
   configFiles?: Record<string, string>;
 }
 
@@ -103,7 +106,10 @@ FORMATTING NOTE: When applying formatting such as bold, italics, or headers, use
   protected getSystemPrompt(): string {
     if (this.personalityPrompt) {
       // Add conciseness instruction to personality prompt
-      return this.personalityPrompt + "\n\nIMPORTANT: Provide responses under 200 words whenever possible. Focus on key insights and actionable points. Never mention in your responses that you are trying to be concise.\n\nFORMATTING NOTE: When applying formatting such as bold, italics, or headers, use the markdown symbols (**, *, ##) but remember these symbols are not visible to the user - they only affect how the text appears. Never reference markdown formatting in your responses.";
+      return (
+        this.personalityPrompt +
+        "\n\nIMPORTANT: Provide responses under 200 words whenever possible. Focus on key insights and actionable points. Never mention in your responses that you are trying to be concise.\n\nFORMATTING NOTE: When applying formatting such as bold, italics, or headers, use the markdown symbols (**, *, ##) but remember these symbols are not visible to the user - they only affect how the text appears. Never reference markdown formatting in your responses."
+      );
     }
     return this.contextTemplate;
   }
@@ -148,6 +154,8 @@ FORMATTING NOTE: When applying formatting such as bold, italics, or headers, use
     detailedTree?: any,
     dependencyGraph?: DependencyGraph,
     apiSurface?: ApiSurface,
+    fileMetadata?: Record<string, FileMetadata>,
+    directoryMetadata?: Record<string, FileMetadata>,
   ): string {
     let context = `You are assisting with a code repository: ${repoName} (${repoUrl}).\n\n`;
 
@@ -187,71 +195,125 @@ FORMATTING NOTE: When applying formatting such as bold, italics, or headers, use
     if (dependencyGraph) {
       const nodeCount = Object.keys(dependencyGraph.nodes).length;
       let dependencyGraphSummary = `Dependency Graph Analysis (${nodeCount} modules detected):`;
-      
+
       // Add summary of key dependencies
       dependencyGraphSummary += "\n- Module dependencies and relationships";
       dependencyGraphSummary += "\n- Incoming and outgoing dependencies for each module";
-      
+
       // Find most depended-upon modules (highest incoming dependencies)
       const mostDependedModules = Object.values(dependencyGraph.nodes)
         .sort((a, b) => b.incomingDependencies.length - a.incomingDependencies.length)
         .slice(0, 5);
-      
+
       if (mostDependedModules.length > 0) {
         dependencyGraphSummary += "\n\nMost central modules (highest incoming dependencies):";
-        mostDependedModules.forEach(module => {
+        mostDependedModules.forEach((module) => {
           dependencyGraphSummary += `\n- ${module.name} (${module.incomingDependencies.length} dependencies)`;
         });
       }
-      
+
       context += `${dependencyGraphSummary}\n\n`;
-      
+
       // Log dependency graph size for debugging
-      console.log(`[${this.getProviderName()}] Dependency graph size: ${JSON.stringify(dependencyGraph).length} characters`);
+      console.log(
+        `[${this.getProviderName()}] Dependency graph size: ${JSON.stringify(dependencyGraph).length} characters`,
+      );
     }
 
     // Add API surface analysis if available
     if (apiSurface) {
       let apiSurfaceSummary = "API Surface Analysis:";
-      
+
       // Add API endpoints summary
       if (apiSurface.endpoints.length > 0) {
         apiSurfaceSummary += `\n- ${apiSurface.endpoints.length} API endpoints identified`;
-        
+
         // Group endpoints by HTTP method
         const methodGroups: Record<string, number> = {};
-        apiSurface.endpoints.forEach(endpoint => {
+        apiSurface.endpoints.forEach((endpoint) => {
           methodGroups[endpoint.method] = (methodGroups[endpoint.method] || 0) + 1;
         });
-        
+
         // List endpoints by method
         Object.entries(methodGroups).forEach(([method, count]) => {
           apiSurfaceSummary += `\n  - ${method}: ${count} endpoints`;
         });
       }
-      
+
       // Add public libraries summary
       if (apiSurface.libraries.length > 0) {
         apiSurfaceSummary += `\n- ${apiSurface.libraries.length} public libraries/modules identified`;
-        
+
         // Count exports by type
         const exportTypes: Record<string, number> = {};
-        apiSurface.libraries.forEach(lib => {
-          lib.exports.forEach(exp => {
+        apiSurface.libraries.forEach((lib) => {
+          lib.exports.forEach((exp) => {
             exportTypes[exp.type] = (exportTypes[exp.type] || 0) + 1;
           });
         });
-        
+
         // List export types
         Object.entries(exportTypes).forEach(([type, count]) => {
           apiSurfaceSummary += `\n  - ${count} ${type}s exported`;
         });
       }
-      
+
       context += `${apiSurfaceSummary}\n\n`;
-      
+
       // Log API surface size for debugging
       console.log(`[${this.getProviderName()}] API surface size: ${JSON.stringify(apiSurface).length} characters`);
+    }
+
+    // Add file and directory metadata if available
+    if (fileMetadata && directoryMetadata) {
+      let metadataSummary = "Repository Code Metrics:";
+
+      // Calculate overall stats
+      const totalFiles = Object.keys(fileMetadata).length;
+      let totalLines = 0;
+      let totalBytes = 0;
+      const languageCounts: Record<string, number> = {};
+
+      // Gather statistics from files
+      Object.values(fileMetadata).forEach((meta) => {
+        totalLines += meta.lineCount;
+        totalBytes = meta.byteSize;
+
+        const language = Array.isArray(meta.language) ? "Mixed" : meta.language;
+        languageCounts[language] = (languageCounts[language] || 0) + 1;
+      });
+
+      // Add overall stats
+      metadataSummary += `\n- Total Files: ${totalFiles}`;
+      metadataSummary += `\n- Lines of Code: ${totalLines.toLocaleString()}`;
+      metadataSummary += `\n- Repository Size: ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`;
+
+      // Add language breakdown
+      metadataSummary += "\n- Language Distribution:";
+      Object.entries(languageCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 5)
+        .forEach(([language, count]) => {
+          const percentage = ((count / totalFiles) * 100).toFixed(1);
+          metadataSummary += `\n  - ${language}: ${count} files (${percentage}%)`;
+        });
+
+      // Add directories with most code
+      metadataSummary += "\n- Top Directories by Lines of Code:";
+      const topDirs = Object.entries(directoryMetadata)
+        .sort(([, a], [, b]) => b.lineCount - a.lineCount)
+        .slice(0, 5);
+
+      topDirs.forEach(([dirPath, meta]) => {
+        metadataSummary += `\n  - ${dirPath}: ${meta.lineCount.toLocaleString()} lines`;
+      });
+
+      context += `${metadataSummary}\n\n`;
+
+      // Log metadata size for debugging
+      console.log(
+        `[${this.getProviderName()}] File metadata size: ${JSON.stringify(fileMetadata).length} characters, Directory metadata size: ${JSON.stringify(directoryMetadata).length} characters`,
+      );
     }
 
     // Add important config files if available
@@ -365,23 +427,58 @@ FORMATTING NOTE: When applying formatting such as bold, italics, or headers, use
     detailedTree?: any,
     dependencyGraph?: DependencyGraph,
     apiSurface?: ApiSurface,
+    fileMetadata?: Record<string, FileMetadata>,
+    directoryMetadata?: Record<string, FileMetadata>,
   ): void {
     if (repoLocalPath) {
       // If local path is provided, try to extract config files
       this.extractConfigFiles(repoTree || "", repoLocalPath)
         .then((configFiles) => {
-          this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, configFiles, detailedTree, dependencyGraph, apiSurface);
+          this.formatRepoContext(
+            repoName,
+            repoUrl,
+            readmeContent,
+            repoTree,
+            configFiles,
+            detailedTree,
+            dependencyGraph,
+            apiSurface,
+            fileMetadata,
+            directoryMetadata,
+          );
           console.warn("Repository context updated for:", repoName);
         })
         .catch((error) => {
           console.error("Error extracting config files:", error);
           // Fall back to basic context if extraction fails
-          this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, undefined, detailedTree, dependencyGraph, apiSurface);
+          this.formatRepoContext(
+            repoName,
+            repoUrl,
+            readmeContent,
+            repoTree,
+            undefined,
+            detailedTree,
+            dependencyGraph,
+            apiSurface,
+            fileMetadata,
+            directoryMetadata,
+          );
           console.warn("Repository context updated for:", repoName);
         });
     } else {
       // Basic context without config files
-      this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, undefined, detailedTree, dependencyGraph, apiSurface);
+      this.formatRepoContext(
+        repoName,
+        repoUrl,
+        readmeContent,
+        repoTree,
+        undefined,
+        detailedTree,
+        dependencyGraph,
+        apiSurface,
+        fileMetadata,
+        directoryMetadata,
+      );
       console.warn("Repository context updated for:", repoName);
     }
   }
@@ -392,39 +489,39 @@ FORMATTING NOTE: When applying formatting such as bold, italics, or headers, use
   protected ensureBriefResponse(generatedText: string): string {
     // Count approximate words by splitting on spaces
     const wordCount = generatedText.split(/\s+/).length;
-    
+
     // If the response is already concise, return it as is
     if (wordCount <= 250) {
       return generatedText;
     }
-    
+
     // For longer responses, try to truncate at a natural stopping point
     const sentences = generatedText.match(/[^.!?]+[.!?]+/g) || [];
     let truncatedText = "";
     let currentWordCount = 0;
-    
+
     // Build response sentence by sentence until we approach 200 words
     for (const sentence of sentences) {
       const sentenceWordCount = sentence.split(/\s+/).length;
-      
+
       if (currentWordCount + sentenceWordCount > 200) {
         // If adding this sentence would exceed 200 words, stop here
         break;
       }
-      
+
       truncatedText += sentence;
       currentWordCount += sentenceWordCount;
     }
-    
+
     // If we couldn't truncate nicely with sentences, just cut at word boundary
     if (truncatedText.length === 0) {
       const words = generatedText.split(/\s+/).slice(0, 200);
       truncatedText = words.join(" ");
-      
+
       // Add ellipsis to indicate truncation
       truncatedText += "...";
     }
-    
+
     return truncatedText;
   }
 
@@ -441,5 +538,7 @@ FORMATTING NOTE: When applying formatting such as bold, italics, or headers, use
     detailedTree?: any,
     dependencyGraph?: DependencyGraph,
     apiSurface?: ApiSurface,
+    fileMetadata?: Record<string, FileMetadata>,
+    directoryMetadata?: Record<string, FileMetadata>,
   ): Promise<string>;
 }
