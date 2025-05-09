@@ -2,6 +2,7 @@
 
 import { BaseModelService } from "./base-model-service";
 import { Personality } from "../types/personality";
+import { DependencyGraph, ApiSurface } from "./repo-analysis-service";
 
 /**
  * OpenAI service for handling communication with OpenAI's API
@@ -34,6 +35,8 @@ export class OpenAIService extends BaseModelService {
     repoTree?: string,
     repoLocalPath?: string,
     detailedTree?: any,
+    dependencyGraph?: DependencyGraph,
+    apiSurface?: ApiSurface,
   ): Promise<string> {
     try {
       console.warn("Sending message to OpenAI API:", {
@@ -42,6 +45,8 @@ export class OpenAIService extends BaseModelService {
         readmeContentLength: readmeContent?.length || 0,
         hasRepoTree: Boolean(repoTree),
         hasDetailedTree: Boolean(detailedTree),
+        hasDependencyGraph: Boolean(dependencyGraph),
+        hasApiSurface: Boolean(apiSurface),
         hasPersonalityPrompt: Boolean(this.personalityPrompt),
       });
 
@@ -54,7 +59,16 @@ export class OpenAIService extends BaseModelService {
           configFiles = await this.extractConfigFiles(repoTree, repoLocalPath);
         }
 
-        repoContext = this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, configFiles, detailedTree);
+        repoContext = this.formatRepoContext(
+          repoName, 
+          repoUrl, 
+          readmeContent, 
+          repoTree, 
+          configFiles, 
+          detailedTree,
+          dependencyGraph,
+          apiSurface
+        );
       }
 
       // Prepare system message with repository context if available
@@ -126,7 +140,10 @@ export class OpenAIService extends BaseModelService {
         console.log("===========================");
       }
 
-      const generatedText = data?.choices?.[0]?.message?.content || "No response generated.";
+      let generatedText = data?.choices?.[0]?.message?.content || "No response generated.";
+      
+      // Process the response to ensure brevity if needed
+      generatedText = this.ensureBriefResponse(generatedText);
 
       // Store messages for conversation history
       this.previousMessages.push({ role: "user", content: message });

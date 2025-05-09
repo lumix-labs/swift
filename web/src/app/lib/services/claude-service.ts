@@ -2,6 +2,7 @@
 
 import { BaseModelService } from "./base-model-service";
 import { Personality } from "../types/personality";
+import { DependencyGraph, ApiSurface } from "./repo-analysis-service";
 
 /**
  * Claude service for handling communication with Anthropic's Claude API
@@ -33,7 +34,9 @@ export class ClaudeService extends BaseModelService {
     readmeContent?: string,
     repoTree?: string,
     repoLocalPath?: string,
-    detailedTree?: any, // Added detailed tree parameter
+    detailedTree?: any,
+    dependencyGraph?: DependencyGraph,
+    apiSurface?: ApiSurface
   ): Promise<string> {
     try {
       console.warn("Sending message to Claude API:", {
@@ -42,6 +45,8 @@ export class ClaudeService extends BaseModelService {
         readmeContentLength: readmeContent?.length || 0,
         hasRepoTree: Boolean(repoTree),
         hasDetailedTree: Boolean(detailedTree),
+        hasDependencyGraph: Boolean(dependencyGraph),
+        hasApiSurface: Boolean(apiSurface),
         hasPersonalityPrompt: Boolean(this.personalityPrompt),
       });
 
@@ -54,7 +59,16 @@ export class ClaudeService extends BaseModelService {
           configFiles = await this.extractConfigFiles(repoTree, repoLocalPath);
         }
 
-        repoContext = this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, configFiles, detailedTree);
+        repoContext = this.formatRepoContext(
+          repoName, 
+          repoUrl, 
+          readmeContent, 
+          repoTree, 
+          configFiles, 
+          detailedTree,
+          dependencyGraph,
+          apiSurface
+        );
       }
 
       const requestBody = {
@@ -114,7 +128,10 @@ export class ClaudeService extends BaseModelService {
         console.log("===========================");
       }
 
-      const generatedText = data?.content?.[0]?.text || "No response generated.";
+      let generatedText = data?.content?.[0]?.text || "No response generated.";
+      
+      // Process the response to ensure brevity if needed
+      generatedText = this.ensureBriefResponse(generatedText);
 
       // Store messages for conversation context
       this.previousMessages.push({ role: "user", content: message });

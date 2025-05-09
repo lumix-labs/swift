@@ -2,6 +2,7 @@
 
 import JSZip from "jszip";
 import { SenderType, SENDERS } from "../types/message";
+import { generateDependencyGraph, analyzeApiSurface, DependencyGraph, ApiSurface } from "./repo-analysis-service";
 
 // Update the interface to include the detailed tree structure
 export enum RepositoryStatus {
@@ -24,6 +25,8 @@ export interface DownloadedRepository {
   downloadDate?: number;
   repoTree?: string; // Added to store repository tree for context
   detailedTree?: any; // Added to store detailed code structure tree
+  dependencyGraph?: DependencyGraph; // Added to store dependency graph
+  apiSurface?: ApiSurface; // Added to store API surface analysis
   error?: string; // Error message if download or ingestion failed
 }
 
@@ -760,6 +763,16 @@ export const startIngestion = async (
     console.log("[REPO-INGESTION] Generating detailed code structure tree...");
     const treeWithData = generateDetailedTree(files);
 
+    // Generate dependency graph
+    console.log("[REPO-INGESTION] Generating dependency graph...");
+    const dependencyGraph = generateDependencyGraph(files);
+    console.log(`[REPO-INGESTION] Dependency graph generated with ${Object.keys(dependencyGraph.nodes).length} nodes`);
+
+    // Analyze API surface
+    console.log("[REPO-INGESTION] Analyzing API surface...");
+    const apiSurface = analyzeApiSurface(files);
+    console.log(`[REPO-INGESTION] API surface analyzed with ${apiSurface.endpoints.length} endpoints and ${apiSurface.libraries.length} libraries`);
+
     // Log the size of the generated tree
     const treeSize = new Blob([JSON.stringify(treeWithData)]).size;
     const sizeInKB = treeSize / 1024;
@@ -777,6 +790,8 @@ export const startIngestion = async (
       readmeContent: readme || `No README found for ${repo.name}`,
       repoTree: repoTree,
       detailedTree: treeWithData,
+      dependencyGraph: dependencyGraph,
+      apiSurface: apiSurface
     };
 
     console.log(`[REPO-INGESTION] Repository ingestion completed for ${repo.name}`);
