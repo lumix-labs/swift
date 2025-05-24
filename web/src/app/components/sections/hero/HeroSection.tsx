@@ -26,7 +26,7 @@ export function HeroSection() {
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveIndex((current) => (current === carouselItems.length - 1 ? 0 : current + 1));
-    }, 4000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [carouselItems.length]);
   return (
@@ -37,9 +37,8 @@ export function HeroSection() {
           {carouselItems.map((item, index) => (
             <div
               key={index}
-              className={`transition-opacity duration-500 ${
-                index === activeIndex ? "opacity-100" : "opacity-0 absolute top-0 left-0 right-0"
-              }`}
+              className={`transition-opacity duration-500 ${index === activeIndex ? "opacity-100" : "opacity-0 absolute top-0 left-0 right-0"
+                }`}
             >
               <h2 className="text-2xl font-bold mb-4">{item.title}</h2>
               <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm md:text-base">{item.description}</p>
@@ -51,9 +50,8 @@ export function HeroSection() {
               <button
                 key={index}
                 onClick={() => setActiveIndex(index)}
-                className={`h-2.5 w-2.5 rounded-full transition-colors ${
-                  index === activeIndex ? "bg-black dark:bg-white" : "bg-gray-300 dark:bg-gray-700"
-                }`}
+                className={`h-2.5 w-2.5 rounded-full transition-colors ${index === activeIndex ? "bg-black dark:bg-white" : "bg-gray-300 dark:bg-gray-700"
+                  }`}
                 aria-label={`Go to slide ${index + 1}`}
               />
             ))}
