@@ -43,7 +43,7 @@ variable "availability_zones" {
 variable "instance_type" {
   description = "EC2 instance type"
   type        = string
-  default     = "t3.small" # Downgraded from t3.medium for cost savings
+  default     = "t3.micro" # Further downgraded from t3.small for additional cost savings
 }
 
 variable "cloudflare_zone_id" {

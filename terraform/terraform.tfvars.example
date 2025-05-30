@@ -10,7 +10,7 @@ private_subnet_cidrs = [] # Removed private subnets for cost optimization
 availability_zones   = ["ap-south-1a", "ap-south-1b"]
 
 # Instance settings
-instance_type = "t3.small" # Downgraded for cost savings
+instance_type = "t3.micro" # Further downgraded for additional cost savings
 key_pair_name = "swift-key"
 
 # Cloudflare settings (to be defined in Terraform Cloud)
