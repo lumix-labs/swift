@@ -48,7 +48,7 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
   const [thinkingText, setThinkingText] = useState<string>(THINKING_STATES[0]);
 
   // Early validation - but after hooks are declared
-  const isValidMessage = message && typeof message === 'object' && message.sender && typeof message.sender === 'object';
+  const isValidMessage = message && typeof message === "object" && message.sender && typeof message.sender === "object";
   const hasValidSender = isValidMessage && message.sender.type && message.sender.id && message.sender.name;
 
   // Determine message type for styling (with safety checks)
@@ -77,14 +77,17 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
   // Parse markdown content for code blocks and links
   useEffect(() => {
     try {
-      if (!message?.content || typeof message.content !== 'string') {
+      if (!message?.content || typeof message.content !== "string") {
         setProcessedContent("");
         return;
       }
 
       // Always enable markdown rendering for AI advisor messages
       const shouldRenderMarkdown =
-        message.isMarkdown || isAdvisorMessage || isLegacyModelMessage || (hasValidSender && message.sender.type === SenderType.AI_ADVISOR);
+        message.isMarkdown ||
+        isAdvisorMessage ||
+        isLegacyModelMessage ||
+        (hasValidSender && message.sender.type === SenderType.AI_ADVISOR);
 
       if (!shouldRenderMarkdown) {
         setProcessedContent(message.content);
@@ -201,17 +204,33 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
       console.error("Error processing markdown:", error);
       setProcessedContent(message?.content || "");
     }
-  }, [message?.content, isAdvisorMessage, isLegacyModelMessage, message?.isMarkdown, message?.role, hasValidSender, message?.sender?.type]);
+  }, [
+    message?.content,
+    isAdvisorMessage,
+    isLegacyModelMessage,
+    message?.isMarkdown,
+    message?.role,
+    hasValidSender,
+    message?.sender?.type,
+  ]);
 
   // Render validation errors early (after hooks)
   if (!isValidMessage) {
     console.error("Invalid message object:", message);
-    return <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded text-red-600 dark:text-red-400 text-sm">Invalid message</div>;
+    return (
+      <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded text-red-600 dark:text-red-400 text-sm">
+        Invalid message
+      </div>
+    );
   }
 
   if (!hasValidSender) {
     console.error("Sender missing required properties:", message.sender);
-    return <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded text-red-600 dark:text-red-400 text-sm">Sender missing properties</div>;
+    return (
+      <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded text-red-600 dark:text-red-400 text-sm">
+        Sender missing properties
+      </div>
+    );
   }
 
   // Render artifacts if present
@@ -236,18 +255,21 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
               case "image":
                 return (
                   <div key={artifact.id} className="rounded-md overflow-hidden">
-                    <Image 
-                      src={artifact.content} 
-                      alt="Message attachment" 
-                      width={500} 
-                      height={300} 
-                      className="max-w-full h-auto" 
+                    <Image
+                      src={artifact.content}
+                      alt="Message attachment"
+                      width={500}
+                      height={300}
+                      className="max-w-full h-auto"
                     />
                   </div>
                 );
               case "pdf":
                 return (
-                  <div key={artifact.id} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-md flex items-center gap-2">
+                  <div
+                    key={artifact.id}
+                    className="bg-gray-100 dark:bg-gray-700 p-3 rounded-md flex items-center gap-2"
+                  >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       className="h-5 w-5 text-red-500"
@@ -272,7 +294,10 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
                 );
               case "ppt":
                 return (
-                  <div key={artifact.id} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-md flex items-center gap-2">
+                  <div
+                    key={artifact.id}
+                    className="bg-gray-100 dark:bg-gray-700 p-3 rounded-md flex items-center gap-2"
+                  >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       className="h-5 w-5 text-orange-500"
@@ -311,7 +336,10 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
           } catch (error) {
             console.error("Error rendering artifact:", error, artifact);
             return (
-              <div key={artifact.id} className="bg-red-50 dark:bg-red-900/20 p-3 rounded text-red-600 dark:text-red-400 text-sm">
+              <div
+                key={artifact.id}
+                className="bg-red-50 dark:bg-red-900/20 p-3 rounded text-red-600 dark:text-red-400 text-sm"
+              >
                 Error rendering artifact
               </div>
             );
@@ -414,7 +442,9 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
               />
               <span className="font-medium text-sm text-gray-700 dark:text-gray-300">{message.sender.name}</span>
               {message.sender.personalityType && (
-                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">({message.sender.personalityType})</span>
+                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                  ({message.sender.personalityType})
+                </span>
               )}
             </div>
           )}
@@ -435,7 +465,9 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
           {/* Render artifacts if present */}
           {renderArtifacts(message.artifacts)}
 
-          <div className={`text-xs text-right mt-2 select-none ${isInformationalMessage ? "opacity-50" : "opacity-70"}`}>
+          <div
+            className={`text-xs text-right mt-2 select-none ${isInformationalMessage ? "opacity-50" : "opacity-70"}`}
+          >
             {message.timestamp instanceof Date
               ? message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
               : new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
