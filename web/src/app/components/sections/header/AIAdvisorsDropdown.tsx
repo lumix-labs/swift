@@ -29,21 +29,44 @@ export function AIAdvisorsDropdown({ resolvedTheme }: AIAdvisorsDropdownProps) {
     handleAIAdvisorSelect,
   } = useAIAdvisorsDropdown();
 
-  // Ensure aiAdvisors is always an array - wrapped in useMemo to avoid dependency changes
-  const safeAIAdvisors = useMemo(() => (Array.isArray(aiAdvisors) ? aiAdvisors : []), [aiAdvisors]);
+  // Ensure aiAdvisors is always an array with enhanced validation
+  const safeAIAdvisors = useMemo(() => {
+    try {
+      if (!Array.isArray(aiAdvisors)) {
+        console.warn("aiAdvisors is not an array:", aiAdvisors);
+        return [];
+      }
+
+      // Filter out any invalid advisors
+      return aiAdvisors.filter(
+        (advisor) => advisor && typeof advisor === "object" && advisor.id && advisor.name && advisor.provider,
+      );
+    } catch (error) {
+      console.error("Error processing AI advisors:", error);
+      return [];
+    }
+  }, [aiAdvisors]);
 
   // Auto-select first AI advisor if none is selected
   useEffect(() => {
-    if (!selectedAIAdvisorId && safeAIAdvisors.length > 0) {
-      handleAIAdvisorSelect(safeAIAdvisors[0].id);
+    try {
+      if (!selectedAIAdvisorId && safeAIAdvisors.length > 0 && safeAIAdvisors[0].id) {
+        handleAIAdvisorSelect(safeAIAdvisors[0].id);
+      }
+    } catch (error) {
+      console.error("Error in auto-select effect:", error);
     }
   }, [safeAIAdvisors, selectedAIAdvisorId, handleAIAdvisorSelect]);
 
   // Handle add button click - wrap in useCallback to prevent recreation
   const onAddClick = useCallback(
     (e: React.MouseEvent) => {
-      if (handleAddClick(e)) {
-        setShow(false);
+      try {
+        if (handleAddClick(e)) {
+          setShow(false);
+        }
+      } catch (error) {
+        console.error("Error in onAddClick:", error);
       }
     },
     [handleAddClick, setShow],
@@ -52,114 +75,156 @@ export function AIAdvisorsDropdown({ resolvedTheme }: AIAdvisorsDropdownProps) {
   // Handle AI advisor selection - wrap in useCallback to prevent recreation
   const onAIAdvisorSelect = useCallback(
     (id: string) => {
-      if (handleAIAdvisorSelect(id)) {
-        setShow(false);
+      try {
+        if (id && handleAIAdvisorSelect(id)) {
+          setShow(false);
+        }
+      } catch (error) {
+        console.error("Error in onAIAdvisorSelect:", error);
       }
     },
     [handleAIAdvisorSelect, setShow],
   );
 
+  // Safe handler for removing AI advisors
+  const onAIAdvisorRemove = useCallback(
+    (id: string) => {
+      try {
+        if (id) {
+          handleAIAdvisorRemove(id);
+        }
+      } catch (error) {
+        console.error("Error in onAIAdvisorRemove:", error);
+      }
+    },
+    [handleAIAdvisorRemove],
+  );
+
   // Group AI advisors by personality type for better organization
   const aiAdvisorsList = useMemo(() => {
-    if (isUpdating) {
-      return (
-        <div className="p-4 text-center">
-          <div className="flex justify-center items-center space-x-2">
-            <div
-              className="w-4 h-4 border-2 border-gray-500 dark:border-gray-400 
-                          border-t-transparent rounded-full animate-spin"
-            ></div>
-            <span className="text-gray-500 dark:text-gray-400 text-sm">Updating AI advisors...</span>
+    try {
+      if (isUpdating) {
+        return (
+          <div className="p-4 text-center">
+            <div className="flex justify-center items-center space-x-2">
+              <div
+                className="w-4 h-4 border-2 border-gray-500 dark:border-gray-400 
+                            border-t-transparent rounded-full animate-spin"
+              ></div>
+              <span className="text-gray-500 dark:text-gray-400 text-sm">Updating AI advisors...</span>
+            </div>
           </div>
-        </div>
-      );
-    }
+        );
+      }
 
-    if (safeAIAdvisors.length === 0) {
-      return <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">No AI advisors added yet</div>;
-    }
+      if (safeAIAdvisors.length === 0) {
+        return <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">No AI advisors added yet</div>;
+      }
 
-    // Just show a flat list of AI advisors with their personalities
-    return (
-      <div className="max-h-[50vh] overflow-y-auto">
-        {safeAIAdvisors.map((advisor) => {
-          const isSelected = advisor.id === selectedAIAdvisorId;
-          const hasApiKey = advisor.apiKey && advisor.apiKey.length > 0;
+      // Just show a flat list of AI advisors with their personalities
+      return (
+        <div className="max-h-[50vh] overflow-y-auto">
+          {safeAIAdvisors.map((advisor) => {
+            if (!advisor || !advisor.id) {
+              return null;
+            }
 
-          return (
-            <div
-              key={advisor.id}
-              className={`p-2 border-b border-gray-100 dark:border-gray-800 last:border-0 ${
-                isSelected ? "bg-gray-100 dark:bg-gray-800 border-l-4 border-l-blue-500 dark:border-l-blue-400" : ""
-              }`}
-            >
-              <div className="flex justify-between items-center">
-                <div
-                  className={`flex-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 rounded-md p-1.5 
-                    transition-colors duration-200 ${!hasApiKey ? "opacity-60" : ""}`}
-                  onClick={() => hasApiKey && onAIAdvisorSelect(advisor.id)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if ((e.key === "Enter" || e.key === " ") && hasApiKey) {
-                      onAIAdvisorSelect(advisor.id);
-                    }
-                  }}
-                >
-                  <div className="flex items-center">
-                    {advisor.icon && (
-                      <div className="mr-2 flex-shrink-0">
-                        <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center">
-                          {advisor.icon ? (
-                            <Image
-                              src={advisor.icon}
-                              alt={advisor.name || "AI Advisor"}
-                              width={24}
-                              height={24}
-                              className="object-cover"
-                            />
-                          ) : (
-                            <span className="text-xs font-bold">{(advisor.name || "A").charAt(0)}</span>
-                          )}
+            const isSelected = advisor.id === selectedAIAdvisorId;
+            const hasApiKey = advisor.apiKey && advisor.apiKey.length > 0;
+
+            return (
+              <div
+                key={advisor.id}
+                className={`p-2 border-b border-gray-100 dark:border-gray-800 last:border-0 ${
+                  isSelected ? "bg-gray-100 dark:bg-gray-800 border-l-4 border-l-blue-500 dark:border-l-blue-400" : ""
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                  <div
+                    className={`flex-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 rounded-md p-1.5 
+                      transition-colors duration-200 ${!hasApiKey ? "opacity-60" : ""}`}
+                    onClick={() => hasApiKey && onAIAdvisorSelect(advisor.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if ((e.key === "Enter" || e.key === " ") && hasApiKey) {
+                        onAIAdvisorSelect(advisor.id);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center">
+                      {advisor.icon && (
+                        <div className="mr-2 flex-shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center">
+                            {advisor.icon ? (
+                              <Image
+                                src={advisor.icon}
+                                alt={advisor.name || "AI Advisor"}
+                                width={24}
+                                height={24}
+                                className="object-cover"
+                              />
+                            ) : (
+                              <span className="text-xs font-bold">{(advisor.name || "A").charAt(0)}</span>
+                            )}
+                          </div>
                         </div>
+                      )}
+                      <div>
+                        <div className="font-medium text-gray-800 dark:text-gray-200">
+                          {advisor.name || "AI Advisor"}
+                        </div>
+                        {advisor.description && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{advisor.description}</div>
+                        )}
+                        {!hasApiKey && (
+                          <div className="text-xs mt-1 text-amber-600 dark:text-amber-400 font-medium">
+                            API key needed
+                          </div>
+                        )}
                       </div>
-                    )}
-                    <div>
-                      <div className="font-medium text-gray-800 dark:text-gray-200">{advisor.name || "AI Advisor"}</div>
-                      {advisor.description && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{advisor.description}</div>
-                      )}
-                      {!hasApiKey && (
-                        <div className="text-xs mt-1 text-amber-600 dark:text-amber-400 font-medium">
-                          API key needed
-                        </div>
-                      )}
                     </div>
                   </div>
-                </div>
-                {/* Use the RemoveButton component */}
-                <div className="ml-2">
-                  <RemoveButton
-                    onClick={() => handleAIAdvisorRemove(advisor.id)}
-                    disabled={isActionInProgress || safeAIAdvisors.length <= 1}
-                  />
+                  {/* Use the RemoveButton component */}
+                  <div className="ml-2">
+                    <RemoveButton
+                      onClick={() => onAIAdvisorRemove(advisor.id)}
+                      disabled={isActionInProgress || safeAIAdvisors.length <= 1}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }, [safeAIAdvisors, selectedAIAdvisorId, isUpdating, isActionInProgress, onAIAdvisorSelect, handleAIAdvisorRemove]);
+            );
+          })}
+        </div>
+      );
+    } catch (error) {
+      console.error("Error rendering AI advisors list:", error);
+      return <div className="p-4 text-center text-red-500 text-sm">Error loading AI advisors</div>;
+    }
+  }, [safeAIAdvisors, selectedAIAdvisorId, isUpdating, isActionInProgress, onAIAdvisorSelect, onAIAdvisorRemove]);
 
   // Get currently selected AI advisor for display
-  const selectedAIAdvisor = useMemo(
-    () =>
-      selectedAIAdvisorId && safeAIAdvisors.length > 0
-        ? safeAIAdvisors.find((m) => m.id === selectedAIAdvisorId) || null
-        : null,
-    [selectedAIAdvisorId, safeAIAdvisors],
-  );
+  const selectedAIAdvisor = useMemo(() => {
+    try {
+      if (!selectedAIAdvisorId || safeAIAdvisors.length === 0) {
+        return null;
+      }
+
+      const advisor = safeAIAdvisors.find((m) => m && m.id === selectedAIAdvisorId) || null;
+
+      // Validate the selected advisor
+      if (advisor && (!advisor.id || !advisor.name)) {
+        console.warn("Selected advisor is missing required properties:", advisor);
+        return null;
+      }
+
+      return advisor;
+    } catch (error) {
+      console.error("Error getting selected AI advisor:", error);
+      return null;
+    }
+  }, [selectedAIAdvisorId, safeAIAdvisors]);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -180,7 +245,7 @@ export function AIAdvisorsDropdown({ resolvedTheme }: AIAdvisorsDropdownProps) {
               className="mr-1.5 rounded-full"
             />
           )}
-          <span className="hidden sm:inline">AI Advisor {selectedAIAdvisor?.name}</span>
+          <span className="hidden sm:inline">AI Advisor {selectedAIAdvisor?.name || ""}</span>
           <span className="sm:hidden">{selectedAIAdvisor?.icon ? "" : "AI"}</span>
         </div>
       </button>

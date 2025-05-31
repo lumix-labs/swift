@@ -59,16 +59,26 @@ export function useAIAdvisors() {
           const updatedAIAdvisors = getModels();
           console.log("Updating AI advisors with throttle:", updatedAIAdvisors.length);
 
+          // Ensure we have valid advisors array before setting state
+          const validAdvisors = Array.isArray(updatedAIAdvisors) ? updatedAIAdvisors : [];
+
+          // Validate each advisor has required properties
+          const safeAdvisors = validAdvisors.filter(
+            (advisor) => advisor && typeof advisor === "object" && advisor.id && advisor.name && advisor.provider,
+          );
+
           // Update both local state and cache
           if (isMountedRef.current) {
-            setAIAdvisors(updatedAIAdvisors || []);
-            aiAdvisorsCache.data = updatedAIAdvisors || [];
+            setAIAdvisors(safeAdvisors);
+            aiAdvisorsCache.data = safeAdvisors;
             aiAdvisorsCache.lastUpdated = now;
           }
         } catch (error) {
           console.error("Error fetching AI advisors:", error);
           // Initialize with empty array to prevent errors
-          setAIAdvisors([]);
+          if (isMountedRef.current) {
+            setAIAdvisors([]);
+          }
         }
       }
 
@@ -86,15 +96,23 @@ export function useAIAdvisors() {
       const initialAIAdvisors = getModels() || [];
       console.log("Initial AI advisors loaded:", initialAIAdvisors.length);
 
+      // Validate initial advisors
+      const validInitialAdvisors = Array.isArray(initialAIAdvisors) ? initialAIAdvisors : [];
+      const safeInitialAdvisors = validInitialAdvisors.filter(
+        (advisor) => advisor && typeof advisor === "object" && advisor.id && advisor.name && advisor.provider,
+      );
+
       if (isMountedRef.current) {
-        setAIAdvisors(initialAIAdvisors);
-        aiAdvisorsCache.data = initialAIAdvisors;
+        setAIAdvisors(safeInitialAdvisors);
+        aiAdvisorsCache.data = safeInitialAdvisors;
         aiAdvisorsCache.lastUpdated = Date.now();
       }
     } catch (error) {
       console.error("Error loading initial AI advisors:", error);
       // Initialize with empty array to prevent errors
-      setAIAdvisors([]);
+      if (isMountedRef.current) {
+        setAIAdvisors([]);
+      }
     }
 
     // Clear any lingering update timers when component unmounts
@@ -144,8 +162,11 @@ export function useAIAdvisors() {
     }, 200);
   }, []);
 
+  // Return safe, guaranteed array
+  const safeDebouncedAdvisors = Array.isArray(debouncedAIAdvisors) ? debouncedAIAdvisors : [];
+
   return {
-    aiAdvisors: debouncedAIAdvisors || [], // Return debounced AI advisors, ensure it's never undefined
+    aiAdvisors: safeDebouncedAdvisors, // Return debounced AI advisors, ensure it's never undefined
     updateAIAdvisors,
     triggerAIAdvisorChange,
   };

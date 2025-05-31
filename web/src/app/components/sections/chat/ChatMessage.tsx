@@ -44,17 +44,20 @@ interface MarkedExtended {
 const markedExtended = marked as unknown as MarkedExtended;
 
 export function ChatMessage({ message, isLoading }: ChatMessageProps) {
-  const { theme } = useTheme();
-  const [processedContent, setProcessedContent] = useState<string>(message.content);
+  const [processedContent, setProcessedContent] = useState<string>(message?.content || "");
   const [thinkingText, setThinkingText] = useState<string>(THINKING_STATES[0]);
 
-  // Determine message type for styling
-  const isUserMessage = message.sender.type === SenderType.USER;
-  const isInformationalMessage = message.sender.type === SenderType.SWIFT_ASSISTANT;
-  const isAdvisorMessage = message.sender.type === SenderType.AI_ADVISOR;
+  // Early validation - but after hooks are declared
+  const isValidMessage = message && typeof message === 'object' && message.sender && typeof message.sender === 'object';
+  const hasValidSender = isValidMessage && message.sender.type && message.sender.id && message.sender.name;
+
+  // Determine message type for styling (with safety checks)
+  const isUserMessage = hasValidSender && message.sender.type === SenderType.USER;
+  const isInformationalMessage = hasValidSender && message.sender.type === SenderType.SWIFT_ASSISTANT;
+  const isAdvisorMessage = hasValidSender && message.sender.type === SenderType.AI_ADVISOR;
 
   // For backward compatibility with old messages that might still have the old sender types
-  const isLegacyModelMessage = message.role === "model-response" && !isAdvisorMessage;
+  const isLegacyModelMessage = hasValidSender && message.role === "model-response" && !isAdvisorMessage;
 
   // Setup thinking animation
   useEffect(() => {
@@ -74,9 +77,14 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
   // Parse markdown content for code blocks and links
   useEffect(() => {
     try {
+      if (!message?.content || typeof message.content !== 'string') {
+        setProcessedContent("");
+        return;
+      }
+
       // Always enable markdown rendering for AI advisor messages
       const shouldRenderMarkdown =
-        message.isMarkdown || isAdvisorMessage || isLegacyModelMessage || message.sender.type === SenderType.AI_ADVISOR;
+        message.isMarkdown || isAdvisorMessage || isLegacyModelMessage || (hasValidSender && message.sender.type === SenderType.AI_ADVISOR);
 
       if (!shouldRenderMarkdown) {
         setProcessedContent(message.content);
@@ -171,7 +179,7 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
             return `<a href="${href}" title="${title || ""}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">${text}</a>`;
           },
           image(href: string, title: string | null, text: string) {
-            return `<img src="${href}" alt="${text}" title="${title || ""}" class="max-w-full h-auto rounded" />`;
+            return `<Image src="${href}" alt="${text}" title="${title || ""}" width={500} height={300} className="max-w-full h-auto rounded" />`;
           },
         },
         gfm: true,
@@ -191,9 +199,20 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
       setProcessedContent(sanitizedHtml);
     } catch (error) {
       console.error("Error processing markdown:", error);
-      setProcessedContent(message.content);
+      setProcessedContent(message?.content || "");
     }
-  }, [message.content, isAdvisorMessage, isLegacyModelMessage, message.isMarkdown, message.role, message.sender.type]);
+  }, [message?.content, isAdvisorMessage, isLegacyModelMessage, message?.isMarkdown, message?.role, hasValidSender, message?.sender?.type]);
+
+  // Render validation errors early (after hooks)
+  if (!isValidMessage) {
+    console.error("Invalid message object:", message);
+    return <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded text-red-600 dark:text-red-400 text-sm">Invalid message</div>;
+  }
+
+  if (!hasValidSender) {
+    console.error("Sender missing required properties:", message.sender);
+    return <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded text-red-600 dark:text-red-400 text-sm">Sender missing properties</div>;
+  }
 
   // Render artifacts if present
   const renderArtifacts = (artifacts?: MessageArtifact[]) => {
@@ -204,83 +223,98 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
     return (
       <div className="mt-4 space-y-3">
         {artifacts.map((artifact) => {
-          switch (artifact.type) {
-            case "code":
-              return (
-                <div key={artifact.id} className="bg-gray-800 text-white p-4 rounded-md overflow-x-auto">
-                  <pre>
-                    <code className="hljs">{artifact.content}</code>
-                  </pre>
-                </div>
-              );
-            case "image":
-              return (
-                <div key={artifact.id} className="rounded-md overflow-hidden">
-                  <img src={artifact.content} alt="Message attachment" className="max-w-full h-auto" />
-                </div>
-              );
-            case "pdf":
-              return (
-                <div key={artifact.id} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-md flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-red-500"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
-                      clipRule="evenodd"
+          try {
+            switch (artifact.type) {
+              case "code":
+                return (
+                  <div key={artifact.id} className="bg-gray-800 text-white p-4 rounded-md overflow-x-auto">
+                    <pre>
+                      <code className="hljs">{artifact.content}</code>
+                    </pre>
+                  </div>
+                );
+              case "image":
+                return (
+                  <div key={artifact.id} className="rounded-md overflow-hidden">
+                    <Image 
+                      src={artifact.content} 
+                      alt="Message attachment" 
+                      width={500} 
+                      height={300} 
+                      className="max-w-full h-auto" 
                     />
-                  </svg>
-                  <span>PDF Document</span>
-                  <a
-                    href={artifact.content}
-                    download
-                    className="ml-auto text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                  >
-                    Download
-                  </a>
-                </div>
-              );
-            case "ppt":
-              return (
-                <div key={artifact.id} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-md flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-orange-500"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span>Presentation</span>
-                  <a
-                    href={artifact.content}
-                    download
-                    className="ml-auto text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                  >
-                    Download
-                  </a>
-                </div>
-              );
-            case "chart":
-              return (
-                <div key={artifact.id} className="bg-white dark:bg-gray-800 p-4 rounded-md shadow-sm">
-                  <div dangerouslySetInnerHTML={{ __html: artifact.content }} />
-                </div>
-              );
-            default:
-              return (
-                <div key={artifact.id} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-md">
-                  {artifact.content}
-                </div>
-              );
+                  </div>
+                );
+              case "pdf":
+                return (
+                  <div key={artifact.id} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-md flex items-center gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 text-red-500"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span>PDF Document</span>
+                    <a
+                      href={artifact.content}
+                      download
+                      className="ml-auto text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                    >
+                      Download
+                    </a>
+                  </div>
+                );
+              case "ppt":
+                return (
+                  <div key={artifact.id} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-md flex items-center gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 text-orange-500"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span>Presentation</span>
+                    <a
+                      href={artifact.content}
+                      download
+                      className="ml-auto text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                    >
+                      Download
+                    </a>
+                  </div>
+                );
+              case "chart":
+                return (
+                  <div key={artifact.id} className="bg-white dark:bg-gray-800 p-4 rounded-md shadow-sm">
+                    <div dangerouslySetInnerHTML={{ __html: artifact.content }} />
+                  </div>
+                );
+              default:
+                return (
+                  <div key={artifact.id} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-md">
+                    {artifact.content}
+                  </div>
+                );
+            }
+          } catch (error) {
+            console.error("Error rendering artifact:", error, artifact);
+            return (
+              <div key={artifact.id} className="bg-red-50 dark:bg-red-900/20 p-3 rounded text-red-600 dark:text-red-400 text-sm">
+                Error rendering artifact
+              </div>
+            );
           }
         })}
       </div>
@@ -330,8 +364,8 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
           <div className="flex items-start">
             <div className="flex-shrink-0 mr-3">
               <Image
-                src={message.sender.avatarUrl}
-                alt={message.sender.name}
+                src={message.sender.avatarUrl || "/avatars/default-avatar.png"}
+                alt={message.sender.name || "Unknown"}
                 width={32}
                 height={32}
                 className="rounded-full"
@@ -359,53 +393,62 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
     );
   }
 
-  return (
-    <div className={`flex ${isUserMessage ? "justify-end" : "justify-start"} ${getAnimationClass()}`}>
-      <div
-        className={`max-w-[85%] p-3 rounded-lg ${getMessageStyleClasses()} transition-all duration-300`}
-        style={{
-          maxWidth: isInformationalMessage ? "95%" : "85%",
-          opacity: isInformationalMessage ? 0.95 : 1,
-        }}
-      >
-        {!isUserMessage && (
-          <div className="flex items-center mb-2">
-            <Image
-              src={message.sender.avatarUrl}
-              alt={message.sender.name}
-              width={24}
-              height={24}
-              className="rounded-full mr-2"
+  try {
+    return (
+      <div className={`flex ${isUserMessage ? "justify-end" : "justify-start"} ${getAnimationClass()}`}>
+        <div
+          className={`max-w-[85%] p-3 rounded-lg ${getMessageStyleClasses()} transition-all duration-300`}
+          style={{
+            maxWidth: isInformationalMessage ? "95%" : "85%",
+            opacity: isInformationalMessage ? 0.95 : 1,
+          }}
+        >
+          {!isUserMessage && (
+            <div className="flex items-center mb-2">
+              <Image
+                src={message.sender.avatarUrl || "/avatars/default-avatar.png"}
+                alt={message.sender.name || "Unknown"}
+                width={24}
+                height={24}
+                className="rounded-full mr-2"
+              />
+              <span className="font-medium text-sm text-gray-700 dark:text-gray-300">{message.sender.name}</span>
+              {message.sender.personalityType && (
+                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">({message.sender.personalityType})</span>
+              )}
+            </div>
+          )}
+
+          {isInformationalMessage ? (
+            // For information messages
+            <div className="flex items-start">
+              <p className={getFontSizeClass()}>{message.content || ""}</p>
+            </div>
+          ) : (
+            // For regular and model messages with markdown
+            <div
+              className={`prose dark:prose-invert max-w-none chat-message markdown-content ${getFontSizeClass()}`}
+              dangerouslySetInnerHTML={{ __html: processedContent }}
             />
-            <span className="font-medium text-sm text-gray-700 dark:text-gray-300">{message.sender.name}</span>
-            {message.sender.personalityType && (
-              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">({message.sender.personalityType})</span>
-            )}
+          )}
+
+          {/* Render artifacts if present */}
+          {renderArtifacts(message.artifacts)}
+
+          <div className={`text-xs text-right mt-2 select-none ${isInformationalMessage ? "opacity-50" : "opacity-70"}`}>
+            {message.timestamp instanceof Date
+              ? message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </div>
-        )}
-
-        {isInformationalMessage ? (
-          // For information messages
-          <div className="flex items-start">
-            <p className={getFontSizeClass()}>{message.content}</p>
-          </div>
-        ) : (
-          // For regular and model messages with markdown
-          <div
-            className={`prose dark:prose-invert max-w-none chat-message markdown-content ${getFontSizeClass()}`}
-            dangerouslySetInnerHTML={{ __html: processedContent }}
-          />
-        )}
-
-        {/* Render artifacts if present */}
-        {renderArtifacts(message.artifacts)}
-
-        <div className={`text-xs text-right mt-2 select-none ${isInformationalMessage ? "opacity-50" : "opacity-70"}`}>
-          {message.timestamp instanceof Date
-            ? message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-            : new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </div>
       </div>
-    </div>
-  );
+    );
+  } catch (error) {
+    console.error("Error rendering ChatMessage:", error, message);
+    return (
+      <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded text-red-600 dark:text-red-400 text-sm">
+        Error rendering message: {message.content?.substring(0, 100) || "Unknown content"}
+      </div>
+    );
+  }
 }

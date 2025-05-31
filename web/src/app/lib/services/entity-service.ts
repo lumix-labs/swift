@@ -112,7 +112,7 @@ export const removeRepository = (id: string): void => {
   }
 };
 
-// AI Advisor related functions
+// AI Advisor related functions with enhanced safety checks
 export const getModels = (): LLMModel[] => {
   if (typeof window === "undefined") {
     return [];
@@ -128,12 +128,17 @@ export const getModels = (): LLMModel[] => {
       return initializeDefaultAdvisors();
     }
 
-    // If no AI advisors found, initialize with default advisors
-    if (advisors.length === 0) {
+    // Validate each advisor has required properties
+    const validAdvisors = advisors.filter(
+      (advisor) => advisor && typeof advisor === "object" && advisor.id && advisor.name && advisor.provider,
+    );
+
+    // If no valid AI advisors found, initialize with default advisors
+    if (validAdvisors.length === 0) {
       return initializeDefaultAdvisors();
     }
 
-    return advisors;
+    return validAdvisors;
   } catch (error) {
     console.error("Error loading AI advisors:", error);
     return initializeDefaultAdvisors();
@@ -142,39 +147,48 @@ export const getModels = (): LLMModel[] => {
 
 // Helper function to initialize default advisors
 function initializeDefaultAdvisors(): LLMModel[] {
-  // Create one advisor for each personality
-  const defaultAdvisors = Object.values(Personality).map((personality, index) => {
-    const shortName = getRandomUnisexName();
-    const personalityProfile = PERSONALITY_PROFILES[personality];
-    const provider = index % 3 === 0 ? "gemini" : index % 3 === 1 ? "anthropic" : "openai";
+  try {
+    // Create one advisor for each personality
+    const defaultAdvisors = Object.values(Personality).map((personality, index) => {
+      const shortName = getRandomUnisexName();
+      const personalityProfile = PERSONALITY_PROFILES[personality];
+      const provider = index % 3 === 0 ? "gemini" : index % 3 === 1 ? "anthropic" : "openai";
 
-    // Select a predefined model based on provider
-    const predefinedModel =
-      PREDEFINED_MODELS.find((m) => m.provider === provider && m.isDefault) ||
-      PREDEFINED_MODELS.find((m) => m.provider === provider) ||
-      PREDEFINED_MODELS[0];
+      // Select a predefined model based on provider
+      const predefinedModel =
+        PREDEFINED_MODELS.find((m) => m.provider === provider && m.isDefault) ||
+        PREDEFINED_MODELS.find((m) => m.provider === provider) ||
+        PREDEFINED_MODELS[0];
 
-    return {
-      id: generateId(),
-      name: `${shortName} - ${personality}`,
-      shortName,
-      provider,
-      apiKey: "",
-      modelId: predefinedModel?.modelId,
-      description: personalityProfile.tagline,
-      maxTokens: predefinedModel?.maxTokens,
-      icon: personalityProfile.avatarPath,
-      personality,
-      isDefault: index === 0, // First one is default
-    } as LLMModel;
-  });
+      return {
+        id: generateId(),
+        name: `${shortName} - ${personality}`,
+        shortName,
+        provider,
+        apiKey: "",
+        modelId: predefinedModel?.modelId,
+        description: personalityProfile.tagline,
+        maxTokens: predefinedModel?.maxTokens,
+        icon: personalityProfile.avatarPath,
+        personality,
+        isDefault: index === 0, // First one is default
+      } as LLMModel;
+    });
 
-  // Save the default AI advisors to localStorage
-  if (typeof window !== "undefined") {
-    localStorage.setItem(AI_ADVISORS_KEY, JSON.stringify(defaultAdvisors));
+    // Save the default AI advisors to localStorage
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(AI_ADVISORS_KEY, JSON.stringify(defaultAdvisors));
+      } catch (storageError) {
+        console.warn("Could not save default advisors to localStorage:", storageError);
+      }
+    }
+
+    return defaultAdvisors;
+  } catch (error) {
+    console.error("Error initializing default advisors:", error);
+    return [];
   }
-
-  return defaultAdvisors;
 }
 
 export const addModel = (
@@ -183,45 +197,46 @@ export const addModel = (
   modelId?: string,
   personality?: Personality,
 ): LLMModel => {
-  // Generate a random short name for the advisor
-  const shortName = getRandomUnisexName();
-
-  // Get the personality profile if provided
-  const personalityProfile = personality ? PERSONALITY_PROFILES[personality] : null;
-
-  // Find the predefined model to use as a template
-  const predefinedModel = modelId
-    ? PREDEFINED_MODELS.find((m) => m.modelId === modelId)
-    : PREDEFINED_MODELS.find((m) => m.provider === provider && m.isDefault);
-
-  // Generate AI advisor name based on personality or provider
-  const modelName = personality
-    ? `${shortName} - ${personality}`
-    : provider === "gemini"
-      ? "Gemini"
-      : provider === "anthropic"
-        ? "Claude"
-        : "GPT";
-
-  const newModel: LLMModel = {
-    id: generateId(),
-    name: modelName,
-    shortName,
-    provider,
-    apiKey,
-    modelId: modelId || predefinedModel?.modelId,
-    description: personalityProfile?.tagline || predefinedModel?.description,
-    maxTokens: predefinedModel?.maxTokens,
-    icon: personalityProfile?.avatarPath || predefinedModel?.icon || `/avatars/${provider}-avatar.png`,
-    personality,
-  };
-
   try {
+    // Generate a random short name for the advisor
+    const shortName = getRandomUnisexName();
+
+    // Get the personality profile if provided
+    const personalityProfile = personality ? PERSONALITY_PROFILES[personality] : null;
+
+    // Find the predefined model to use as a template
+    const predefinedModel = modelId
+      ? PREDEFINED_MODELS.find((m) => m.modelId === modelId)
+      : PREDEFINED_MODELS.find((m) => m.provider === provider && m.isDefault);
+
+    // Generate AI advisor name based on personality or provider
+    const modelName = personality
+      ? `${shortName} - ${personality}`
+      : provider === "gemini"
+        ? "Gemini"
+        : provider === "anthropic"
+          ? "Claude"
+          : "GPT";
+
+    const newModel: LLMModel = {
+      id: generateId(),
+      name: modelName,
+      shortName,
+      provider,
+      apiKey,
+      modelId: modelId || predefinedModel?.modelId,
+      description: personalityProfile?.tagline || predefinedModel?.description,
+      maxTokens: predefinedModel?.maxTokens,
+      icon: personalityProfile?.avatarPath || predefinedModel?.icon || `/avatars/${provider}-avatar.png`,
+      personality,
+    };
+
     const advisors = getModels();
 
     // If an AI advisor already exists with the same provider and modelId, update it instead of adding new
     const existingAdvisorIndex = advisors.findIndex(
       (advisor) =>
+        advisor &&
         advisor.provider === provider &&
         (modelId ? advisor.modelId === modelId : true) &&
         (personality ? advisor.personality === personality : true),
@@ -247,17 +262,23 @@ export const addModel = (
 
     // Add new AI advisor
     localStorage.setItem(AI_ADVISORS_KEY, JSON.stringify([...advisors, newModel]));
+    return newModel;
   } catch (error) {
     console.error("Error saving AI advisor:", error);
+    // Return a basic model as fallback
+    return {
+      id: generateId(),
+      name: "AI Advisor",
+      provider: provider || "anthropic",
+      apiKey: apiKey || "",
+    } as LLMModel;
   }
-
-  return newModel;
 };
 
 export const updateModel = (id: string, updates: Partial<LLMModel>): LLMModel | null => {
   try {
     const advisors = getModels();
-    const advisorIndex = advisors.findIndex((advisor) => advisor.id === id);
+    const advisorIndex = advisors.findIndex((advisor) => advisor && advisor.id === id);
 
     if (advisorIndex < 0) {
       console.error(`AI advisor with ID ${id} not found`);
@@ -293,15 +314,20 @@ export const updateModel = (id: string, updates: Partial<LLMModel>): LLMModel | 
 
 export const removeModel = (id: string): void => {
   try {
+    if (!id) {
+      console.warn("Cannot remove AI advisor: ID is required");
+      return;
+    }
+
     const advisors = getModels();
 
     // Check if the AI advisor exists
-    if (!advisors.some((advisor) => advisor.id === id)) {
+    if (!advisors.some((advisor) => advisor && advisor.id === id)) {
       console.warn(`AI advisor with ID ${id} not found`);
       return;
     }
 
-    const updatedAdvisors = advisors.filter((advisor) => advisor.id !== id);
+    const updatedAdvisors = advisors.filter((advisor) => advisor && advisor.id !== id);
 
     // Ensure there's at least one AI advisor left
     if (updatedAdvisors.length === 0) {
@@ -315,22 +341,43 @@ export const removeModel = (id: string): void => {
   }
 };
 
-// Get a specific AI advisor by ID
+// Get a specific AI advisor by ID with safety checks
 export const getModelById = (id: string): LLMModel | null => {
   try {
+    if (!id) {
+      console.warn("getModelById called without ID");
+      return null;
+    }
+
     const advisors = getModels();
-    return advisors.find((advisor) => advisor.id === id) || null;
+    const advisor = advisors.find((advisor) => advisor && advisor.id === id) || null;
+
+    // Validate the found advisor
+    if (advisor && (!advisor.id || !advisor.name || !advisor.provider)) {
+      console.warn("Found advisor but it's missing required properties:", advisor);
+      return null;
+    }
+
+    return advisor;
   } catch (error) {
     console.error("Error getting AI advisor by ID:", error);
     return null;
   }
 };
 
-// Get the default AI advisor
+// Get the default AI advisor with safety checks
 export const getDefaultModel = (): LLMModel | null => {
   try {
     const advisors = getModels();
-    return advisors.find((advisor) => advisor.isDefault) || advisors[0] || null;
+    const defaultAdvisor = advisors.find((advisor) => advisor && advisor.isDefault) || advisors[0] || null;
+
+    // Validate the default advisor
+    if (defaultAdvisor && (!defaultAdvisor.id || !defaultAdvisor.name || !defaultAdvisor.provider)) {
+      console.warn("Default advisor is missing required properties:", defaultAdvisor);
+      return null;
+    }
+
+    return defaultAdvisor;
   } catch (error) {
     console.error("Error getting default AI advisor:", error);
     return null;
@@ -340,6 +387,11 @@ export const getDefaultModel = (): LLMModel | null => {
 // Set an AI advisor as the default
 export const setDefaultModel = (id: string): void => {
   try {
+    if (!id) {
+      console.warn("setDefaultModel called without ID");
+      return;
+    }
+
     const advisors = getModels();
     const updatedAdvisors = advisors.map((advisor) => ({
       ...advisor,
@@ -354,7 +406,7 @@ export const setDefaultModel = (id: string): void => {
 
 // Get a sender type for an AI advisor
 export const getSenderTypeForModel = (model: LLMModel | null): SenderType => {
-  if (!model) {
+  if (!model || !model.id) {
     return SenderType.AI_ADVISOR; // Default
   }
 
@@ -362,20 +414,27 @@ export const getSenderTypeForModel = (model: LLMModel | null): SenderType => {
   return SenderType.AI_ADVISOR;
 };
 
-// Create a customized sender for an AI advisor
+// Create a customized sender for an AI advisor with enhanced safety
 export const createAdvisorSender = (advisor: LLMModel | null): Sender => {
-  if (!advisor) {
+  // Safety check: return default if advisor is invalid
+  if (!advisor || typeof advisor !== "object" || !advisor.id) {
+    console.warn("createAdvisorSender called with invalid advisor:", advisor);
     return SENDERS[SenderType.AI_ADVISOR];
   }
 
-  // Create a customized sender based on the advisor properties
-  return {
-    id: advisor.id,
-    type: SenderType.AI_ADVISOR,
-    name: advisor.name || "AI Advisor",
-    avatarUrl: advisor.icon || SENDERS[SenderType.AI_ADVISOR].avatarUrl,
-    includeInModelContext: true,
-    personalityType: advisor.personality,
-    advisorId: advisor.id,
-  };
+  try {
+    // Create a customized sender based on the advisor properties
+    return {
+      id: advisor.id,
+      type: SenderType.AI_ADVISOR,
+      name: advisor.name || "AI Advisor",
+      avatarUrl: advisor.icon || SENDERS[SenderType.AI_ADVISOR].avatarUrl,
+      includeInModelContext: true,
+      personalityType: advisor.personality,
+      advisorId: advisor.id,
+    };
+  } catch (error) {
+    console.error("Error creating advisor sender:", error);
+    return SENDERS[SenderType.AI_ADVISOR];
+  }
 };
