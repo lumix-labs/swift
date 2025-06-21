@@ -96,28 +96,30 @@ fi
 
 # Check docker-compose.yml for image references and update if needed
 log_info "Checking docker-compose.yml for correct image references..."
-if [ -n "$CONTAINER_IMAGE_API" ] || [ -n "$CONTAINER_IMAGE_WEB" ]; then
-  log_info "Custom container images provided, ensuring they are in docker-compose.yml"
-  
-  # Create a backup of the original file
-  cp docker-compose.yml docker-compose.yml.bak
-  
-  if [ -n "$CONTAINER_IMAGE_API" ]; then
-    log_info "Updating api-server image to: $CONTAINER_IMAGE_API"
-    # Replace the placeholder with the actual image reference
-    sed -i "s|image: CONTAINER_IMAGE_API|image: $CONTAINER_IMAGE_API|g" docker-compose.yml
-  fi
-  
-  if [ -n "$CONTAINER_IMAGE_WEB" ]; then
-    log_info "Updating web image to: $CONTAINER_IMAGE_WEB"
-    # Replace the placeholder with the actual image reference
-    sed -i "s|image: CONTAINER_IMAGE_WEB|image: $CONTAINER_IMAGE_WEB|g" docker-compose.yml
-  fi
-  
-  # Display updated docker-compose file
-  log_info "Updated docker-compose.yml:"
-  cat docker-compose.yml
+
+# Create a backup of the original file
+cp docker-compose.yml docker-compose.yml.bak
+
+# If container images are not provided, construct them from registry
+if [ -z "$CONTAINER_IMAGE_API" ]; then
+  CONTAINER_IMAGE_API="$AWS_ECR_REGISTRY/lumixlabs/swift-api:latest"
+  log_info "CONTAINER_IMAGE_API not provided, using default: $CONTAINER_IMAGE_API"
 fi
+
+if [ -z "$CONTAINER_IMAGE_WEB" ]; then
+  CONTAINER_IMAGE_WEB="$AWS_ECR_REGISTRY/lumixlabs/swift-web:latest"
+  log_info "CONTAINER_IMAGE_WEB not provided, using default: $CONTAINER_IMAGE_WEB"
+fi
+
+log_info "Updating api-server image to: $CONTAINER_IMAGE_API"
+sed -i "s|image: CONTAINER_IMAGE_API|image: $CONTAINER_IMAGE_API|g" docker-compose.yml
+
+log_info "Updating web image to: $CONTAINER_IMAGE_WEB"
+sed -i "s|image: CONTAINER_IMAGE_WEB|image: $CONTAINER_IMAGE_WEB|g" docker-compose.yml
+
+# Display updated docker-compose file
+log_info "Updated docker-compose.yml:"
+cat docker-compose.yml
 
 # Ensure Docker is running
 if ! docker info > /dev/null 2>&1; then
