@@ -167,6 +167,16 @@ runs:
           --document-name "AWS-RunShellScript" \
           --parameters commands="[
             \"echo 'Starting Swift deployment...'\",
+            \"echo 'Checking Docker installation...'\",
+            \"if ! command -v docker &> /dev/null; then echo 'Docker not found, installing...'; sudo yum update -y; sudo yum install -y docker; sudo systemctl start docker; sudo systemctl enable docker; sudo usermod -a -G docker ec2-user; fi\",
+            \"echo 'Checking Docker Compose installation...'\",
+            \"if ! command -v docker-compose &> /dev/null; then echo 'Docker Compose not found, installing...'; sudo curl -L \\\"https://github.com/docker/compose/releases/latest/download/docker-compose-\\$(uname -s)-\\$(uname -m)\\\" -o /usr/local/bin/docker-compose; sudo chmod +x /usr/local/bin/docker-compose; fi\",
+            \"echo 'Verifying Docker is running...'\",
+            \"sudo systemctl status docker || sudo systemctl start docker\",
+            \"echo 'Docker version:'\",
+            \"docker --version\",
+            \"echo 'Docker Compose version:'\",
+            \"docker-compose --version\",
             \"mkdir -p /tmp/swift-deploy\",
             \"cd /tmp/swift-deploy\",
             \"echo ${{ inputs.docker_compose_base64 }} | base64 --decode > docker-compose.yml\",

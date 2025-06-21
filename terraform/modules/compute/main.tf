@@ -45,7 +45,6 @@ resource "aws_instance" "swift_instance" {
     create_before_destroy = true
     ignore_changes = [
       ami,              # Ignore changes to the AMI
-      user_data,        # Ignore changes to user data
       ebs_optimized     # Ignore changes to ebs_optimized
     ]
   }
