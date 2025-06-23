@@ -8,12 +8,10 @@ import { useTheme } from "../../../context/ThemeContext";
 import { HeaderActionButton } from "./HeaderActionButton";
 import { AIAdvisorsDropdown } from "./AIAdvisorsDropdown";
 import { RepositoriesDropdown } from "./RepositoriesDropdown";
-import { useRouter } from "next/navigation";
 
 export function Header() {
   const { createNewSession, clearMessages } = useChat();
   const { resolvedTheme } = useTheme();
-  const router = useRouter();
 
   // Wrap in useCallback to prevent recreation on each render
   const handleNewChat = useCallback(() => {
@@ -54,7 +52,14 @@ export function Header() {
                 </span>
                 Swift
               </h1>
-              <p className="text-xs font-medium leading-tight -mt-1">by Lumix Labs</p>
+              <a 
+                href="https://lumix-labs.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm font-medium leading-tight -mt-1 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
+              >
+                by Lumix Labs
+              </a>
             </div>
           </div>
         </Link>
@@ -73,30 +78,6 @@ export function Header() {
                 fillRule="evenodd"
                 d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
                 clipRule="evenodd"
-              />
-            </svg>
-          }
-          className={buttonStyle}
-        />
-        <HeaderActionButton
-          href="https://docs.google.com/presentation/d/1i3VbI0HzMQcodzJs8n_66absswe0SxkKM0BaPPBFJHA/edit?usp=sharing"
-          label="Investors Pitch Deck"
-          ariaLabel="Investors Pitch Deck"
-          target="_blank"
-          rel="noopener noreferrer"
-          icon={
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m4 0h1v4h1M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
               />
             </svg>
           }
